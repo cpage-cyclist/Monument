@@ -52,8 +52,17 @@ Buttons on the run screen: **Pause/Resume**, **Lap** (end the current step now) 
 **End**. The summary at the end can be shared as text, e.g. pasted back to Claude for
 logging.
 
-Run Guide doesn't upload the run anywhere yet, so keep recording in the Wahoo app
-alongside it.
+## Recording, FIT files and heart rate
+
+- Every run is recorded (GPS track, heart rate, laps and pauses) and saved as a
+  **.fit file** in the Files app under On My iPhone › Run Guide › Runs, and in the app
+  under **Saved runs**.
+- Laps are typed: warm-up, active (reps), rest (floats/recoveries) and cool-down, with
+  pauses recorded as real timer stops.
+- When the session ends it's **uploaded to Intervals** automatically (switch this off in
+  Settings). If an upload fails, retry from the summary screen or Saved runs.
+- **Heart rate:** in Settings, tap *Pair a heart-rate strap* with the strap on. Any
+  Bluetooth chest strap works; it reconnects by itself for later runs.
 
 ## Session format
 
@@ -84,9 +93,13 @@ Cooldown
 
 ## Code layout
 
-- `RunGuideCore/` holds the session parser, the auto-lap and cue engine, and the speech
-  phrasing as a Swift package with tests (`swift test --package-path RunGuideCore`).
-- `RunGuide/` is the iPhone app: GPS (`LocationTracker`), voice (`Announcer`),
-  the Intervals API (`IntervalsClient`) and the screens.
+- `RunGuideCore/` holds the session parser, the auto-lap and cue engine, the speech
+  phrasing, the activity recorder and the FIT encoder as a Swift package with tests
+  (`swift test --package-path RunGuideCore`).
+- `RunGuide/` is the iPhone app: GPS (`LocationTracker`), voice (`Announcer`), heart
+  rate (`HeartRateMonitor`), saved runs (`RunStore`), the Intervals API
+  (`IntervalsClient`) and the screens.
+- `scripts/validate_fit.py` checks FIT files with Garmin's official FIT SDK.
 - `project.yml` generates the Xcode project; the `.xcodeproj` itself isn't committed.
-- GitHub Actions runs the tests and builds the app on every push to `main`.
+- GitHub Actions runs the tests, validates sample FIT files with Garmin's SDK and builds
+  the app on every push to `main`.
