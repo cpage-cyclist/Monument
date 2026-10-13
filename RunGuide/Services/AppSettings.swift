@@ -1,0 +1,40 @@
+import Foundation
+import RunGuideCore
+
+final class AppSettings: ObservableObject {
+    private let defaults = UserDefaults.standard
+
+    @Published var athleteId: String {
+        didSet { defaults.set(athleteId.trimmingCharacters(in: .whitespaces), forKey: "athleteId") }
+    }
+    /// Stored in the Keychain, never in the code or the repo.
+    @Published var apiKey: String {
+        didSet { Keychain.set(apiKey.trimmingCharacters(in: .whitespaces), for: "intervalsApiKey") }
+    }
+    @Published var lapPaceFeedback: Bool {
+        didSet { defaults.set(lapPaceFeedback, forKey: "lapPaceFeedback") }
+    }
+    @Published var kmSplits: Bool {
+        didSet { defaults.set(kmSplits, forKey: "kmSplits") }
+    }
+
+    init() {
+        athleteId = defaults.string(forKey: "athleteId") ?? ""
+        apiKey = Keychain.get("intervalsApiKey") ?? ""
+        lapPaceFeedback = defaults.object(forKey: "lapPaceFeedback") as? Bool ?? true
+        kmSplits = defaults.object(forKey: "kmSplits") as? Bool ?? true
+    }
+
+    var hasCredentials: Bool {
+        !athleteId.trimmingCharacters(in: .whitespaces).isEmpty && !apiKey.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    var client: IntervalsClient {
+        IntervalsClient(athleteId: athleteId.trimmingCharacters(in: .whitespaces),
+                        apiKey: apiKey.trimmingCharacters(in: .whitespaces))
+    }
+
+    var engineOptions: EngineOptions {
+        EngineOptions(lapPaceFeedback: lapPaceFeedback, kmSplits: kmSplits)
+    }
+}

@@ -1,0 +1,43 @@
+name: RunGuide
+options:
+  bundleIdPrefix: com.cpage
+  deploymentTarget:
+    iOS: "17.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+packages:
+  RunGuideCore:
+    path: RunGuideCore
+targets:
+  RunGuide:
+    type: application
+    platform: iOS
+    sources:
+      - RunGuide
+    dependencies:
+      - package: RunGuideCore
+    info:
+      path: RunGuide/Info.plist
+      properties:
+        CFBundleDisplayName: Run Guide
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        NSLocationWhenInUseUsageDescription: Run Guide uses GPS to measure distance so it can call out each step of your run.
+        NSLocationAlwaysAndWhenInUseUsageDescription: Run Guide uses GPS to measure distance so it can call out each step of your run, including with the screen locked.
+        UIBackgroundModes:
+          - location
+          - audio
+    settings:
+      base:
+        # Change this if Xcode says the identifier is already taken.
+        PRODUCT_BUNDLE_IDENTIFIER: com.cpage.runguide
+        CODE_SIGN_STYLE: Automatic
+        TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: ""
+    scheme: {}
