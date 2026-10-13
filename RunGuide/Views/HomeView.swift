@@ -3,6 +3,8 @@ import RunGuideCore
 
 struct HomeView: View {
     @EnvironmentObject private var settings: AppSettings
+    @EnvironmentObject private var store: RunStore
+    @EnvironmentObject private var heartRate: HeartRateMonitor
     @StateObject private var tracker = LocationTracker()
 
     @State private var date = Date()
@@ -52,6 +54,18 @@ struct HomeView: View {
                 }
 
                 Section {
+                    NavigationLink {
+                        SavedRunsView()
+                    } label: {
+                        HStack {
+                            Label("Saved runs", systemImage: "folder")
+                            Spacer()
+                            Text("\(store.runs.count)").foregroundStyle(.secondary)
+                        }
+                    }
+                }
+
+                Section {
                     TextEditor(text: $pasted)
                         .font(.system(.footnote, design: .monospaced))
                         .frame(minHeight: 140)
@@ -78,6 +92,8 @@ struct HomeView: View {
             }
             .sheet(isPresented: $showSettings) {
                 SettingsView()
+                    .environmentObject(settings)
+                    .environmentObject(heartRate)
             }
             .navigationDestination(item: $selected) { workout in
                 PreviewView(workout: workout, tracker: tracker)

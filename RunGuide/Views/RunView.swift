@@ -6,8 +6,10 @@ struct RunView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var confirmEnd = false
 
-    init(workout: Workout, options: EngineOptions, tracker: LocationTracker) {
-        _run = StateObject(wrappedValue: RunController(workout: workout, options: options, tracker: tracker))
+    init(workout: Workout, options: EngineOptions, tracker: LocationTracker,
+         heartRate: HeartRateMonitor, store: RunStore, client: IntervalsClient?) {
+        _run = StateObject(wrappedValue: RunController(workout: workout, options: options, tracker: tracker,
+                                                       heartRate: heartRate, store: store, client: client))
     }
 
     var body: some View {
@@ -58,6 +60,9 @@ struct RunView: View {
                 stat("Distance", Format.km(engine.totalDistance))
                 stat("Time", Format.clock(engine.totalTime))
                 stat("Pace", Format.pace(run.currentPace))
+                if run.heartRate.hasPairedStrap {
+                    stat("HR", run.heartRate.currentBPM.map(String.init) ?? "––")
+                }
             }
             .padding(.top, 8)
 
@@ -120,6 +125,8 @@ struct SummaryView: View {
                         Text("\(Format.km(run.engine.totalDistance)) · \(Format.clock(run.engine.totalTime))")
                             .monospacedDigit()
                     }
+                    fileRow
+                    uploadRow
                 }
                 Section("Laps") {
                     ForEach(Array(run.engine.laps.enumerated()), id: \.offset) { _, lap in
@@ -148,6 +155,41 @@ struct SummaryView: View {
                     Button("Done", action: done)
                 }
             }
+        }
+    }
+
+    @ViewBuilder private var fileRow: some View {
+        if let url = run.fileURL {
+            ShareLink(item: url) {
+                Label("Saved as FIT file", systemImage: "doc.fill")
+            }
+        } else if run.saveFailed {
+            Label("Couldn't save the FIT file", systemImage: "exclamationmark.triangle")
+                .foregroundStyle(.red)
+        }
+    }
+
+    @ViewBuilder private var uploadRow: some View {
+        switch run.upload {
+        case .notStarted, .uploading:
+            HStack {
+                Label("Uploading to Intervals…", systemImage: "icloud.and.arrow.up")
+                Spacer()
+                ProgressView()
+            }
+        case .uploaded:
+            Label("Uploaded to Intervals", systemImage: "checkmark.icloud")
+                .foregroundStyle(.green)
+        case .failed(let message):
+            VStack(alignment: .leading, spacing: 6) {
+                Label("Upload failed", systemImage: "exclamationmark.icloud")
+                    .foregroundStyle(.red)
+                Text(message).font(.caption).foregroundStyle(.secondary)
+                Button("Try again") { run.retryUpload() }
+            }
+        case .off:
+            Label("Not uploaded (auto-upload is off). You can upload it from Saved runs.", systemImage: "icloud.slash")
+                .foregroundStyle(.secondary)
         }
     }
 }

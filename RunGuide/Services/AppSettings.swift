@@ -17,12 +17,16 @@ final class AppSettings: ObservableObject {
     @Published var kmSplits: Bool {
         didSet { defaults.set(kmSplits, forKey: "kmSplits") }
     }
+    @Published var autoUpload: Bool {
+        didSet { defaults.set(autoUpload, forKey: "autoUpload") }
+    }
 
     init() {
         athleteId = defaults.string(forKey: "athleteId") ?? ""
         apiKey = Keychain.get("intervalsApiKey") ?? ""
         lapPaceFeedback = defaults.object(forKey: "lapPaceFeedback") as? Bool ?? true
         kmSplits = defaults.object(forKey: "kmSplits") as? Bool ?? true
+        autoUpload = defaults.object(forKey: "autoUpload") as? Bool ?? true
     }
 
     var hasCredentials: Bool {

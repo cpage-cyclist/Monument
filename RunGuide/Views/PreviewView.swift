@@ -6,12 +6,17 @@ struct PreviewView: View {
     let workout: Workout
     @ObservedObject var tracker: LocationTracker
     @EnvironmentObject private var settings: AppSettings
+    @EnvironmentObject private var heartRate: HeartRateMonitor
+    @EnvironmentObject private var store: RunStore
     @State private var running = false
 
     var body: some View {
         List {
             Section {
                 gpsRow
+                if heartRate.hasPairedStrap {
+                    hrRow
+                }
             }
 
             if workout.steps.isEmpty {
@@ -51,14 +56,32 @@ struct PreviewView: View {
             .padding()
             .disabled(workout.steps.isEmpty || !authorised)
         }
-        .onAppear { tracker.warmUp() }
+        .onAppear {
+            tracker.warmUp()
+            heartRate.connect()
+        }
         .fullScreenCover(isPresented: $running) {
-            RunView(workout: workout, options: settings.engineOptions, tracker: tracker)
+            RunView(workout: workout,
+                    options: settings.engineOptions,
+                    tracker: tracker,
+                    heartRate: heartRate,
+                    store: store,
+                    client: settings.autoUpload && settings.hasCredentials ? settings.client : nil)
         }
     }
 
     private var authorised: Bool {
         tracker.authorization == .authorizedWhenInUse || tracker.authorization == .authorizedAlways
+    }
+
+    @ViewBuilder private var hrRow: some View {
+        if let bpm = heartRate.currentBPM {
+            Label("\(heartRate.pairedName ?? "Strap") · \(bpm) bpm", systemImage: "heart.fill")
+                .foregroundStyle(.red)
+        } else {
+            Label("Looking for \(heartRate.pairedName ?? "strap")… (put it on to wake it)", systemImage: "heart")
+                .foregroundStyle(.secondary)
+        }
     }
 
     @ViewBuilder private var gpsRow: some View {

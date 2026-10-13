@@ -9,6 +9,9 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
     /// Smoothed speed over the last ~10 s, in m/s.
     @Published private(set) var speed: Double?
 
+    /// Most recent fix good enough to record (≤ 25 m accuracy).
+    private(set) var latest: CLLocation?
+
     /// Called with metres covered since the last accepted fix.
     var onDistance: ((Double) -> Void)?
     /// Called after every batch of location updates.
@@ -58,6 +61,7 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
     func stop() {
         counting = false
         last = nil
+        latest = nil
         manager.stopUpdatingLocation()
         manager.allowsBackgroundLocationUpdates = false
     }
@@ -77,9 +81,10 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
             accuracy = location.horizontalAccuracy
             if location.speed >= 0 { recordSpeed(location.speed, at: location.timestamp) }
 
-            guard counting,
-                  location.horizontalAccuracy <= 25,
+            guard location.horizontalAccuracy <= 25,
                   abs(location.timestamp.timeIntervalSinceNow) < 10 else { continue }
+            latest = location
+            guard counting else { continue }
 
             guard let previous = last else {
                 last = location
