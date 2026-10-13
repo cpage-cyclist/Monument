@@ -12,8 +12,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Test session logic
+      - name: Test session logic and write sample FIT files
+        env:
+          RUN_GUIDE_FIT_OUT: ${{ github.workspace }}/build/fit
         run: swift test --package-path RunGuideCore
+
+      - name: Validate FIT files with Garmin's FIT SDK
+        run: |
+          python3 -m pip install --quiet --break-system-packages garmin-fit-sdk
+          python3 scripts/validate_fit.py build/fit/full.fit --laps 12 --hr --gps
+          python3 scripts/validate_fit.py build/fit/no-gps-no-hr.fit --laps 12
 
       - name: Install XcodeGen
         run: brew install xcodegen
@@ -31,3 +39,11 @@ jobs:
             -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO \
             build | tail -n 80
+
+      - name: Keep sample FIT files
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sample-fit-files
+          path: build/fit
+          if-no-files-found: ignore

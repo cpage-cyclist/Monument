@@ -37,8 +37,8 @@ public enum WorkoutParser {
         var repeatCount: Int?
         var buffer: [RawStep] = []
 
-        func add(_ label: String, _ raw: RawStep) {
-            steps.append(Step(id: steps.count, label: label, end: raw.end, target: raw.target))
+        func add(_ label: String, _ raw: RawStep, _ kind: StepKind) {
+            steps.append(Step(id: steps.count, label: label, end: raw.end, target: raw.target, kind: kind))
         }
 
         func flushRepeat() {
@@ -54,7 +54,7 @@ public enum WorkoutParser {
                         } else {
                             label = buffer.count == 2 ? "Recovery" : "Rep \(rep) of \(n), part \(j + 1)"
                         }
-                        add(label, raw)
+                        add(label, raw, j == 0 ? .active : .rest)
                     }
                 }
                 section = nil
@@ -77,7 +77,7 @@ public enum WorkoutParser {
                 if repeatCount != nil {
                     buffer.append(raw)
                 } else {
-                    add(raw.cue ?? section ?? "Step \(steps.count + 1)", raw)
+                    add(raw.cue ?? section ?? "Step \(steps.count + 1)", raw, Self.kind(forSection: section))
                 }
                 continue
             }
@@ -97,6 +97,14 @@ public enum WorkoutParser {
     }
 
     // MARK: - Pieces
+
+    static func kind(forSection section: String?) -> StepKind {
+        let s = (section ?? "").lowercased()
+        if s.contains("warm") { return .warmup }
+        if s.contains("cool") { return .cooldown }
+        if s.contains("recover") || s.contains("rest") { return .rest }
+        return .active
+    }
 
     static func repeatHeader(_ line: String) -> Int? {
         guard let match = firstMatch(#"^(?:.*?\s)?(\d+)\s*[xX]$"#, in: line),

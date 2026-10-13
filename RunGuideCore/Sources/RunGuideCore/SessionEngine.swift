@@ -1,16 +1,26 @@
 import Foundation
 
+/// Why a lap ended.
+public enum LapTrigger: Hashable {
+    case distance, time, manual, sessionEnd
+}
+
 public struct Lap: Hashable {
     public let stepIndex: Int
     public let label: String
     public let distance: Double   // metres
-    public let duration: Double   // seconds
+    public let duration: Double   // seconds of timer time (excludes pauses)
+    public let kind: StepKind
+    public let trigger: LapTrigger
 
-    public init(stepIndex: Int, label: String, distance: Double, duration: Double) {
+    public init(stepIndex: Int, label: String, distance: Double, duration: Double,
+                kind: StepKind = .active, trigger: LapTrigger = .manual) {
         self.stepIndex = stepIndex
         self.label = label
         self.distance = distance
         self.duration = duration
+        self.kind = kind
+        self.trigger = trigger
     }
 
     /// Seconds per km, or nil if the lap is too short to say.
@@ -142,7 +152,11 @@ public final class SessionEngine {
                 stepTime -= carryT
                 totalDistance -= carryD
                 totalTime -= carryT
-                events += completeStep()
+                if case .time = step.end {
+                    events += completeStep(trigger: .time)
+                } else {
+                    events += completeStep(trigger: .distance)
+                }
                 if finished || (carryD == 0 && carryT == 0) { break }
                 d = carryD
                 t = carryT
@@ -158,14 +172,22 @@ public final class SessionEngine {
     /// The runner tapped Lap: end the current step now.
     public func manualLap() -> [EngineEvent] {
         guard started, !finished, currentStep != nil else { return [] }
-        return completeStep()
+        return completeStep(trigger: .manual)
     }
 
     /// The runner ended the session early.
     public func finishEarly() -> [EngineEvent] {
         guard started, !finished else { return [] }
         if let step = currentStep, stepTime > 0 {
-            laps.append(Lap(stepIndex: stepIndex, label: step.label, distance: stepDistance, duration: stepTime))
+            let lap = Lap(stepIndex: stepIndex, label: step.label, distance: stepDistance, duration: stepTime,
+                          kind: step.kind, trigger: .sessionEnd)
+            laps.append(lap)
+            finished = true
+            return [
+                .lap(lap),
+                .speak("Session ended. \(Speech.distance(totalDistance)) in \(Speech.duration(totalTime))."),
+                .finished
+            ]
         }
         finished = true
         return [
@@ -176,9 +198,10 @@ public final class SessionEngine {
 
     // MARK: - Internals
 
-    private func completeStep() -> [EngineEvent] {
+    private func completeStep(trigger: LapTrigger) -> [EngineEvent] {
         let step = workout.steps[stepIndex]
-        let lap = Lap(stepIndex: stepIndex, label: step.label, distance: stepDistance, duration: stepTime)
+        let lap = Lap(stepIndex: stepIndex, label: step.label, distance: stepDistance, duration: stepTime,
+                      kind: step.kind, trigger: currentStepIsLast ? .sessionEnd : trigger)
         laps.append(lap)
 
         var events: [EngineEvent] = [.lap(lap)]
@@ -258,6 +281,8 @@ public final class SessionEngine {
         out.append(.speak(text))
         return out
     }
+
+    private var currentStepIsLast: Bool { stepIndex == workout.steps.count - 1 }
 
     private func isLong(_ step: Step) -> Bool {
         switch step.end {
