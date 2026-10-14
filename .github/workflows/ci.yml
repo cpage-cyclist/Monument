@@ -40,6 +40,30 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             build | tail -n 80
 
+      - name: Build unsigned iPhone app (.ipa) for sideloading
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project RunGuide.xcodeproj \
+            -scheme RunGuide \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build/dd \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build | tail -n 40
+          mkdir -p build/ipa/Payload
+          cp -R build/dd/Build/Products/Release-iphoneos/RunGuide.app build/ipa/Payload/
+          cd build/ipa && zip -qry ../RunGuide-unsigned.ipa Payload
+          ls -la ../RunGuide-unsigned.ipa
+
+      - name: Keep the .ipa
+        uses: actions/upload-artifact@v4
+        with:
+          name: RunGuide-unsigned-ipa
+          path: build/RunGuide-unsigned.ipa
+          if-no-files-found: error
+
       - name: Keep sample FIT files
         if: always()
         uses: actions/upload-artifact@v4
