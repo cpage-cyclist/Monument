@@ -114,6 +114,7 @@ struct RunView: View {
 struct SummaryView: View {
     @ObservedObject var run: RunController
     let done: () -> Void
+    @State private var confirmDiscard = false
 
     var body: some View {
         NavigationStack {
@@ -125,8 +126,13 @@ struct SummaryView: View {
                         Text("\(Format.km(run.engine.totalDistance)) · \(Format.clock(run.engine.totalTime))")
                             .monospacedDigit()
                     }
-                    fileRow
-                    uploadRow
+                    if run.kept {
+                        fileRow
+                        uploadRow
+                    } else if run.saveFailed {
+                        Label("Couldn't save the FIT file", systemImage: "exclamationmark.triangle")
+                            .foregroundStyle(.red)
+                    }
                 }
                 Section("Laps") {
                     ForEach(Array(run.engine.laps.enumerated()), id: \.offset) { _, lap in
@@ -151,11 +157,45 @@ struct SummaryView: View {
                         Image(systemName: "square.and.arrow.up")
                     }
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done", action: done)
+                if run.kept {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Done", action: done)
+                    }
                 }
             }
+            .safeAreaInset(edge: .bottom) {
+                if !run.kept {
+                    VStack(spacing: 10) {
+                        Button {
+                            run.keep()
+                        } label: {
+                            Text(run.upload == .off ? "Save run" : "Save and upload")
+                                .font(.headline)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 6)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(run.savedRun == nil)
+
+                        Button("Discard run", role: .destructive) {
+                            confirmDiscard = true
+                        }
+                    }
+                    .padding()
+                    .background(.bar)
+                }
+            }
+            .confirmationDialog("Discard this run?", isPresented: $confirmDiscard, titleVisibility: .visible) {
+                Button("Discard run", role: .destructive) {
+                    run.discard()
+                    done()
+                }
+                Button("Keep it", role: .cancel) {}
+            } message: {
+                Text("The recording is deleted from your phone and won't be uploaded.")
+            }
         }
+        .interactiveDismissDisabled(!run.kept)
     }
 
     @ViewBuilder private var fileRow: some View {
@@ -163,9 +203,6 @@ struct SummaryView: View {
             ShareLink(item: url) {
                 Label("Saved as FIT file", systemImage: "doc.fill")
             }
-        } else if run.saveFailed {
-            Label("Couldn't save the FIT file", systemImage: "exclamationmark.triangle")
-                .foregroundStyle(.red)
         }
     }
 
@@ -188,7 +225,7 @@ struct SummaryView: View {
                 Button("Try again") { run.retryUpload() }
             }
         case .off:
-            Label("Not uploaded (auto-upload is off). You can upload it from Saved runs.", systemImage: "icloud.slash")
+            Label("Saved on your phone (auto-upload is off). Upload it from Saved runs.", systemImage: "icloud.slash")
                 .foregroundStyle(.secondary)
         }
     }

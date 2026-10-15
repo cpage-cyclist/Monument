@@ -59,8 +59,9 @@ logging.
   under **Saved runs**.
 - Laps are typed: warm-up, active (reps), rest (floats/recoveries) and cool-down, with
   pauses recorded as real timer stops.
-- When the session ends it's **uploaded to Intervals** automatically (switch this off in
-  Settings). If an upload fails, retry from the summary screen or Saved runs.
+- When the session ends you choose **Save and upload** or **Discard run**. Nothing goes
+  to Intervals until you tap Save (auto-upload can be switched off in Settings). If an
+  upload fails, retry from the summary screen or Saved runs.
 - **Heart rate:** in Settings, tap *Pair a heart-rate strap* with the strap on. Any
   Bluetooth chest strap works; it reconnects by itself for later runs.
 
@@ -100,6 +101,7 @@ Cooldown
   rate (`HeartRateMonitor`), saved runs (`RunStore`), the Intervals API
   (`IntervalsClient`) and the screens.
 - `scripts/validate_fit.py` checks FIT files with Garmin's official FIT SDK.
+- `scripts/make_icon.py` draws the app icon (`RunGuide/Assets.xcassets/AppIcon.appiconset`).
 - `project.yml` generates the Xcode project; the `.xcodeproj` itself isn't committed.
 - GitHub Actions runs the tests, validates sample FIT files with Garmin's SDK and builds
   the app on every push to `main`.

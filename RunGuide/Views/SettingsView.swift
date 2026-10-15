@@ -31,8 +31,11 @@ struct SettingsView: View {
                     Button("Test voice") {
                         announcer.speak("Rep 1 of 5. 1 kilometre at 4 minutes per kilometre.")
                     }
+                    LabeledContent("Voice", value: Announcer.voiceDescription)
                 } header: {
                     Text("Voice")
+                } footer: {
+                    Text("For a more natural voice, download a Premium or Enhanced UK voice in iPhone Settings › Accessibility › Spoken Content › Voices › English › English (UK). Run Guide picks the best one automatically.")
                 }
             }
             .navigationTitle("Settings")

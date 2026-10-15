@@ -7,6 +7,7 @@ import RunGuideCore
 @MainActor
 final class RunController: ObservableObject {
     enum UploadState: Equatable {
+        /// Run finished; waiting for the runner to save or discard it.
         case notStarted
         case uploading
         case uploaded
@@ -29,6 +30,9 @@ final class RunController: ObservableObject {
     @Published private(set) var savedRun: SavedRun?
     @Published private(set) var saveFailed = false
     @Published private(set) var upload: UploadState = .notStarted
+    /// The runner has chosen to keep the run (Save) — nothing uploads before this.
+    @Published private(set) var kept = false
+    @Published private(set) var discarded = false
 
     private var timer: Timer?
     private var lastTick: Date?
@@ -123,6 +127,23 @@ final class RunController: ObservableObject {
         handle(engine.finishEarly(), at: Date())
     }
 
+    /// Keep the run and upload it if auto-upload is on.
+    func keep() {
+        guard finished, !kept, !discarded else { return }
+        kept = true
+        if let run = savedRun, client != nil {
+            Task { await uploadRun(run) }
+        }
+    }
+
+    /// Throw the run away: deletes the FIT file and nothing is uploaded.
+    func discard() {
+        guard finished, !kept else { return }
+        if let run = savedRun { store.delete(run) }
+        savedRun = nil
+        discarded = true
+    }
+
     func retryUpload() {
         guard let run = savedRun else { return }
         Task { await uploadRun(run) }
@@ -172,11 +193,10 @@ final class RunController: ObservableObject {
         cleanUp()
         let recording = recorder.finish(at: now, totalDistance: engine.totalDistance,
                                         totalTimerTime: engine.totalTime)
+        // Saved on the phone straight away so nothing is lost if the app closes,
+        // but only uploaded once the runner taps Save.
         if let run = store.save(recording) {
             savedRun = run
-            if client != nil {
-                Task { await uploadRun(run) }
-            }
         } else {
             saveFailed = true
         }

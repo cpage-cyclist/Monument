@@ -22,7 +22,7 @@ final class Announcer: NSObject, AVSpeechSynthesizerDelegate {
     func speak(_ text: String) {
         activate()
         let utterance = AVSpeechUtterance(string: text)
-        utterance.voice = AVSpeechSynthesisVoice(language: "en-GB")
+        utterance.voice = Self.bestVoice
         utterance.rate = AVSpeechUtteranceDefaultSpeechRate
         synthesizer.speak(utterance)
     }
@@ -30,6 +30,28 @@ final class Announcer: NSObject, AVSpeechSynthesizerDelegate {
     func stopAll() {
         synthesizer.stopSpeaking(at: .immediate)
         deactivate()
+    }
+
+    /// The highest-quality British English voice on the phone. Premium and
+    /// Enhanced voices sound far less robotic but must be downloaded first:
+    /// Settings › Accessibility › Spoken Content › Voices › English › English (UK).
+    static var bestVoice: AVSpeechSynthesisVoice? {
+        let british = AVSpeechSynthesisVoice.speechVoices().filter { $0.language == "en-GB" }
+        let best = british.max { a, b in
+            if a.quality.rawValue != b.quality.rawValue { return a.quality.rawValue < b.quality.rawValue }
+            // Prefer non-novelty voices at the same quality.
+            return a.voiceTraits.contains(.isNoveltyVoice) && !b.voiceTraits.contains(.isNoveltyVoice)
+        }
+        return best ?? AVSpeechSynthesisVoice(language: "en-GB")
+    }
+
+    static var voiceDescription: String {
+        guard let voice = bestVoice else { return "Default voice" }
+        switch voice.quality {
+        case .premium: return "\(voice.name) (Premium)"
+        case .enhanced: return "\(voice.name) (Enhanced)"
+        default: return "\(voice.name) (basic)"
+        }
     }
 
     private func activate() {
