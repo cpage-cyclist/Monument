@@ -102,6 +102,7 @@ Cooldown
   (`IntervalsClient`) and the screens.
 - `scripts/validate_fit.py` checks FIT files with Garmin's official FIT SDK.
 - `scripts/make_icon.py` draws the app icon (`RunGuide/Assets.xcassets/AppIcon.appiconset`).
+- `scripts/make_icon.py` draws the app icon (`RunGuide/Assets.xcassets/AppIcon.appiconset`).
 - `project.yml` generates the Xcode project; the `.xcodeproj` itself isn't committed.
 - GitHub Actions runs the tests, validates sample FIT files with Garmin's SDK and builds
   the app on every push to `main`.

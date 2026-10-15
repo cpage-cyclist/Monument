@@ -2,7 +2,7 @@
 
 The mark is a session profile, the way a structured run looks on a chart:
 an easy warm-up block, three tall rep bars with low floats between, and an
-easy cool-down, with voice-cue arcs above the last rep.
+easy cool-down.
 
 Usage: python3 scripts/make_icon.py OUTPUT.png
 """
@@ -18,7 +18,6 @@ TOP = (16, 33, 46)             # deep blue-slate
 BOTTOM = (6, 14, 22)
 EASY = (64, 120, 150)          # muted blue for warm-up/floats/cool-down
 REP = (200, 248, 74)           # bright lime for the reps
-CUE = (236, 244, 248)          # near-white voice arcs
 
 
 def px(v):
@@ -35,7 +34,7 @@ def main(out):
         colour = tuple(round(TOP[i] + (BOTTOM[i] - TOP[i]) * t) for i in range(3))
         draw.line([(0, y), (S, y)], fill=colour)
 
-    baseline = 760
+    baseline = 700             # centres the profile + ground line vertically
     radius = 22
     # (x_start, width, height, colour)
     blocks = [
@@ -60,17 +59,6 @@ def main(out):
         radius=px(9),
         fill=EASY,
     )
-
-    # Voice-cue arcs radiating from above the last rep.
-    cx, cy = 726, 250
-    for i, r in enumerate((62, 112, 162)):
-        width = 22
-        draw.arc(
-            [px(cx - r), px(cy - r), px(cx + r), px(cy + r)],
-            start=-62, end=-8,
-            fill=CUE if i < 2 else (150, 175, 190),
-            width=px(width),
-        )
 
     img = img.resize((SIZE, SIZE), Image.LANCZOS)
     img.save(out, "PNG")

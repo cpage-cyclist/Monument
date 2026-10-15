@@ -5,6 +5,7 @@ struct SettingsView: View {
     @EnvironmentObject private var heartRate: HeartRateMonitor
     @Environment(\.dismiss) private var dismiss
     @State private var announcer = Announcer()
+    @State private var voices = Announcer.englishVoices
 
     var body: some View {
         NavigationStack {
@@ -28,14 +29,21 @@ struct SettingsView: View {
                 Section {
                     Toggle("Say pace at the end of each step", isOn: $settings.lapPaceFeedback)
                     Toggle("Km splits on long steps", isOn: $settings.kmSplits)
+                    Picker("Voice", selection: $settings.voiceIdentifier) {
+                        Text("Automatic (best UK voice)").tag("")
+                        ForEach(voices, id: \.identifier) { voice in
+                            Text(Announcer.label(for: voice)).tag(voice.identifier)
+                        }
+                    }
+                    .pickerStyle(.navigationLink)
                     Button("Test voice") {
+                        announcer.stopAll()
                         announcer.speak("Rep 1 of 5. 1 kilometre at 4 minutes per kilometre.")
                     }
-                    LabeledContent("Voice", value: Announcer.voiceDescription)
                 } header: {
                     Text("Voice")
                 } footer: {
-                    Text("For a more natural voice, download a Premium or Enhanced UK voice in iPhone Settings › Accessibility › Spoken Content › Voices › English › English (UK). Run Guide picks the best one automatically.")
+                    Text("For a more natural voice, download a Premium or Enhanced UK voice in iPhone Settings › Accessibility › Spoken Content › Voices › English › English (UK). New voices appear here once downloaded.")
                 }
             }
             .navigationTitle("Settings")
@@ -43,6 +51,7 @@ struct SettingsView: View {
                 Button("Done") { dismiss() }
             }
             .onDisappear { heartRate.stopScan() }
+            .onAppear { voices = Announcer.englishVoices }
         }
     }
 

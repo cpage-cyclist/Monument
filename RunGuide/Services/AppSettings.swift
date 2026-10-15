@@ -20,6 +20,10 @@ final class AppSettings: ObservableObject {
     @Published var autoUpload: Bool {
         didSet { defaults.set(autoUpload, forKey: "autoUpload") }
     }
+    /// Empty means "automatic: best UK voice".
+    @Published var voiceIdentifier: String {
+        didSet { defaults.set(voiceIdentifier, forKey: Announcer.voiceKey) }
+    }
 
     init() {
         athleteId = defaults.string(forKey: "athleteId") ?? ""
@@ -27,6 +31,7 @@ final class AppSettings: ObservableObject {
         lapPaceFeedback = defaults.object(forKey: "lapPaceFeedback") as? Bool ?? true
         kmSplits = defaults.object(forKey: "kmSplits") as? Bool ?? true
         autoUpload = defaults.object(forKey: "autoUpload") as? Bool ?? true
+        voiceIdentifier = defaults.string(forKey: Announcer.voiceKey) ?? ""
     }
 
     var hasCredentials: Bool {
