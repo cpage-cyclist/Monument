@@ -122,7 +122,7 @@ final class EngineTests: XCTestCase {
         XCTAssertTrue(spoken.contains { $0.hasPrefix("15 seconds. Next, Rep 2 of 5.") })
         XCTAssertTrue(spoken.contains { $0.contains("Rep 1 done, 4 10 per kilometre.") })
         XCTAssertTrue(spoken.contains { $0.hasPrefix("1 kilometre, 4 10 pace.") })
-        XCTAssertTrue(spoken.last!.contains("Session complete."))
+        XCTAssertTrue(spoken.last!.contains("End of session."))
         XCTAssertEqual(events.last, .finished)
     }
 
@@ -144,5 +144,15 @@ final class EngineTests: XCTestCase {
         XCTAssertTrue(engine.finished)
         XCTAssertEqual(engine.laps.count, 2)
         XCTAssertEqual(events.last, .finished)
+    }
+}
+
+final class FreeRunTests: XCTestCase {
+    func testFreeRunStartsSimply() {
+        let engine = SessionEngine(workout: .freeRun(name: "Common loop"))
+        XCTAssertEqual(engine.start(), [.speak("Starting Common loop.")])
+        _ = engine.advance(distance: 2500, time: 600)
+        let end = engine.finishEarly()
+        XCTAssertTrue(end.contains { if case .speak(let s) = $0 { return s.hasPrefix("End of session.") }; return false })
     }
 }

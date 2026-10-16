@@ -35,6 +35,13 @@ public enum EngineEvent: Equatable {
     case finished
 }
 
+extension Workout {
+    /// A run with no structure: one open step that lasts until you end it.
+    public static func freeRun(name: String) -> Workout {
+        Workout(name: name, steps: [Step(id: 0, label: "Run", end: .open, target: nil)])
+    }
+}
+
 public struct EngineOptions: Equatable {
     /// Say the pace of each step when it finishes.
     public var lapPaceFeedback: Bool
@@ -113,6 +120,10 @@ public final class SessionEngine {
             finished = true
             return [.speak("There are no steps in this session."), .finished]
         }
+        // A free run (one open step, e.g. following a route with no session) just starts.
+        if workout.steps.count == 1, case .open = step.end, step.target == nil {
+            return [.speak("Starting \(workout.name).")]
+        }
         return [.speak("Starting \(workout.name). " + Speech.intro(step))]
     }
 
@@ -185,13 +196,13 @@ public final class SessionEngine {
             finished = true
             return [
                 .lap(lap),
-                .speak("Session ended. \(Speech.distance(totalDistance)) in \(Speech.duration(totalTime))."),
+                .speak("End of session. \(Speech.distance(totalDistance)) in \(Speech.duration(totalTime))."),
                 .finished
             ]
         }
         finished = true
         return [
-            .speak("Session ended. \(Speech.distance(totalDistance)) in \(Speech.duration(totalTime))."),
+            .speak("End of session. \(Speech.distance(totalDistance)) in \(Speech.duration(totalTime))."),
             .finished
         ]
     }
@@ -222,7 +233,7 @@ public final class SessionEngine {
             events.append(.speak(speech))
         } else {
             finished = true
-            speech += "Session complete. \(Speech.distance(totalDistance)) in \(Speech.duration(totalTime))."
+            speech += "End of session. \(Speech.distance(totalDistance)) in \(Speech.duration(totalTime))."
             events.append(.speak(speech))
             events.append(.finished)
         }
