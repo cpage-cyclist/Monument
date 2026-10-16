@@ -23,8 +23,12 @@ public enum RouteParser {
         parser.delegate = delegate
         guard parser.parse() || !delegate.points.isEmpty else { throw RouteParserError.unreadable }
         guard delegate.points.count >= 2 else { throw RouteParserError.noPoints }
-        let name = delegate.name?.trimmingCharacters(in: .whitespacesAndNewlines)
-        return Route(name: (name?.isEmpty == false ? name! : fallbackName), points: delegate.points)
+        // Strava uses non-breaking spaces ("6.89\u{00A0}km"); normalise to plain spaces.
+        let name = (delegate.name ?? "")
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+        return Route(name: name.isEmpty ? fallbackName : name, points: delegate.points)
     }
 
     private final class Delegate: NSObject, XMLParserDelegate {
