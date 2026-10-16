@@ -14,6 +14,8 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
 
     /// Called with metres covered since the last accepted fix.
     var onDistance: ((Double) -> Void)?
+    /// Called with every recent fix good enough for route guidance (≤ 40 m).
+    var onFix: ((CLLocation) -> Void)?
     /// Called after every batch of location updates.
     var onUpdate: (() -> Void)?
 
@@ -81,6 +83,9 @@ final class LocationTracker: NSObject, ObservableObject, CLLocationManagerDelega
             accuracy = location.horizontalAccuracy
             if location.speed >= 0 { recordSpeed(location.speed, at: location.timestamp) }
 
+            if location.horizontalAccuracy <= 40, abs(location.timestamp.timeIntervalSinceNow) < 10 {
+                onFix?(location)
+            }
             guard location.horizontalAccuracy <= 25,
                   abs(location.timestamp.timeIntervalSinceNow) < 10 else { continue }
             latest = location

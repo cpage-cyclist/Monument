@@ -189,6 +189,15 @@ public final class RouteGuide {
             let remaining = s.at - u
             if remaining > headsUp { break }
 
+            // "Straight on." is a single short nudge just before the crossing.
+            if s.turn.direction == .straight {
+                if remaining <= 25 && remaining > -10 && !fired.contains("now-\(s.key)") {
+                    fired.insert("now-\(s.key)")
+                    speech.append("Straight on.")
+                }
+                continue
+            }
+
             // "… now" as you reach it.
             if remaining <= nowDistance {
                 if !fired.contains("now-\(s.key)") && remaining > -10 {

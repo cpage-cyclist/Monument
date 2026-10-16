@@ -12,10 +12,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Prepare
+        run: mkdir -p build
+
       - name: Test session logic and write sample FIT files
         env:
           RUN_GUIDE_FIT_OUT: ${{ github.workspace }}/build/fit
-        run: swift test --package-path RunGuideCore
+        run: |
+          set -o pipefail
+          if ! swift test --package-path RunGuideCore 2>&1 | tee build/test.log; then
+            # Surface the failures as annotations (readable without the full log).
+            grep -E "error:|failed|XCTAssert|fatal" build/test.log | head -40 > build/fail.txt || true
+            echo "::error title=swift test failed::$(sed -e 's/%/%25/g' build/fail.txt | awk '{printf "%s%%0A", $0}')"
+            exit 1
+          fi
 
       - name: Validate FIT files with Garmin's FIT SDK
         run: |
@@ -32,13 +42,19 @@ jobs:
       - name: Build iPhone app (simulator, unsigned)
         run: |
           set -o pipefail
-          xcodebuild \
+          if ! xcodebuild \
             -project RunGuide.xcodeproj \
             -scheme RunGuide \
             -configuration Debug \
             -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO \
-            build | tail -n 80
+            build > build/app.log 2>&1; then
+            grep -E "error:" build/app.log | sort -u | head -40 > build/fail.txt || true
+            echo "::error title=app build failed::$(sed -e 's/%/%25/g' build/fail.txt | awk '{printf "%s%%0A", $0}')"
+            tail -n 80 build/app.log
+            exit 1
+          fi
+          tail -n 20 build/app.log
 
       - name: Build unsigned iPhone app (.ipa) for sideloading
         run: |

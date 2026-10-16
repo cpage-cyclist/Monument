@@ -19,8 +19,26 @@ final class Announcer: NSObject, AVSpeechSynthesizerDelegate {
         )
     }
 
-    func speak(_ text: String) {
+    /// Texts queued or being spoken, in order.
+    private var queue: [String] = []
+
+    /// Speak `text`. Urgent cues (route turns) cut in: whatever was being said
+    /// stops and is said again straight after.
+    func speak(_ text: String, urgent: Bool = false) {
         activate()
+        if urgent && synthesizer.isSpeaking {
+            let interrupted = queue
+            queue = []
+            synthesizer.stopSpeaking(at: .immediate)
+            enqueue(text)
+            interrupted.forEach(enqueue)
+        } else {
+            enqueue(text)
+        }
+    }
+
+    private func enqueue(_ text: String) {
+        queue.append(text)
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = Self.selectedVoice
         utterance.rate = AVSpeechUtteranceDefaultSpeechRate
@@ -28,6 +46,7 @@ final class Announcer: NSObject, AVSpeechSynthesizerDelegate {
     }
 
     func stopAll() {
+        queue = []
         synthesizer.stopSpeaking(at: .immediate)
         deactivate()
     }
@@ -102,6 +121,7 @@ final class Announcer: NSObject, AVSpeechSynthesizerDelegate {
 
     // Release the audio session between cues so music comes back to full volume.
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        if let i = queue.firstIndex(of: utterance.speechString) { queue.remove(at: i) }
         if !synthesizer.isSpeaking { deactivate() }
     }
 

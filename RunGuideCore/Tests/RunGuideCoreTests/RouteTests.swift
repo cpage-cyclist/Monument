@@ -35,9 +35,10 @@ final class RouteTests: XCTestCase {
 
     func testTurnsOnTheLoop() throws {
         let r = try load("loop-6.89km")
-        XCTAssertTrue((10...13).contains(r.turns.count), "got \(r.turns.count) turns")
-        // 1.18 km is a straight road with a kink in the line: no cue.
-        XCTAssertFalse(r.turns.contains { (1100...1250).contains($0.at) }, "\(r.turns.map(\.at))")
+        XCTAssertTrue((10...14).contains(r.turns.count), "got \(r.turns.count) turns")
+        // 1.18 km is a straight road where the line jinks: "straight on", not a turn.
+        let jink = r.turns.filter { (1100...1250).contains($0.at) }
+        XCTAssertEqual(jink.map(\.direction), [.straight], "\(r.turns.map { ($0.at, $0.direction) })")
         // 1.55 km sharp right.
         XCTAssertTrue(r.turns.contains { (1480...1620).contains($0.at) && $0.direction == .sharpRight })
         // 5.17 km cross-and-loop-back junction: one cue, flagged tricky.
@@ -64,6 +65,9 @@ final class RouteTests: XCTestCase {
     }
 
     // MARK: - Simulated runs
+
+    /// Every cue that fires at a turn: "… now." or "Straight on."
+    static func isCue(_ s: String) -> Bool { s.hasSuffix(" now.") || s == "Straight on." }
 
     struct Said {
         let at: Double
@@ -101,8 +105,9 @@ final class RouteTests: XCTestCase {
     func testRunThePointToPointRoute() throws {
         let guide = RouteGuide(route: try load("point-to-point-16.05km"), loop: false)
         let said = simulate(guide)
-        let nows = said.filter { $0.text.hasSuffix(" now.") }
+        let nows = said.filter { Self.isCue($0.text) }
         XCTAssertEqual(nows.count, guide.route.turns.count, said.map(\.text).joined(separator: " | "))
+        XCTAssertTrue(said.contains { $0.text == "Straight on." })
         XCTAssertFalse(said.contains { $0.text == "Off route." })
         XCTAssertEqual(said.last?.text, "End of route.")
         // Every heads-up comes before its "now".
@@ -115,7 +120,7 @@ final class RouteTests: XCTestCase {
         let guide = RouteGuide(route: try load("loop-6.89km"), loop: false)
         let said = simulate(guide)
         XCTAssertFalse(said.contains { $0.text == "Off route." }, said.map(\.text).joined(separator: " | "))
-        XCTAssertEqual(said.filter { $0.text.hasSuffix(" now.") }.count, guide.route.turns.count)
+        XCTAssertEqual(said.filter { Self.isCue($0.text) }.count, guide.route.turns.count)
         XCTAssertTrue(said.contains { $0.text == "Sharp right now." })
         XCTAssertTrue(said.contains { $0.text.hasPrefix("Tricky junction") })
         XCTAssertEqual(said.last?.text, "End of route.")
@@ -134,8 +139,8 @@ final class RouteTests: XCTestCase {
         XCTAssertEqual(joinCalls.count, 1)
         // Laps 2 and 3 repeat the same turns as each other.
         let lap = guide.lapLength
-        let lap2 = said.filter { $0.at > guide.loopEnd + 30 && $0.at < guide.loopEnd + lap - 30 && $0.text.hasSuffix(" now.") }
-        let lap3 = said.filter { $0.at > guide.loopEnd + lap + 30 && $0.at < guide.loopEnd + 2 * lap - 30 && $0.text.hasSuffix(" now.") }
+        let lap2 = said.filter { $0.at > guide.loopEnd + 30 && $0.at < guide.loopEnd + lap - 30 && Self.isCue($0.text) }
+        let lap3 = said.filter { $0.at > guide.loopEnd + lap + 30 && $0.at < guide.loopEnd + 2 * lap - 30 && Self.isCue($0.text) }
         XCTAssertEqual(lap2.map(\.text), lap3.map(\.text))
     }
 

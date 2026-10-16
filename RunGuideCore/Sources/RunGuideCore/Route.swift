@@ -40,6 +40,8 @@ struct LocalProjection: Hashable {
 
 public enum TurnDirection: Hashable {
     case bearLeft, left, sharpLeft, bearRight, right, sharpRight, turnAround
+    /// The line jinks through a junction or crossing but carries on straight.
+    case straight
 
     public var isLeft: Bool { [.bearLeft, .left, .sharpLeft].contains(self) }
 
@@ -53,6 +55,7 @@ public enum TurnDirection: Hashable {
         case .right: return "turn right"
         case .sharpRight: return "sharp right"
         case .turnAround: return "turn around"
+        case .straight: return "straight on"
         }
     }
 
@@ -217,6 +220,7 @@ enum TurnDetector {
     static let candidate = 35.0    // degrees of local bend to count as a possible turn
     static let side = 5            // samples (25 m) used to measure the net turn
     static let mergeSpan = 40.0    // bends within this many metres become one turn
+    static let straightSwing = 140.0 // total bending in a cluster that nets straight → "straight on"
 
     static func turns(samples: [Vec], cumulative: [Double], loop: Bool) -> [Found] {
         guard samples.count > 2 * (window + side) else { return [] }
@@ -280,7 +284,13 @@ enum TurnDetector {
                 let swing = c.reduce(0) { $0 + abs($1.angle) }
                 tricky = c.count >= 3 || (swing >= 150 && abs(net) >= 40)
             }
-            guard let direction = classify(net) else { continue }
+            var direction = classify(net)
+            if direction == nil && c.count >= 2 && c.reduce(0, { $0 + abs($1.angle) }) >= straightSwing {
+                // Weaves across a road or staggered junction but carries on: say so.
+                direction = .straight
+                tricky = false
+            }
+            guard let direction else { continue }
 
             // Map back to a distance along the real route.
             let original = first.index - pad
