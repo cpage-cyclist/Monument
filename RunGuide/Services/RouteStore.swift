@@ -10,6 +10,8 @@ struct SavedRoute: Codable, Identifiable, Hashable {
     let isLoop: Bool
     let turnCount: Int
     let importedAt: Date
+    /// Set when imported straight from Strava.
+    var stravaID: String?
 }
 
 extension UTType {
@@ -42,14 +44,31 @@ final class RouteStore: ObservableObject {
         defer { if scoped { url.stopAccessingSecurityScopedResource() } }
         do {
             let data = try Data(contentsOf: url)
-            let fallback = url.deletingPathExtension().lastPathComponent
-            let route = try RouteParser.parse(data: data, fallbackName: fallback)
-            let ext = url.pathExtension.lowercased() == "tcx" ? "tcx" : "gpx"
+            return importRoute(data: data,
+                               fileExtension: url.pathExtension.lowercased() == "tcx" ? "tcx" : "gpx",
+                               fallbackName: url.deletingPathExtension().lastPathComponent)
+        } catch {
+            lastError = error.localizedDescription
+            return nil
+        }
+    }
+
+    /// Import route file contents (e.g. a GPX downloaded from Strava).
+    /// Re-importing the same Strava route replaces the old copy.
+    @discardableResult
+    func importRoute(data: Data, fileExtension: String = "gpx", fallbackName: String,
+                     stravaID: String? = nil) -> SavedRoute? {
+        do {
+            let route = try RouteParser.parse(data: data, fallbackName: fallbackName)
+            if let stravaID, let existing = routes.first(where: { $0.stravaID == stravaID }) {
+                delete(existing)
+            }
             let id = UUID()
-            let fileName = "\(id.uuidString).\(ext)"
+            let fileName = "\(id.uuidString).\(fileExtension)"
             try data.write(to: folder.appendingPathComponent(fileName), options: .atomic)
             let saved = SavedRoute(id: id, fileName: fileName, name: route.name, length: route.length,
-                                   isLoop: route.isLoop, turnCount: route.turns.count, importedAt: Date())
+                                   isLoop: route.isLoop, turnCount: route.turns.count, importedAt: Date(),
+                                   stravaID: stravaID)
             routes.insert(saved, at: 0)
             cache[id] = route
             persist()

@@ -24,6 +24,8 @@ struct SettingsView: View {
                     Text("Both are on intervals.icu under Settings › Developer Settings. The key is stored in this phone's Keychain.")
                 }
 
+                StravaSettingsSection()
+
                 heartRateSection
 
                 Section {

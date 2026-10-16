@@ -35,6 +35,14 @@ targets:
           - location
           - audio
           - bluetooth-central
+        # Strava sign-in calls back to runguide://localhost
+        CFBundleURLTypes:
+          - CFBundleURLName: com.cpage.runguide.strava
+            CFBundleURLSchemes:
+              - runguide
+        # Needed to check whether the Strava app is installed (app-to-app sign-in).
+        LSApplicationQueriesSchemes:
+          - strava
         # Lets GPX/TCX files (e.g. AirDropped from Strava) open in Run Guide.
         CFBundleDocumentTypes:
           - CFBundleTypeName: GPS route

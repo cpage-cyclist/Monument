@@ -70,8 +70,12 @@ logging.
 
 ## Routes
 
-- Export a route from Strava as **GPX**, then AirDrop/share it to Run Guide or tap
-  *Import a route* on the home screen. TCX works too.
+- **Straight from Strava:** one-off, create an API app on strava.com (Settings › My API
+  Application, Authorization Callback Domain `localhost`), paste its Client ID and Secret
+  into Run Guide Settings and tap *Connect Strava*. Then *Your Strava routes* lists your
+  saved routes (private ones too); tap one to import it, tap again to refresh it.
+- Or export a route as **GPX** and AirDrop/share it to Run Guide, or *Import a route file*.
+  TCX works too.
 - Turns are worked out from the line: bends within 40 m merge into one cue, jinks that
   net out straight become **"Straight on"**, weaving junctions are called **"Tricky
   junction, …"**.

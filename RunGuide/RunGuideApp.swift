@@ -6,6 +6,7 @@ struct RunGuideApp: App {
     @StateObject private var heartRate = HeartRateMonitor()
     @StateObject private var store = RunStore()
     @StateObject private var routes = RouteStore()
+    @StateObject private var strava = StravaAccount()
 
     var body: some Scene {
         WindowGroup {
@@ -14,7 +15,14 @@ struct RunGuideApp: App {
                 .environmentObject(heartRate)
                 .environmentObject(store)
                 .environmentObject(routes)
-                .onOpenURL { url in routes.importRoute(from: url) }
+                .environmentObject(strava)
+                .onOpenURL { url in
+                    if StravaAccount.isCallback(url) {
+                        Task { await strava.handleCallback(url) }
+                    } else {
+                        routes.importRoute(from: url)
+                    }
+                }
         }
     }
 }

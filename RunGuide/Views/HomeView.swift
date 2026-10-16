@@ -6,6 +6,7 @@ struct HomeView: View {
     @EnvironmentObject private var store: RunStore
     @EnvironmentObject private var heartRate: HeartRateMonitor
     @EnvironmentObject private var routes: RouteStore
+    @EnvironmentObject private var strava: StravaAccount
     @StateObject private var tracker = LocationTracker()
     @State private var importing = false
 
@@ -66,10 +67,15 @@ struct HomeView: View {
                     .onDelete { offsets in
                         for i in offsets { routes.delete(routes.routes[i]) }
                     }
+                    NavigationLink {
+                        StravaRoutesView()
+                    } label: {
+                        Label("Your Strava routes", systemImage: "point.topleft.down.to.point.bottomright.curvepath")
+                    }
                     Button {
                         importing = true
                     } label: {
-                        Label("Import a route (GPX or TCX)", systemImage: "square.and.arrow.down")
+                        Label("Import a route file (GPX or TCX)", systemImage: "square.and.arrow.down")
                     }
                     if let error = routes.lastError {
                         Text(error).font(.footnote).foregroundStyle(.red)
@@ -77,7 +83,7 @@ struct HomeView: View {
                 } header: {
                     Text("Routes")
                 } footer: {
-                    Text("Export a route from Strava as GPX, then AirDrop or share it to Run Guide, or import it from Files.")
+                    Text("Import straight from Strava (connect it in Settings), or share/AirDrop a GPX file to Run Guide.")
                 }
 
                 Section {
@@ -121,6 +127,7 @@ struct HomeView: View {
                 SettingsView()
                     .environmentObject(settings)
                     .environmentObject(heartRate)
+                    .environmentObject(strava)
             }
             .navigationDestination(item: $selected) { workout in
                 PreviewView(workout: workout, tracker: tracker)
