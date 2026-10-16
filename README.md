@@ -68,6 +68,22 @@ logging.
 - **Heart rate:** in Settings, tap *Pair a heart-rate strap* with the strap on. Any
   Bluetooth chest strap works; it reconnects by itself for later runs.
 
+## Routes
+
+- Export a route from Strava as **GPX**, then AirDrop/share it to Run Guide or tap
+  *Import a route* on the home screen. TCX works too.
+- Turns are worked out from the line: bends within 40 m merge into one cue, jinks that
+  net out straight become **"Straight on"**, weaving junctions are called **"Tricky
+  junction, …"**.
+- You hear "In 100 metres, turn left[, then right]" and "Turn left now". Turn cues cut in
+  over session cues; anything interrupted is repeated straight after.
+- **Off route** after ~6 s more than ~40 m from the line, then **Back on route**.
+- **Loops** (start and finish within 50 m) can **Repeat laps**: "Lap 2", "Lap 3"…; a
+  shared stub at the start is only run on lap 1, and the junction turn is called at the
+  end of every lap. Otherwise you hear **End of route** at the finish.
+- Run a route on its own (Routes › a route › *Run this route*) or pick one on any
+  session's preview screen.
+
 ## Session format
 
 The same text as the Intervals workout builder:
