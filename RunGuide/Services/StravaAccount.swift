@@ -123,7 +123,7 @@ final class StravaAccount: ObservableObject {
         if let appURL = authorizeURL(base: "strava://oauth/mobile/authorize"),
            UIApplication.shared.canOpenURL(appURL) {
             connecting = true
-            UIApplication.shared.open(appURL)
+            await UIApplication.shared.open(appURL)
             return   // finishes in handleCallback(_:)
         }
 
