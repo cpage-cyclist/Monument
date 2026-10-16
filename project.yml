@@ -35,6 +35,31 @@ targets:
           - location
           - audio
           - bluetooth-central
+        # Lets GPX/TCX files (e.g. AirDropped from Strava) open in Run Guide.
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: GPS route
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Alternate
+            LSItemContentTypes:
+              - com.topografix.gpx
+              - com.garmin.tcx
+        UTImportedTypeDeclarations:
+          - UTTypeIdentifier: com.topografix.gpx
+            UTTypeDescription: GPX route
+            UTTypeConformsTo:
+              - public.xml
+            UTTypeTagSpecification:
+              public.filename-extension:
+                - gpx
+              public.mime-type:
+                - application/gpx+xml
+          - UTTypeIdentifier: com.garmin.tcx
+            UTTypeDescription: TCX course
+            UTTypeConformsTo:
+              - public.xml
+            UTTypeTagSpecification:
+              public.filename-extension:
+                - tcx
         # Show saved FIT files in the Files app (On My iPhone › Run Guide).
         UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: true

@@ -8,7 +8,20 @@ struct PreviewView: View {
     @EnvironmentObject private var settings: AppSettings
     @EnvironmentObject private var heartRate: HeartRateMonitor
     @EnvironmentObject private var store: RunStore
+    @EnvironmentObject private var routes: RouteStore
     @State private var running = false
+    @State private var routeID: UUID?
+    @State private var loop = true
+
+    init(workout: Workout, tracker: LocationTracker, initialRouteID: UUID? = nil) {
+        self.workout = workout
+        self.tracker = tracker
+        _routeID = State(initialValue: initialRouteID)
+    }
+
+    private var selectedRoute: Route? {
+        routes.routes.first { $0.id == routeID }.flatMap { routes.route(for: $0) }
+    }
 
     var body: some View {
         List {
@@ -18,6 +31,8 @@ struct PreviewView: View {
                     hrRow
                 }
             }
+
+            RoutePickerSection(routeID: $routeID, loop: $loop)
 
             if workout.steps.isEmpty {
                 Section {
@@ -66,7 +81,9 @@ struct PreviewView: View {
                     tracker: tracker,
                     heartRate: heartRate,
                     store: store,
-                    client: settings.autoUpload && settings.hasCredentials ? settings.client : nil)
+                    client: settings.autoUpload && settings.hasCredentials ? settings.client : nil,
+                    route: selectedRoute,
+                    loopRoute: loop)
         }
     }
 

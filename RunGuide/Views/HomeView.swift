@@ -5,7 +5,9 @@ struct HomeView: View {
     @EnvironmentObject private var settings: AppSettings
     @EnvironmentObject private var store: RunStore
     @EnvironmentObject private var heartRate: HeartRateMonitor
+    @EnvironmentObject private var routes: RouteStore
     @StateObject private var tracker = LocationTracker()
+    @State private var importing = false
 
     @State private var date = Date()
     @State private var events: [IntervalsEvent] = []
@@ -54,6 +56,31 @@ struct HomeView: View {
                 }
 
                 Section {
+                    ForEach(routes.routes) { saved in
+                        NavigationLink {
+                            RouteDetailView(saved: saved, tracker: tracker)
+                        } label: {
+                            RouteRow(saved: saved)
+                        }
+                    }
+                    .onDelete { offsets in
+                        for i in offsets { routes.delete(routes.routes[i]) }
+                    }
+                    Button {
+                        importing = true
+                    } label: {
+                        Label("Import a route (GPX or TCX)", systemImage: "square.and.arrow.down")
+                    }
+                    if let error = routes.lastError {
+                        Text(error).font(.footnote).foregroundStyle(.red)
+                    }
+                } header: {
+                    Text("Routes")
+                } footer: {
+                    Text("Export a route from Strava as GPX, then AirDrop or share it to Run Guide, or import it from Files.")
+                }
+
+                Section {
                     NavigationLink {
                         SavedRunsView()
                     } label: {
@@ -97,6 +124,9 @@ struct HomeView: View {
             }
             .navigationDestination(item: $selected) { workout in
                 PreviewView(workout: workout, tracker: tracker)
+            }
+            .fileImporter(isPresented: $importing, allowedContentTypes: [.gpx, .tcx, .xml]) { result in
+                if case .success(let url) = result { routes.importRoute(from: url) }
             }
             .onChange(of: date) { _, _ in
                 Task { await load() }

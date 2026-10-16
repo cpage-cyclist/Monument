@@ -16,6 +16,8 @@ final class RunController: ObservableObject {
     }
 
     let engine: SessionEngine
+    /// Turn-by-turn guidance when running a route.
+    let guide: RouteGuide?
     let tracker: LocationTracker
     let heartRate: HeartRateMonitor
     private let store: RunStore
@@ -42,8 +44,10 @@ final class RunController: ObservableObject {
 
     /// `client` is nil when auto-upload is off or Intervals isn't set up.
     init(workout: Workout, options: EngineOptions, tracker: LocationTracker,
-         heartRate: HeartRateMonitor, store: RunStore, client: IntervalsClient?) {
+         heartRate: HeartRateMonitor, store: RunStore, client: IntervalsClient?,
+         route: Route? = nil, loopRoute: Bool = false) {
         self.engine = SessionEngine(workout: workout, options: options)
+        self.guide = route.map { RouteGuide(route: $0, loop: loopRoute) }
         self.tracker = tracker
         self.heartRate = heartRate
         self.store = store
@@ -61,6 +65,9 @@ final class RunController: ObservableObject {
         }
         tracker.onUpdate = { [weak self] in
             MainActor.assumeIsolated { self?.step() }
+        }
+        tracker.onFix = { [weak self] location in
+            MainActor.assumeIsolated { self?.follow(location) }
         }
         tracker.beginCounting()
         heartRate.connect()
@@ -155,10 +162,20 @@ final class RunController: ObservableObject {
         tracker.stop()
         tracker.onDistance = nil
         tracker.onUpdate = nil
+        tracker.onFix = nil
         heartRate.disconnect()
     }
 
     // MARK: - Internals
+
+    /// Route guidance runs off raw GPS fixes; its cues cut in over interval cues.
+    private func follow(_ location: CLLocation) {
+        guard let guide, started, !finished else { return }
+        let said = guide.update(lat: location.coordinate.latitude, lon: location.coordinate.longitude,
+                                accuracy: location.horizontalAccuracy, time: location.timestamp)
+        for text in said { announcer.speak(text, urgent: true) }
+        if !said.isEmpty { tick &+= 1 }
+    }
 
     private func recordPoint(at now: Date) {
         if let lastPoint, now.timeIntervalSince(lastPoint) < 0.9 { return }

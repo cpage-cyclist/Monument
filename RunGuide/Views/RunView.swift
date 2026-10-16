@@ -7,9 +7,11 @@ struct RunView: View {
     @State private var confirmEnd = false
 
     init(workout: Workout, options: EngineOptions, tracker: LocationTracker,
-         heartRate: HeartRateMonitor, store: RunStore, client: IntervalsClient?) {
+         heartRate: HeartRateMonitor, store: RunStore, client: IntervalsClient?,
+         route: Route? = nil, loopRoute: Bool = false) {
         _run = StateObject(wrappedValue: RunController(workout: workout, options: options, tracker: tracker,
-                                                       heartRate: heartRate, store: store, client: client))
+                                                       heartRate: heartRate, store: store, client: client,
+                                                       route: route, loopRoute: loopRoute))
     }
 
     var body: some View {
@@ -27,10 +29,16 @@ struct RunView: View {
 
     private var live: some View {
         VStack(spacing: 18) {
+            if let guide = run.guide {
+                RouteBanner(guide: guide)
+                    .padding(.top)
+                    .id(run.tick)
+            }
+
             Text("Step \(min(engine.stepIndex + 1, engine.workout.steps.count)) of \(engine.workout.steps.count)")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
-                .padding(.top)
+                .padding(.top, run.guide == nil ? 16 : 0)
 
             if let step = engine.currentStep {
                 Text(step.label)
