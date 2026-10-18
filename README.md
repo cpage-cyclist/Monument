@@ -123,7 +123,8 @@ Cooldown
   rate (`HeartRateMonitor`), saved runs (`RunStore`), the Intervals API
   (`IntervalsClient`) and the screens.
 - `scripts/validate_fit.py` checks FIT files with Garmin's official FIT SDK.
-- `scripts/make_icon.py` draws the app icon (`RunGuide/Assets.xcassets/AppIcon.appiconset`).
+- `design/monument-logo-2000.png` is the master logo; the app icon is a 1024 px copy in
+  `RunGuide/Assets.xcassets/AppIcon.appiconset`.
 - `project.yml` generates the Xcode project; the `.xcodeproj` itself isn't committed.
 - GitHub Actions runs the tests, validates sample FIT files with Garmin's SDK and builds
   the app on every push to `main`.
