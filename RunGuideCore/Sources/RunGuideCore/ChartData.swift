@@ -202,6 +202,41 @@ public enum ChartKind: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
+    /// Panels whose scale starts at zero.
+    public var zeroBased: Bool { [.power, .wbal, .cadence, .speed].contains(self) }
+
+    /// The y range the panel draws: snapped to the data with 10% headroom (and 10% below the
+    /// lowest value on panels that don't start at zero), not rounded up to a round number.
+    public func yDomain(for points: [ChartPoint]) -> ClosedRange<Double> {
+        guard let lo = points.map(\.y).min(), let hi = points.map(\.y).max() else { return 0...1 }
+        if zeroBased {
+            let top = hi > 0 ? hi * 1.1 : 1
+            return 0...top
+        }
+        let span = max(hi - lo, minSpan)
+        var bottom = lo - span * 0.1
+        if self == .heartRate || self == .pace { bottom = max(bottom, 0) }
+        return bottom...(hi + span * 0.1)
+    }
+
+    /// Stops a flat line filling the whole panel height.
+    private var minSpan: Double {
+        switch self {
+        case .heartRate: return 10
+        case .pace: return 30
+        case .altitude: return 10
+        default: return 1
+        }
+    }
+
+    /// Short label for the y axis.
+    public func axisLabel(_ v: Double) -> String {
+        switch self {
+        case .pace: return Format.pace(v)
+        default: return abs(v) < 10 && v != v.rounded() ? String(format: "%.1f", v) : String(Int(v.rounded()))
+        }
+    }
+
     /// The value as shown in the panel's readout.
     public func format(_ value: Double?) -> String {
         guard let v = value, v.isFinite else { return "–" }

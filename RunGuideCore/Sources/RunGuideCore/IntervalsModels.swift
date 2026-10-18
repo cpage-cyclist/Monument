@@ -174,7 +174,7 @@ public struct ActivityDetail: Decodable, Sendable {
 
 /// Stream names v2 asks for.
 public enum StreamType: String, CaseIterable, Sendable {
-    case time, watts, heartrate, cadence, distance, altitude
+    case time, watts, heartrate, cadence, distance, altitude, temp
     case velocity = "velocity_smooth"
     case wbal = "w_bal"
     /// Some power sources come back under this name instead of `watts`.
@@ -182,7 +182,7 @@ public enum StreamType: String, CaseIterable, Sendable {
 
     /// What the activity view requests.
     public static let activityView: [StreamType] = [
-        .time, .watts, .heartrate, .cadence, .velocity, .altitude, .distance, .wbal
+        .time, .watts, .heartrate, .cadence, .velocity, .altitude, .distance, .wbal, .temp
     ]
 }
 
