@@ -47,6 +47,12 @@ final class AppSettings: ObservableObject {
                         apiKey: apiKey.trimmingCharacters(in: .whitespaces))
     }
 
+    /// A client built from the stored credentials, for services created before the settings object.
+    static func currentClient() -> IntervalsClient {
+        IntervalsClient(athleteId: (UserDefaults.standard.string(forKey: "athleteId") ?? "").trimmingCharacters(in: .whitespaces),
+                        apiKey: (Keychain.get("intervalsApiKey") ?? "").trimmingCharacters(in: .whitespaces))
+    }
+
     var engineOptions: EngineOptions {
         EngineOptions(lapPaceFeedback: lapPaceFeedback, kmSplits: kmSplits)
     }
