@@ -15,7 +15,7 @@ struct SavedRun: Codable, Identifiable, Hashable {
 }
 
 /// Keeps every recorded run as a .fit file in the app's Documents/Runs folder
-/// (visible in the Files app under On My iPhone › Run Guide), plus a small index.
+/// (visible in the Files app under On My iPhone › Monument), plus a small index.
 final class RunStore: ObservableObject {
     @Published private(set) var runs: [SavedRun] = []
 

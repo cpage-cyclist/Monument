@@ -1,8 +1,8 @@
-# Run Guide v2 — scope
+# Monument (v2) — scope
 
 ## Goal
 
-Grow Run Guide into a fast, phone-first Intervals.icu client, with the run-cue player
+Grow Run Guide into Monument: a fast, phone-first Intervals.icu client, with the run-cue player
 kept as one part of it. The Intervals web view is already close to right: copy its
 layout faithfully, then fix what it does badly on a phone — it's slow and clunky, its
 charts are hard to read on a small screen, logging is fiddly, and the selection
@@ -55,6 +55,6 @@ it is and becomes the "Start" action for planned runs.
   `w_bal`), wellness, fitness, power curves and the workout library.
 - Activities recorded in the **Strava app** come back as placeholders via the API
   (Strava restricts sharing). Activities only appear in v2 if they reach Intervals
-  directly: Run Guide's own upload, or Wahoo/Garmin syncing straight to Intervals.
+  directly: the app's own run upload, or Wahoo/Garmin syncing straight to Intervals.
 - The custom Intervals MCP connector (`cpage-cyclist/intervals-mcp`, hosted on Render)
   is useful for checking what the API returns while building.

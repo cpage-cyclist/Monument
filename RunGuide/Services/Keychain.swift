@@ -2,6 +2,7 @@ import Foundation
 import Security
 
 enum Keychain {
+    // Keychain items are per app, so this doesn't clash with Run Guide's.
     private static let service = "RunGuide"
 
     static func set(_ value: String, for account: String) {

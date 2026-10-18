@@ -105,7 +105,7 @@ struct PreviewView: View {
 
     @ViewBuilder private var gpsRow: some View {
         if tracker.authorization == .denied || tracker.authorization == .restricted {
-            Label("Location is off for Run Guide. Turn it on in Settings › Run Guide.", systemImage: "location.slash")
+            Label("Location is off for Monument. Turn it on in Settings › Monument.", systemImage: "location.slash")
                 .foregroundStyle(.red)
         } else if let accuracy = tracker.accuracy {
             let good = accuracy <= 15

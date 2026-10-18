@@ -1,6 +1,17 @@
 # Decisions
 
-Fixed choices for Run Guide. Change one only on purpose, and update this file when you do.
+Fixed choices for Monument (formerly Run Guide). Change one only on purpose, and update this file when you do.
+
+## Name and identity
+
+- The app is **Monument**, in `cpage-cyclist/Monument`, seeded with Run Guide's full history.
+  `cpage-cyclist/run-guide` stays as the source of the installed Run Guide build.
+- Monument is a **separate app** with bundle ID `com.cpage.monument` and Strava callback
+  scheme `monument://`. **Run Guide** (`com.cpage.runguide`, `runguide://`) stays installed
+  as-is as the stable run app until Monument's run player replaces it.
+- Monument starts with its own data: Intervals credentials, Strava connection and routes
+  are set up again in it.
+- Code, target and package names keep their Run Guide names.
 
 ## Build and install
 

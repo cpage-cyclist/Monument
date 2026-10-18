@@ -70,14 +70,14 @@ jobs:
             build | tail -n 40
           mkdir -p build/ipa/Payload
           cp -R build/dd/Build/Products/Release-iphoneos/RunGuide.app build/ipa/Payload/
-          cd build/ipa && zip -qry ../RunGuide-unsigned.ipa Payload
-          ls -la ../RunGuide-unsigned.ipa
+          cd build/ipa && zip -qry ../Monument-unsigned.ipa Payload
+          ls -la ../Monument-unsigned.ipa
 
       - name: Keep the .ipa
         uses: actions/upload-artifact@v4
         with:
-          name: RunGuide-unsigned-ipa
-          path: build/RunGuide-unsigned.ipa
+          name: Monument-unsigned-ipa
+          path: build/Monument-unsigned.ipa
           if-no-files-found: error
 
       - name: Keep sample FIT files

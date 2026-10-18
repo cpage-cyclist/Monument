@@ -49,8 +49,8 @@ enum StravaError: LocalizedError {
 @MainActor
 final class StravaAccount: ObservableObject {
     /// Must match the "Authorization Callback Domain" (localhost) in the Strava API app.
-    static let redirectURI = "runguide://localhost"
-    static let callbackScheme = "runguide"
+    static let redirectURI = "monument://localhost"
+    static let callbackScheme = "monument"
 
     @Published var clientID: String {
         didSet { UserDefaults.standard.set(clientID.trimmingCharacters(in: .whitespaces), forKey: "stravaClientID") }
@@ -122,7 +122,7 @@ final class StravaAccount: ObservableObject {
     }
 
     /// Opens the Strava app to approve if it's installed (it calls back via
-    /// runguide://), otherwise a secure web sign-in sheet.
+    /// monument://), otherwise a secure web sign-in sheet.
     func connect(using webAuth: WebAuthenticationSession) async {
         lastError = nil
         guard hasAppDetails else { lastError = StravaError.missingApp.errorDescription; return }
