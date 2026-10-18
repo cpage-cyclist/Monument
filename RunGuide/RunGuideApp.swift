@@ -11,7 +11,7 @@ struct RunGuideApp: App {
 
     var body: some Scene {
         WindowGroup {
-            HomeView()
+            RootView()
                 .environmentObject(settings)
                 .environmentObject(heartRate)
                 .environmentObject(store)
@@ -25,6 +25,18 @@ struct RunGuideApp: App {
                         routes.importRoute(from: url)
                     }
                 }
+        }
+    }
+}
+
+/// Tabs: activities from Intervals, and the Run Guide run player.
+struct RootView: View {
+    var body: some View {
+        TabView {
+            ActivitiesView()
+                .tabItem { Label("Activities", systemImage: "chart.xyaxis.line") }
+            HomeView()
+                .tabItem { Label("Run", systemImage: "figure.run") }
         }
     }
 }
