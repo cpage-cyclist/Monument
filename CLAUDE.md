@@ -5,9 +5,9 @@ out of Run Guide, the spoken run-cue player that pulls structured runs from Inte
 auto-laps mixed distance/time steps; Run Guide lives on inside Monument as the run player.
 Scope is in `docs/v2-scope.md`, fixed choices in `docs/decisions.md`.
 
-- Code, targets and the `RunGuideCore` package keep their Run Guide names. The bundle ID
-  (`com.cpage.runguide`) and Keychain service (`RunGuide`) must not change, or the
-  sideloaded app loses its data.
+- Monument is its own app (`com.cpage.monument`, Strava callback `monument://`), installed
+  alongside Run Guide (`com.cpage.runguide`, `runguide://`), which stays as the stable run
+  app. Code, targets and the `RunGuideCore` package keep their Run Guide names.
 - There's no local Xcode (Intel Macs). Builds and tests run in GitHub Actions; the
   unsigned .ipa is sideloaded with Sideloadly.
 

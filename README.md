@@ -35,8 +35,9 @@ The Macs are Intel, so the app is built in GitHub Actions rather than local Xcod
    There are no push notifications on a free Apple ID, so reminders are local or shown
    when the app opens.
 
-The bundle ID is still `com.cpage.runguide`, so installing Monument over Run Guide keeps
-your saved runs, routes, Strava connection and Intervals key.
+Monument (`com.cpage.monument`) installs as its own app next to Run Guide, which keeps its
+data. Add your Intervals athlete ID and API key in Monument's Settings. To use Strava in
+Monument, connect it again there; the same Strava API app works for both.
 
 ## First run
 
