@@ -24,6 +24,8 @@ enum StravaError: LocalizedError {
     case notConnected
     case denied
     case missingPrivateScope
+    case missingUploadScope
+    case uploadFailed(String)
     case http(Int, String)
 
     var errorDescription: String? {
@@ -32,6 +34,8 @@ enum StravaError: LocalizedError {
         case .notConnected: return "Connect Strava in Settings first."
         case .denied: return "Strava access wasn't granted."
         case .missingPrivateScope: return "Connected, but without access to private routes. Reconnect and leave \"View data about your private activities\" ticked to see them."
+        case .missingUploadScope: return "Strava isn't allowing uploads yet. In Settings tap Reconnect and leave \"Upload your activities\" ticked."
+        case .uploadFailed(let message): return "Strava couldn't process the run: \(message)"
         case .http(let code, let body):
             if code == 401 { return "Strava rejected the sign-in. Try Disconnect, then Connect again." }
             return "Strava returned an error (\(code)). \(body.prefix(160))"
@@ -56,6 +60,7 @@ final class StravaAccount: ObservableObject {
     }
     @Published private(set) var athleteName: String?
     @Published private(set) var hasPrivateAccess = false
+    @Published private(set) var hasUploadAccess = false
     @Published private(set) var connecting = false
     @Published var lastError: String?
 
@@ -77,6 +82,7 @@ final class StravaAccount: ObservableObject {
             }
             athleteName = tokens?.athleteName
             hasPrivateAccess = tokens?.scope.contains("read_all") ?? false
+            hasUploadAccess = tokens?.scope.contains("activity:write") ?? false
         }
     }
     private var pendingState: String?
@@ -88,6 +94,7 @@ final class StravaAccount: ObservableObject {
             tokens = t
             athleteName = t.athleteName
             hasPrivateAccess = t.scope.contains("read_all")
+            hasUploadAccess = t.scope.contains("activity:write")
         }
     }
 
@@ -108,7 +115,7 @@ final class StravaAccount: ObservableObject {
             URLQueryItem(name: "redirect_uri", value: Self.redirectURI),
             URLQueryItem(name: "response_type", value: "code"),
             URLQueryItem(name: "approval_prompt", value: "auto"),
-            URLQueryItem(name: "scope", value: "read,read_all"),
+            URLQueryItem(name: "scope", value: "read,read_all,activity:write"),
             URLQueryItem(name: "state", value: state)
         ]
         return c?.url
@@ -169,7 +176,13 @@ final class StravaAccount: ObservableObject {
                 athleteName: [first, last].compactMap { $0 }.joined(separator: " "),
                 scope: value("scope") ?? ""
             )
-            lastError = hasPrivateAccess ? nil : StravaError.missingPrivateScope.errorDescription
+            if !hasPrivateAccess {
+                lastError = StravaError.missingPrivateScope.errorDescription
+            } else if !hasUploadAccess {
+                lastError = StravaError.missingUploadScope.errorDescription
+            } else {
+                lastError = nil
+            }
         } catch {
             lastError = error.localizedDescription
         }
@@ -203,6 +216,60 @@ final class StravaAccount: ObservableObject {
     func gpx(for route: StravaRoute) async throws -> Data {
         let t = try await validTokens()
         return try await get("routes/\(route.idStr)/export_gpx", token: t.access)
+    }
+
+    /// Uploads a FIT file as a new Strava activity and waits for Strava to
+    /// process it. Returns the activity id. A run already on Strava (same
+    /// file or same external id) counts as success.
+    func uploadActivity(fileURL: URL, name: String, description: String, externalID: String) async throws -> String? {
+        guard hasUploadAccess else { throw StravaError.missingUploadScope }
+        let t = try await validTokens()
+
+        let boundary = "RunGuide-\(UUID().uuidString)"
+        var body = Data()
+        func field(_ key: String, _ value: String) {
+            body.append(Data("--\(boundary)\r\nContent-Disposition: form-data; name=\"\(key)\"\r\n\r\n\(value)\r\n".utf8))
+        }
+        field("data_type", "fit")
+        field("name", name)
+        field("description", description)
+        field("external_id", externalID)
+        field("sport_type", "Run")
+        body.append(Data("--\(boundary)\r\nContent-Disposition: form-data; name=\"file\"; filename=\"\(fileURL.lastPathComponent)\"\r\nContent-Type: application/octet-stream\r\n\r\n".utf8))
+        body.append(try Data(contentsOf: fileURL))
+        body.append(Data("\r\n--\(boundary)--\r\n".utf8))
+
+        var request = URLRequest(url: URL(string: "https://www.strava.com/api/v3/uploads")!)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(t.access)", forHTTPHeaderField: "Authorization")
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 60
+        let (data, response) = try await URLSession.shared.upload(for: request, from: body)
+        try check(response, data)
+
+        // Strava processes uploads in the background; poll until done.
+        var status = try JSONSerialization.jsonObject(with: data) as? [String: Any] ?? [:]
+        for _ in 0..<15 {
+            if let result = try Self.uploadResult(status) { return result }
+            try await Task.sleep(nanoseconds: 2_000_000_000)
+            guard let uploadID = status["id_str"] as? String ?? (status["id"] as? Int).map(String.init) else { break }
+            let poll = try await get("uploads/\(uploadID)", token: t.access)
+            status = try JSONSerialization.jsonObject(with: poll) as? [String: Any] ?? [:]
+        }
+        if let result = try Self.uploadResult(status) { return result }
+        return nil   // still processing; it will appear on Strava shortly
+    }
+
+    /// nil = still processing; a value = done (activity id, or "" if unknown).
+    private static func uploadResult(_ status: [String: Any]) throws -> String?? {
+        if let error = status["error"] as? String, !error.isEmpty {
+            // e.g. "… duplicate of <a href='/activities/123'>…</a>"
+            if error.lowercased().contains("duplicate") { return .some(nil) }
+            throw StravaError.uploadFailed(error.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression))
+        }
+        if let id = status["activity_id"] as? Int { return .some(String(id)) }
+        if let id = status["activity_id"] as? String, !id.isEmpty { return .some(id) }
+        return nil
     }
 
     // MARK: - Plumbing

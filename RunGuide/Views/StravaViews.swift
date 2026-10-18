@@ -5,6 +5,7 @@ import RunGuideCore
 /// Settings section: your Strava API app details and the connection.
 struct StravaSettingsSection: View {
     @EnvironmentObject private var strava: StravaAccount
+    @EnvironmentObject private var settings: AppSettings
     @Environment(\.webAuthenticationSession) private var webAuth
 
     var body: some View {
@@ -17,6 +18,12 @@ struct StravaSettingsSection: View {
 
             if strava.isConnected {
                 LabeledContent("Connected", value: strava.athleteName?.isEmpty == false ? strava.athleteName! : "Yes")
+                Toggle("Upload runs to Strava", isOn: $settings.uploadToStrava)
+                if settings.uploadToStrava && !strava.hasUploadAccess {
+                    Text("Tap Reconnect and leave \"Upload your activities\" ticked to allow uploads.")
+                        .font(.footnote)
+                        .foregroundStyle(.orange)
+                }
                 if !strava.hasPrivateAccess {
                     Text("Private routes aren't included. Reconnect and leave private access ticked.")
                         .font(.footnote)
@@ -40,7 +47,7 @@ struct StravaSettingsSection: View {
                 Text(error).font(.footnote).foregroundStyle(.red)
             }
         } header: {
-            Text("Strava routes")
+            Text("Strava")
         } footer: {
             Text("One-off setup: on strava.com go to Settings › My API Application, create an app (any name and website) with Authorization Callback Domain set to localhost, then paste its Client ID and Client Secret here. The secret is kept in this phone's Keychain.")
         }

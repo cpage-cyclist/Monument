@@ -10,6 +10,8 @@ struct SavedRun: Codable, Identifiable, Hashable {
     let timerTime: Double
     var intervalsActivityId: String?
     var uploaded: Bool
+    var stravaActivityId: String?
+    var uploadedToStrava: Bool?
 }
 
 /// Keeps every recorded run as a .fit file in the app's Documents/Runs folder
@@ -44,10 +46,18 @@ final class RunStore: ObservableObject {
         }
         let run = SavedRun(id: UUID(), fileName: fileName, name: recording.name, date: recording.start,
                            distance: recording.totalDistance, timerTime: recording.totalTimerTime,
-                           intervalsActivityId: nil, uploaded: false)
+                           intervalsActivityId: nil, uploaded: false,
+                           stravaActivityId: nil, uploadedToStrava: false)
         runs.insert(run, at: 0)
         persist()
         return run
+    }
+
+    func markUploadedToStrava(_ run: SavedRun, activityId: String?) {
+        guard let i = runs.firstIndex(where: { $0.id == run.id }) else { return }
+        runs[i].uploadedToStrava = true
+        runs[i].stravaActivityId = activityId
+        persist()
     }
 
     func markUploaded(_ run: SavedRun, activityId: String?) {

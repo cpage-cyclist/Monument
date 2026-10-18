@@ -8,10 +8,10 @@ struct RunView: View {
 
     init(workout: Workout, options: EngineOptions, tracker: LocationTracker,
          heartRate: HeartRateMonitor, store: RunStore, client: IntervalsClient?,
-         route: Route? = nil, loopRoute: Bool = false) {
+         route: Route? = nil, loopRoute: Bool = false, strava: StravaAccount? = nil) {
         _run = StateObject(wrappedValue: RunController(workout: workout, options: options, tracker: tracker,
                                                        heartRate: heartRate, store: store, client: client,
-                                                       route: route, loopRoute: loopRoute))
+                                                       route: route, loopRoute: loopRoute, strava: strava))
     }
 
     var body: some View {
@@ -137,6 +137,7 @@ struct SummaryView: View {
                     if run.kept {
                         fileRow
                         uploadRow
+                        stravaRow
                     } else if run.saveFailed {
                         Label("Couldn't save the FIT file", systemImage: "exclamationmark.triangle")
                             .foregroundStyle(.red)
@@ -211,6 +212,29 @@ struct SummaryView: View {
             ShareLink(item: url) {
                 Label("Saved as FIT file", systemImage: "doc.fill")
             }
+        }
+    }
+
+    @ViewBuilder private var stravaRow: some View {
+        switch run.stravaUpload {
+        case .notStarted, .uploading:
+            HStack {
+                Label("Uploading to Strava…", systemImage: "arrow.up.circle")
+                Spacer()
+                ProgressView()
+            }
+        case .uploaded:
+            Label("Uploaded to Strava", systemImage: "checkmark.circle")
+                .foregroundStyle(.orange)
+        case .failed(let message):
+            VStack(alignment: .leading, spacing: 6) {
+                Label("Strava upload failed", systemImage: "exclamationmark.circle")
+                    .foregroundStyle(.red)
+                Text(message).font(.caption).foregroundStyle(.secondary)
+                Button("Try again") { run.retryStravaUpload() }
+            }
+        case .off:
+            EmptyView()
         }
     }
 

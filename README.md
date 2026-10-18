@@ -60,8 +60,10 @@ logging.
 - Laps are typed: warm-up, active (reps), rest (floats/recoveries) and cool-down, with
   pauses recorded as real timer stops.
 - When the session ends you choose **Save and upload** or **Discard run**. Nothing goes
-  to Intervals until you tap Save (auto-upload can be switched off in Settings). If an
+  to Intervals or Strava until you tap Save (each can be switched off in Settings). If an
   upload fails, retry from the summary screen or Saved runs.
+- **Strava upload** sends the same FIT file (laps, HR) once Strava is connected with
+  upload permission. Turn off Strava downloads in Intervals so runs don't arrive twice.
 - **Voice:** pick any English voice on the phone in Settings. Premium/Enhanced voices
   sound far better; download them in iPhone Settings › Accessibility › Spoken Content ›
   Voices.

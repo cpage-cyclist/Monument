@@ -20,6 +20,9 @@ final class AppSettings: ObservableObject {
     @Published var autoUpload: Bool {
         didSet { defaults.set(autoUpload, forKey: "autoUpload") }
     }
+    @Published var uploadToStrava: Bool {
+        didSet { defaults.set(uploadToStrava, forKey: "uploadToStrava") }
+    }
     /// Empty means "automatic: best UK voice".
     @Published var voiceIdentifier: String {
         didSet { defaults.set(voiceIdentifier, forKey: Announcer.voiceKey) }
@@ -31,6 +34,7 @@ final class AppSettings: ObservableObject {
         lapPaceFeedback = defaults.object(forKey: "lapPaceFeedback") as? Bool ?? true
         kmSplits = defaults.object(forKey: "kmSplits") as? Bool ?? true
         autoUpload = defaults.object(forKey: "autoUpload") as? Bool ?? true
+        uploadToStrava = defaults.object(forKey: "uploadToStrava") as? Bool ?? true
         voiceIdentifier = defaults.string(forKey: Announcer.voiceKey) ?? ""
     }
 

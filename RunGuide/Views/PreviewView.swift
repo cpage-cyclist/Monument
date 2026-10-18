@@ -9,6 +9,7 @@ struct PreviewView: View {
     @EnvironmentObject private var heartRate: HeartRateMonitor
     @EnvironmentObject private var store: RunStore
     @EnvironmentObject private var routes: RouteStore
+    @EnvironmentObject private var strava: StravaAccount
     @State private var running = false
     @State private var routeID: UUID?
     @State private var loop = true
@@ -83,7 +84,8 @@ struct PreviewView: View {
                     store: store,
                     client: settings.autoUpload && settings.hasCredentials ? settings.client : nil,
                     route: selectedRoute,
-                    loopRoute: loop)
+                    loopRoute: loop,
+                    strava: settings.uploadToStrava && strava.isConnected && strava.hasUploadAccess ? strava : nil)
         }
     }
 

@@ -22,6 +22,7 @@ final class RunController: ObservableObject {
     let heartRate: HeartRateMonitor
     private let store: RunStore
     private let client: IntervalsClient?
+    private let strava: StravaAccount?
     private let announcer = Announcer()
     private var recorder: ActivityRecorder
 
@@ -32,6 +33,7 @@ final class RunController: ObservableObject {
     @Published private(set) var savedRun: SavedRun?
     @Published private(set) var saveFailed = false
     @Published private(set) var upload: UploadState = .notStarted
+    @Published private(set) var stravaUpload: UploadState = .off
     /// The runner has chosen to keep the run (Save) — nothing uploads before this.
     @Published private(set) var kept = false
     @Published private(set) var discarded = false
@@ -45,13 +47,15 @@ final class RunController: ObservableObject {
     /// `client` is nil when auto-upload is off or Intervals isn't set up.
     init(workout: Workout, options: EngineOptions, tracker: LocationTracker,
          heartRate: HeartRateMonitor, store: RunStore, client: IntervalsClient?,
-         route: Route? = nil, loopRoute: Bool = false) {
+         route: Route? = nil, loopRoute: Bool = false, strava: StravaAccount? = nil) {
         self.engine = SessionEngine(workout: workout, options: options)
         self.guide = route.map { RouteGuide(route: $0, loop: loopRoute) }
         self.tracker = tracker
         self.heartRate = heartRate
         self.store = store
         self.client = client
+        self.strava = strava
+        if strava != nil { stravaUpload = .notStarted }
         self.recorder = ActivityRecorder(name: workout.name, start: Date())
         if client == nil { upload = .off }
     }
@@ -140,6 +144,27 @@ final class RunController: ObservableObject {
         kept = true
         if let run = savedRun, client != nil {
             Task { await uploadRun(run) }
+        }
+        if let run = savedRun, strava != nil {
+            Task { await uploadToStrava(run) }
+        }
+    }
+
+    func retryStravaUpload() {
+        guard let run = savedRun else { return }
+        Task { await uploadToStrava(run) }
+    }
+
+    private func uploadToStrava(_ run: SavedRun) async {
+        guard let strava else { return }
+        stravaUpload = .uploading
+        do {
+            let id = try await strava.uploadActivity(fileURL: store.url(for: run), name: run.name,
+                                                     description: summaryText, externalID: run.fileName)
+            store.markUploadedToStrava(run, activityId: id)
+            stravaUpload = .uploaded
+        } catch {
+            stravaUpload = .failed(error.localizedDescription)
         }
     }
 
