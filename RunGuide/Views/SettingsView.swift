@@ -83,7 +83,7 @@ struct SettingsView: View {
                 }
                 Button("Stop searching") { heartRate.stopScan() }
             } else if heartRate.state == .off {
-                Text("Bluetooth is off or not allowed for Run Guide.")
+                Text("Bluetooth is off or not allowed for Monument.")
                     .foregroundStyle(.secondary)
             } else {
                 Button("Pair a heart-rate strap") { heartRate.startScan() }

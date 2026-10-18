@@ -83,7 +83,7 @@ struct HomeView: View {
                 } header: {
                     Text("Routes")
                 } footer: {
-                    Text("Import straight from Strava (connect it in Settings), or share/AirDrop a GPX file to Run Guide.")
+                    Text("Import straight from Strava (connect it in Settings), or share/AirDrop a GPX file to Monument.")
                 }
 
                 Section {

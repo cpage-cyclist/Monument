@@ -22,15 +22,15 @@ targets:
     info:
       path: RunGuide/Info.plist
       properties:
-        CFBundleDisplayName: Run Guide
+        CFBundleDisplayName: Monument
         UILaunchScreen: {}
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
-        NSLocationWhenInUseUsageDescription: Run Guide uses GPS to measure distance so it can call out each step of your run.
-        NSLocationAlwaysAndWhenInUseUsageDescription: Run Guide uses GPS to measure distance so it can call out each step of your run, including with the screen locked.
-        NSBluetoothAlwaysUsageDescription: Run Guide connects to your heart-rate strap to show and record heart rate.
+        NSLocationWhenInUseUsageDescription: Monument uses GPS to measure distance so it can call out each step of your run.
+        NSLocationAlwaysAndWhenInUseUsageDescription: Monument uses GPS to measure distance so it can call out each step of your run, including with the screen locked.
+        NSBluetoothAlwaysUsageDescription: Monument connects to your heart-rate strap to show and record heart rate.
         UIBackgroundModes:
           - location
           - audio
@@ -43,7 +43,7 @@ targets:
         # Needed to check whether the Strava app is installed (app-to-app sign-in).
         LSApplicationQueriesSchemes:
           - strava
-        # Lets GPX/TCX files (e.g. AirDropped from Strava) open in Run Guide.
+        # Lets GPX/TCX files (e.g. AirDropped from Strava) open in Monument.
         CFBundleDocumentTypes:
           - CFBundleTypeName: GPS route
             CFBundleTypeRole: Viewer
@@ -68,12 +68,12 @@ targets:
             UTTypeTagSpecification:
               public.filename-extension:
                 - tcx
-        # Show saved FIT files in the Files app (On My iPhone › Run Guide).
+        # Show saved FIT files in the Files app (On My iPhone › Monument).
         UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: true
     settings:
       base:
-        # Change this if Xcode says the identifier is already taken.
+        # Kept from Run Guide so the app updates in place (saved runs, Keychain, settings survive).
         PRODUCT_BUNDLE_IDENTIFIER: com.cpage.runguide
         CODE_SIGN_STYLE: Automatic
         TARGETED_DEVICE_FAMILY: "1"

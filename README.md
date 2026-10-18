@@ -1,10 +1,14 @@
-# run-guide
+# Monument
 
-Simple app which dictates workouts while running.
+A fast, phone-first Intervals.icu client for iPhone, with a hands-free run-cue player built in.
 
-Run Guide loads a planned run from Intervals.icu, then talks you through it with the
-phone in your pocket. Every step ends on its own terms, distance by GPS or time by the
-clock, so mixed sessions like 5 × (1 km rep + 90 s float) auto-lap with no taps.
+Monument started life as **Run Guide**, and Run Guide lives on inside it as the run player.
+It loads a planned run from Intervals.icu, then talks you through it with the phone in
+your pocket. Every step ends on its own terms, distance by GPS or time by the clock, so
+mixed sessions like 5 × (1 km rep + 90 s float) auto-lap with no taps.
+
+The rest of the app (activity charts with W'bal, selection breakdowns, quick RPE logging,
+Today and Week views) is being built; see `docs/v2-scope.md`.
 
 What you hear on a 5 × 1 km session:
 
@@ -16,30 +20,23 @@ What you hear on a 5 × 1 km session:
 
 Music keeps playing and dips while it speaks.
 
-## Install on your iPhone (from the iMac)
+## Install on your iPhone
 
-1. Install the tools (once):
-   ```sh
-   brew install xcodegen
-   ```
-   and Xcode from the App Store.
-2. Get the code and generate the Xcode project:
-   ```sh
-   git clone https://github.com/cpage-cyclist/run-guide.git
-   cd run-guide
-   xcodegen generate
-   open RunGuide.xcodeproj
-   ```
-3. In Xcode, select the **RunGuide** target, open **Signing & Capabilities** and pick
-   your Apple ID under **Team** (Xcode › Settings › Accounts to add it). If it says the
-   bundle identifier is taken, change `PRODUCT_BUNDLE_IDENTIFIER` in `project.yml`,
-   run `xcodegen generate` again and reopen.
-4. Plug in the iPhone, choose it as the run destination at the top of Xcode and press ▶.
+The Macs are Intel, so the app is built in GitHub Actions rather than local Xcode.
+
+1. Every push to `main` builds the app. Open the latest **CI** run under the repo's
+   **Actions** tab and download the **Monument-unsigned-ipa** artifact (unzip it to get
+   `Monument-unsigned.ipa`). To build another branch, use **Run workflow** on the CI page.
+2. Open **Sideloadly**, plug in the iPhone, drop the .ipa in, enter your Apple ID and
+   press **Start**.
    - First time only: on the phone, turn on **Settings › Privacy & Security › Developer Mode**
-     (it restarts), then trust your developer profile under
-     **Settings › General › VPN & Device Management**.
-5. With a free Apple ID the app stops opening after **7 days**. Plug in and press ▶ again
-   to renew it. A paid developer account makes it last a year.
+     (it restarts), then trust your Apple ID under **Settings › General › VPN & Device Management**.
+3. With a free Apple ID the app stops opening after **7 days**; re-sign it in Sideloadly.
+   There are no push notifications on a free Apple ID, so reminders are local or shown
+   when the app opens.
+
+The bundle ID is still `com.cpage.runguide`, so installing Monument over Run Guide keeps
+your saved runs, routes, Strava connection and Intervals key.
 
 ## First run
 
@@ -55,7 +52,7 @@ logging.
 ## Recording, FIT files and heart rate
 
 - Every run is recorded (GPS track, heart rate, laps and pauses) and saved as a
-  **.fit file** in the Files app under On My iPhone › Run Guide › Runs, and in the app
+  **.fit file** in the Files app under On My iPhone › Monument › Runs, and in the app
   under **Saved runs**.
 - Laps are typed: warm-up, active (reps), rest (floats/recoveries) and cool-down, with
   pauses recorded as real timer stops.
@@ -74,9 +71,9 @@ logging.
 
 - **Straight from Strava:** one-off, create an API app on strava.com (Settings › My API
   Application, Authorization Callback Domain `localhost`), paste its Client ID and Secret
-  into Run Guide Settings and tap *Connect Strava*. Then *Your Strava routes* lists your
+  into Monument Settings and tap *Connect Strava*. Then *Your Strava routes* lists your
   saved routes (private ones too); tap one to import it, tap again to refresh it.
-- Or export a route as **GPX** and AirDrop/share it to Run Guide, or *Import a route file*.
+- Or export a route as **GPX** and AirDrop/share it to Monument, or *Import a route file*.
   TCX works too.
 - Turns are worked out from the line: bends within 40 m merge into one cue, jinks that
   net out straight become **"Straight on"**, weaving junctions are called **"Tricky

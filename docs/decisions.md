@@ -1,6 +1,15 @@
 # Decisions
 
-Fixed choices for Run Guide. Change one only on purpose, and update this file when you do.
+Fixed choices for Monument (formerly Run Guide). Change one only on purpose, and update this file when you do.
+
+## Name and identity
+
+- The app is **Monument**, in `cpage-cyclist/Monument`, seeded with Run Guide's full history.
+  `cpage-cyclist/run-guide` is retired.
+- Only user-facing names changed. The bundle ID `com.cpage.runguide`, the Keychain service
+  `RunGuide`, and the code/target names stay, so the sideloaded app updates in place with
+  saved runs, routes, Strava connection and API key intact.
+- "Run Guide" remains the name of the spoken run-cue player inside the app.
 
 ## Build and install
 

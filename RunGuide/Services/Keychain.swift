@@ -2,6 +2,7 @@ import Foundation
 import Security
 
 enum Keychain {
+    // Kept from Run Guide: changing it would lose the stored API key.
     private static let service = "RunGuide"
 
     static func set(_ value: String, for account: String) {
