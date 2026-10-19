@@ -25,8 +25,9 @@ final class PowerProfileTests: XCTestCase {
     }
 
     func testCurveInterpolatesAndDecodes() throws {
-        let c = PowerCurve(secs: [180, 300], values: [450, 420])
+        let c = PowerCurve(secs: [180, 230, 250, 300], values: [450, 440, 430, 420])
         XCTAssertEqual(c.watts(at: 240), 435)
+        XCTAssertNil(c.watts(at: 200))   // neighbours too far apart
         XCTAssertNil(c.watts(at: 600))
         let json = #"{"list": [{"secs": [1, 2], "values": [900, 880], "start_date_local": "2026-07-14T00:00:00"}]}"#
         let decoded = try XCTUnwrap(PowerCurve.decodeFirst(Data(json.utf8)))

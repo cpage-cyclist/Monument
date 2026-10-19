@@ -43,12 +43,14 @@ public struct PowerCurve: Decodable, Sendable, Equatable {
         return try JSONDecoder().decode([PowerCurve].self, from: data).first
     }
 
-    /// Best power at exactly `seconds`, interpolating between the nearest durations listed.
+    /// Best power at exactly `seconds`. Interpolates only between close neighbours (within
+    /// 20% of the duration), so a sparse curve doesn't invent efforts that weren't ridden.
     public func watts(at seconds: Int) -> Double? {
         let pairs = zip(secs, values).compactMap { s, v in v.map { (s, $0) } }
         if let exact = pairs.first(where: { $0.0 == seconds }) { return exact.1 }
         guard let below = pairs.last(where: { $0.0 < seconds }),
-              let above = pairs.first(where: { $0.0 > seconds }) else { return nil }
+              let above = pairs.first(where: { $0.0 > seconds }),
+              Double(above.0 - below.0) <= Double(seconds) * 0.2 else { return nil }
         let f = Double(seconds - below.0) / Double(above.0 - below.0)
         return below.1 + (above.1 - below.1) * f
     }
