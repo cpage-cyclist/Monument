@@ -9,6 +9,14 @@ struct ActivitiesView: View {
     @EnvironmentObject private var strava: StravaAccount
     @EnvironmentObject private var library: ActivityLibrary
     @State private var showSettings = false
+    @State private var logging: LogTarget?
+
+    /// The activity being logged, and whether the prompt card opened it.
+    struct LogTarget: Identifiable {
+        let activity: ActivitySummary
+        let fromPrompt: Bool
+        var id: String { activity.id.value }
+    }
 
     var body: some View {
         NavigationStack {
@@ -18,6 +26,16 @@ struct ActivitiesView: View {
                         Button("Add your Intervals athlete ID and API key") { showSettings = true }
                     } footer: {
                         Text("Monument reads your activities from Intervals.icu.")
+                    }
+                }
+
+                if let unlogged = library.unlogged {
+                    Section {
+                        LogPromptCard(activity: unlogged) {
+                            logging = LogTarget(activity: unlogged, fromPrompt: true)
+                        } onDismiss: {
+                            withAnimation { library.dismissLogPrompt(for: unlogged) }
+                        }
                     }
                 }
 
@@ -34,6 +52,14 @@ struct ActivitiesView: View {
                         ForEach(group.activities) { activity in
                             NavigationLink(value: activity) {
                                 ActivityRow(activity: activity)
+                            }
+                            .swipeActions(edge: .leading) {
+                                Button {
+                                    logging = LogTarget(activity: activity, fromPrompt: false)
+                                } label: {
+                                    Label("Log", systemImage: "square.and.pencil")
+                                }
+                                .tint(.accentColor)
                             }
                         }
                     }
@@ -68,6 +94,10 @@ struct ActivitiesView: View {
                     .environmentObject(settings)
                     .environmentObject(heartRate)
                     .environmentObject(strava)
+            }
+            .sheet(item: $logging) { target in
+                QuickLogView(activity: target.activity, fromPrompt: target.fromPrompt)
+                    .environmentObject(library)
             }
             .onChange(of: showSettings) { _, showing in
                 if !showing { Task { await library.refresh(force: library.activities.isEmpty) } }

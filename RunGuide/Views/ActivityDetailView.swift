@@ -16,12 +16,14 @@ struct ActivityDetailView: View {
         case lap(Int)
         case range(ClosedRange<Double>)
         case peak(Int)
+        case effort(Int)
     }
 
     /// Built off the main thread whenever the streams or smoothing change.
     struct Analysis: Sendable {
         let stack: ChartStack
         let peaks: [PeakEffort]
+        let wbal: WbalAnalysis?
     }
 
     @State private var detail: ActivityDetail?
@@ -32,6 +34,7 @@ struct ActivityDetailView: View {
     @State private var selection: Selection?
     @State private var breakdown: SelectionStats?
     @State private var errorText: String?
+    @State private var logging = false
 
     private var smoothing: Smoothing { Smoothing(rawValue: smoothingRaw) ?? .s3 }
     private var current: ActivitySummary { detail?.summary ?? summary }
@@ -53,6 +56,11 @@ struct ActivityDetailView: View {
                             selection = (selection == .peak(seconds)) ? nil : .peak(seconds)
                         }
                     }
+                    if let wbal = analysis.wbal, !wbal.efforts.isEmpty {
+                        EffortsRow(efforts: wbal.efforts, timeline: analysis.stack.timeline, selected: selectedEffort) { i in
+                            selection = (selection == .effort(i)) ? nil : .effort(i)
+                        }
+                    }
                 } else if let errorText {
                     Label(errorText, systemImage: "exclamationmark.triangle")
                         .font(.footnote)
@@ -71,6 +79,19 @@ struct ActivityDetailView: View {
         }
         .navigationTitle(current.name ?? "Activity")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            Button {
+                logging = true
+            } label: {
+                Label(current.isLogged ? "Edit log" : "Log", systemImage: current.isLogged ? "checkmark.circle" : "square.and.pencil")
+            }
+        }
+        .sheet(isPresented: $logging) {
+            QuickLogView(activity: current) {
+                Task { if let fresh = try? await library.detail(id: summary.id.value, force: true) { detail = fresh } }
+            }
+            .environmentObject(library)
+        }
         .task { await load() }
         .onChange(of: smoothingRaw) { _, _ in Task { await rebuild() } }
         .onChange(of: selection) { _, _ in updateBreakdown() }
@@ -83,6 +104,11 @@ struct ActivityDetailView: View {
 
     private var selectedPeak: Int? {
         if case .peak(let s) = selection { return s }
+        return nil
+    }
+
+    private var selectedEffort: Int? {
+        if case .effort(let i) = selection { return i }
         return nil
     }
 
@@ -129,7 +155,8 @@ struct ActivityDetailView: View {
                                rangeX: $rangeX,
                                scrubIndex: scrubIndex,
                                highlight: highlight,
-                               showXAxis: panel.id == stack.panels.last?.id)
+                               showXAxis: panel.id == stack.panels.last?.id,
+                               wbal: panel.kind == .wbal ? analysis?.wbal.map { WbalMarks($0, timeline: stack.timeline) } : nil)
             }
         }
     }
@@ -144,6 +171,9 @@ struct ActivityDetailView: View {
             return a...b
         case .peak(let seconds):
             return analysis?.peaks.first { $0.seconds == seconds }?.range
+        case .effort(let i):
+            guard let e = analysis?.wbal?.efforts[safe: i], e.endIndex > e.startIndex else { return nil }
+            return e.startIndex...e.endIndex
         case .lap(let i):
             guard let lap = detail?.intervals[safe: i] else { return nil }
             if let s = lap.startIndex, let e = lap.endIndex, timeline.x.indices.contains(s), timeline.x.indices.contains(e), e > s {
@@ -171,6 +201,9 @@ struct ActivityDetailView: View {
         case .peak(let seconds):
             guard let p = analysis.peaks.first(where: { $0.seconds == seconds }) else { return "Peak" }
             return "Best \(p.label) · \(Int(p.watts.rounded())) W"
+        case .effort(let i):
+            guard let e = analysis.wbal?.efforts[safe: i] else { return "Effort" }
+            return "Effort \(i + 1) · " + String(format: "%.1f kJ", e.spentKJ)
         case .range:
             guard let r = indexRange(timeline) else { return "Selection" }
             return "Selection " + Format.clock(timeline.x[r.lowerBound]) + "–" + Format.clock(timeline.x[r.upperBound])
@@ -215,7 +248,10 @@ struct ActivityDetailView: View {
             let peaks = streams.has(.watts)
                 ? PeakEffort.find(watts: streams[.watts] ?? [], timeline: stack.timeline)
                 : []
-            return Analysis(stack: stack, peaks: peaks)
+            let wbal = streams.has(.watts) && streams.has(.wbal)
+                ? WbalAnalysis.analyse(wbal: streams[.wbal] ?? [])
+                : nil
+            return Analysis(stack: stack, peaks: peaks, wbal: wbal)
         }.value
         updateBreakdown()
     }
@@ -231,6 +267,8 @@ struct ChartPanelView: View {
     let scrubIndex: Int?
     let highlight: ClosedRange<Double>?
     let showXAxis: Bool
+    /// Only set on the W'bal panel.
+    var wbal: WbalMarks? = nil
 
     private var kind: ChartKind { panel.kind }
     /// Reversed panels (pace) plot negated values so faster sits at the top.
@@ -252,6 +290,10 @@ struct ChartPanelView: View {
                     Text(kind.format(panel.value(at: scrubIndex)) + " " + kind.unit)
                         .font(.caption.monospacedDigit().weight(.semibold))
                         .foregroundStyle(ChartPanelView.color(kind))
+                } else if let wbal {
+                    Text("Low " + String(format: "%.1f", wbal.low.y) + " kJ")
+                        .font(.caption.monospacedDigit().weight(.semibold))
+                        .foregroundStyle(.red)
                 }
             }
 
@@ -276,6 +318,22 @@ struct ChartPanelView: View {
                             .foregroundStyle(ChartPanelView.color(kind))
                             .lineStyle(StrokeStyle(lineWidth: 1))
                     }
+                }
+
+                if let wbal {
+                    ForEach(wbal.efforts, id: \.x) { e in
+                        PointMark(x: .value("Time", e.x), y: .value("W'bal", e.y))
+                            .symbolSize(16)
+                            .foregroundStyle(ChartPanelView.color(.wbal))
+                            .annotation(position: .bottom, spacing: 1) {
+                                Text("−" + String(format: "%.1f", e.spent))
+                                    .font(.system(size: 9, weight: .semibold).monospacedDigit())
+                                    .foregroundStyle(.secondary)
+                            }
+                    }
+                    PointMark(x: .value("Time", wbal.low.x), y: .value("W'bal", wbal.low.y))
+                        .symbolSize(40)
+                        .foregroundStyle(.red)
                 }
 
                 if let scrubX {
@@ -305,7 +363,7 @@ struct ChartPanelView: View {
             }
             .chartXSelection(value: $scrubX)
             .chartXSelection(range: $rangeX)
-            .frame(height: kind == .altitude ? 72 : 96)
+            .frame(height: kind == .altitude ? 72 : (kind == .wbal ? 110 : 96))
             .clipped()
             .accessibilityLabel(kind.title)
         }
@@ -444,6 +502,63 @@ struct BreakdownPanel: View {
         if let r = s.elevation { rows.append(Row(label: "Elevation", min: int(r.min), avg: int(r.avg), max: int(r.max), unit: "m")) }
         if let r = s.temperature { rows.append(Row(label: "Temperature", min: int(r.min), avg: int(r.avg), max: int(r.max), unit: "°C")) }
         return rows
+    }
+}
+
+// MARK: - W'bal
+
+/// Chart positions for the W'bal markers: the lowest point and each labelled effort's low.
+struct WbalMarks {
+    struct Mark { let x: Double; let y: Double; let spent: Double }
+    let low: (x: Double, y: Double)
+    let efforts: [Mark]
+
+    init(_ analysis: WbalAnalysis, timeline: Timeline) {
+        let x = timeline.x
+        low = (x[safe: analysis.lowIndex] ?? 0, analysis.lowKJ)
+        efforts = analysis.labelled().compactMap { e in
+            x[safe: e.endIndex].map { Mark(x: $0, y: e.lowKJ, spent: e.spentKJ) }
+        }
+    }
+}
+
+struct EffortsRow: View {
+    let efforts: [WbalEffort]
+    let timeline: Timeline
+    let selected: Int?
+    let onTap: (Int) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("W' efforts").font(.headline)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(Array(efforts.enumerated()), id: \.offset) { i, e in
+                        Button { onTap(i) } label: {
+                            VStack(spacing: 2) {
+                                Text(duration(e)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                                Text(String(format: "%.1f", e.spentKJ)).font(.headline.monospacedDigit())
+                                Text("to " + String(format: "%.1f", e.lowKJ)).font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
+                            }
+                            .frame(minWidth: 58)
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 6)
+                            .background(selected == i ? Color.accentColor.opacity(0.2) : Color(.secondarySystemBackground),
+                                        in: RoundedRectangle(cornerRadius: 10))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            Text("kJ spent from W' in each effort, and the W'bal it dropped to.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func duration(_ e: WbalEffort) -> String {
+        guard let a = timeline.x[safe: e.startIndex], let b = timeline.x[safe: e.endIndex] else { return "–" }
+        return Format.clock(b - a)
     }
 }
 
