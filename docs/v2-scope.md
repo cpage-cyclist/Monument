@@ -44,7 +44,8 @@ it is and becomes the "Start" action for planned runs.
 - **Today:** next planned session (name, duration, load, step structure), a "Start"
   button for runs that opens the voice-cue player, the last activity with a log prompt,
   and a fitness/fatigue/form readout (numbers only).
-- **Week:** swipeable week view, planned vs completed per day. Light edits only: move a
+- **Week:** seven days centred on today (three either side), swipeable a week at a time,
+  planned vs completed per day. Light edits only: move a
   session to another day, delete it, add a note. Workout building stays on
   desktop/Claude.
 - **Speed:** local cache so screens open instantly and refresh in the background.

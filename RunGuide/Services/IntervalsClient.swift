@@ -63,9 +63,13 @@ struct IntervalsClient {
 
     /// Raw JSON for activities between two days, newest first. Raw so it can be cached as-is.
     func activitiesData(oldest: Date, newest: Date, limit: Int = 100) async throws -> Data {
+        try await activitiesData(oldest: IntervalsDates.day(oldest), newest: IntervalsDates.day(newest), limit: limit)
+    }
+
+    func activitiesData(oldest: String, newest: String, limit: Int = 100) async throws -> Data {
         try await send("GET", "/athlete/\(athleteId)/activities", query: [
-            "oldest": IntervalsDates.day(oldest),
-            "newest": IntervalsDates.day(newest),
+            "oldest": oldest,
+            "newest": newest,
             "limit": String(limit),
             "fields": Self.activityListFields.joined(separator: ",")
         ])
@@ -98,6 +102,40 @@ struct IntervalsClient {
         guard !wellness.isEmpty else { return }
         _ = try await send("PUT", "/athlete/\(athleteId)/wellness/\(IntervalsDates.day(date))",
                            json: try JSONSerialization.data(withJSONObject: wellness.body))
+    }
+
+    // MARK: - Calendar and fitness (v2)
+
+    /// Raw JSON for calendar entries (planned workouts, races, notes) between two days.
+    func eventsData(oldest: String, newest: String) async throws -> Data {
+        try await send("GET", "/athlete/\(athleteId)/events", query: ["oldest": oldest, "newest": newest])
+    }
+
+    /// Raw JSON for daily fitness/wellness between two days.
+    func wellnessData(oldest: String, newest: String) async throws -> Data {
+        try await send("GET", "/athlete/\(athleteId)/wellness", query: ["oldest": oldest, "newest": newest])
+    }
+
+    /// Moves a calendar entry to another day.
+    func moveEvent(id: Int, to day: String) async throws {
+        let body = try JSONSerialization.data(withJSONObject: ["start_date_local": day + "T00:00:00"])
+        _ = try await send("PUT", "/athlete/\(athleteId)/events/\(id)", json: body)
+    }
+
+    /// Removes a calendar entry. Completed activities aren't affected.
+    func deleteEvent(id: Int) async throws {
+        _ = try await send("DELETE", "/athlete/\(athleteId)/events/\(id)")
+    }
+
+    /// Adds a note to a day's calendar.
+    func addNote(on day: String, title: String, text: String) async throws {
+        let body = try JSONSerialization.data(withJSONObject: [
+            "category": "NOTE",
+            "start_date_local": day + "T00:00:00",
+            "name": title,
+            "description": text
+        ])
+        _ = try await send("POST", "/athlete/\(athleteId)/events", json: body)
     }
 
     // MARK: - Upload (v1)
