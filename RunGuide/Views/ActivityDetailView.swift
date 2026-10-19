@@ -4,8 +4,8 @@ import RunGuideCore
 
 /// One activity: summary figures, stacked charts on a shared timeline, a breakdown panel
 /// for whatever is selected, peak efforts, and the laps table.
-/// Drag on a chart to scrub; drag with two fingers to select a range; tap a lap or a peak
-/// to select it.
+/// Drag on a chart to scrub; press and hold, then drag, to select a range; tap a lap, peak
+/// or W' effort to select it.
 struct ActivityDetailView: View {
     let summary: ActivitySummary
 
@@ -96,7 +96,7 @@ struct ActivityDetailView: View {
         .onChange(of: smoothingRaw) { _, _ in Task { await rebuild() } }
         .onChange(of: selection) { _, _ in updateBreakdown() }
         .onChange(of: rangeX) { _, range in
-            // The two-finger range clears when the fingers lift; keep what was chosen.
+            // The dragged range clears when the finger lifts; keep what was chosen.
             if let range, range.upperBound - range.lowerBound >= 2 { selection = .range(range) }
         }
         .refreshable { await load(force: true) }
@@ -129,7 +129,7 @@ struct ActivityDetailView: View {
         let highlight = highlightRange(stack.timeline)
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text(scrubIndex.map { Format.clock(stack.timeline.x[$0]) } ?? "Drag to scrub · two fingers to select")
+                Text(scrubIndex.map { Format.clock(stack.timeline.x[$0]) } ?? "Drag to scrub · hold, then drag to select")
                     .font(.subheadline.monospacedDigit())
                     .foregroundStyle(scrubIndex == nil ? .secondary : .primary)
                     .lineLimit(1)
@@ -270,6 +270,14 @@ struct ChartPanelView: View {
     /// Only set on the W'bal panel.
     var wbal: WbalMarks? = nil
 
+    /// Press-and-hold selection: hold still briefly, feel the tap, then drag across a range.
+    @State private var selecting = false
+    @State private var selectStartX: Double?
+    /// The first move of a one-finger drag decides between scrubbing (sideways) and
+    /// scrolling the page (up/down).
+    @State private var dragAxis: Axis?
+    @State private var holdFeedback = 0
+
     private var kind: ChartKind { panel.kind }
     /// Reversed panels (pace) plot negated values so faster sits at the top.
     private var sign: Double { kind.reversed ? -1 : 1 }
@@ -361,12 +369,70 @@ struct ChartPanelView: View {
                     }
                 }
             }
-            .chartXSelection(value: $scrubX)
-            .chartXSelection(range: $rangeX)
+            .chartOverlay { proxy in
+                GeometryReader { geo in
+                    Rectangle()
+                        .fill(.clear)
+                        .contentShape(Rectangle())
+                        .simultaneousGesture(scrubGesture(proxy, geo))
+                        .simultaneousGesture(selectGesture(proxy, geo))
+                }
+            }
+            .sensoryFeedback(.impact(weight: .medium), trigger: holdFeedback)
             .frame(height: kind == .altitude ? 72 : (kind == .wbal ? 110 : 96))
             .clipped()
             .accessibilityLabel(kind.title)
         }
+    }
+
+    // MARK: - Gestures
+
+    /// Chart time at a touch point, clamped to the chart.
+    private func time(at point: CGPoint, _ proxy: ChartProxy, _ geo: GeometryProxy) -> Double? {
+        guard let anchor = proxy.plotFrame else { return nil }
+        let frame = geo[anchor]
+        let x = min(max(point.x - frame.minX, 0), frame.width)
+        guard let value = proxy.value(atX: x, as: Double.self) else { return nil }
+        return min(max(value, domain.lowerBound), domain.upperBound)
+    }
+
+    private func scrubGesture(_ proxy: ChartProxy, _ geo: GeometryProxy) -> some Gesture {
+        DragGesture(minimumDistance: 6)
+            .onChanged { value in
+                if dragAxis == nil {
+                    dragAxis = abs(value.translation.width) >= abs(value.translation.height) ? .horizontal : .vertical
+                }
+                guard dragAxis == .horizontal, !selecting else { return }
+                scrubX = time(at: value.location, proxy, geo)
+            }
+            .onEnded { _ in
+                dragAxis = nil
+                if !selecting { scrubX = nil }
+            }
+    }
+
+    private func selectGesture(_ proxy: ChartProxy, _ geo: GeometryProxy) -> some Gesture {
+        LongPressGesture(minimumDuration: 0.35, maximumDistance: 14)
+            .sequenced(before: DragGesture(minimumDistance: 0))
+            .onChanged { value in
+                guard case .second(true, let drag) = value else { return }
+                if !selecting {
+                    selecting = true
+                    holdFeedback += 1
+                }
+                guard let drag else { return }
+                if selectStartX == nil { selectStartX = time(at: drag.startLocation, proxy, geo) }
+                guard let start = selectStartX, let current = time(at: drag.location, proxy, geo) else { return }
+                scrubX = current
+                rangeX = min(start, current)...max(start, current)
+            }
+            .onEnded { _ in
+                selecting = false
+                selectStartX = nil
+                scrubX = nil
+                // The detail view has already taken the range as its selection.
+                rangeX = nil
+            }
     }
 
     static func color(_ kind: ChartKind) -> Color {
