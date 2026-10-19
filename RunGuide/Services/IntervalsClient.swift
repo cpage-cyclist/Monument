@@ -104,6 +104,12 @@ struct IntervalsClient {
                            json: try JSONSerialization.data(withJSONObject: wellness.body))
     }
 
+    /// Raw JSON for the best-power curve between two days (inclusive) for a sport.
+    func powerCurveData(type: String, from: String, to: String) async throws -> Data {
+        try await send("GET", "/athlete/\(athleteId)/power-curves.json",
+                       query: ["type": type, "curves": "r.\(from).\(to)"])
+    }
+
     // MARK: - Calendar and fitness (v2)
 
     /// Raw JSON for calendar entries (planned workouts, races, notes) between two days.

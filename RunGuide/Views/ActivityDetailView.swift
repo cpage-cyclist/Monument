@@ -11,6 +11,26 @@ struct ActivityDetailView: View {
 
     @EnvironmentObject private var library: ActivityLibrary
     @AppStorage("chartSmoothing") private var smoothingRaw = Smoothing.s3.rawValue
+    @AppStorage("wbalSource") private var wbalSourceRaw = WbalSource.intervals.rawValue
+
+    /// Whose W'bal the chart, efforts and breakdown use.
+    enum WbalSource: String, CaseIterable, Identifiable {
+        /// Intervals' own stream, from the FTP and W' set by hand in Intervals.
+        case intervals
+        /// Monument's model with a profile fitted to recent best efforts.
+        case monument
+        /// Monument's, with Intervals' drawn alongside for comparison.
+        case both
+
+        var id: String { rawValue }
+        var label: String {
+            switch self {
+            case .intervals: return "Intervals"
+            case .monument: return "Monument"
+            case .both: return "Both"
+            }
+        }
+    }
 
     enum Selection: Equatable {
         case lap(Int)
@@ -24,6 +44,13 @@ struct ActivityDetailView: View {
         let stack: ChartStack
         let peaks: [PeakEffort]
         let wbal: WbalAnalysis?
+        /// The streams the charts and breakdown were built from (W'bal swapped for Monument's
+        /// when that's chosen).
+        let streams: ActivityStreams
+        /// Intervals' W'bal in kJ, drawn dashed when comparing.
+        let comparison: [ChartPoint]?
+        /// True if Monument's W'bal is the one shown.
+        let usingMonument: Bool
     }
 
     @State private var detail: ActivityDetail?
@@ -35,8 +62,11 @@ struct ActivityDetailView: View {
     @State private var breakdown: SelectionStats?
     @State private var errorText: String?
     @State private var logging = false
+    @State private var profile: PowerProfile?
+    @State private var profileLoaded = false
 
     private var smoothing: Smoothing { Smoothing(rawValue: smoothingRaw) ?? .s3 }
+    private var wbalSource: WbalSource { WbalSource(rawValue: wbalSourceRaw) ?? .intervals }
     private var current: ActivitySummary { detail?.summary ?? summary }
 
     var body: some View {
@@ -94,6 +124,7 @@ struct ActivityDetailView: View {
         }
         .task { await load() }
         .onChange(of: smoothingRaw) { _, _ in Task { await rebuild() } }
+        .onChange(of: wbalSourceRaw) { _, _ in Task { await rebuild() } }
         .onChange(of: selection) { _, _ in updateBreakdown() }
         .onChange(of: rangeX) { _, range in
             // The dragged range clears when the finger lifts; keep what was chosen.
@@ -156,7 +187,16 @@ struct ActivityDetailView: View {
                                scrubIndex: scrubIndex,
                                highlight: highlight,
                                showXAxis: panel.id == stack.panels.last?.id,
-                               wbal: panel.kind == .wbal ? analysis?.wbal.map { WbalMarks($0, timeline: stack.timeline) } : nil)
+                               wbal: panel.kind == .wbal ? analysis?.wbal.map { WbalMarks($0, timeline: stack.timeline) } : nil,
+                               comparison: panel.kind == .wbal ? analysis?.comparison : nil)
+                if panel.kind == .wbal {
+                    WbalSourceBar(source: $wbalSourceRaw,
+                                  profile: profile,
+                                  profileLoaded: profileLoaded,
+                                  usingMonument: analysis?.usingMonument ?? false,
+                                  intervalsFTP: current.ftp,
+                                  intervalsWPrime: streams?[.wbal]?.compactMap { $0 }.max())
+                }
             }
         }
     }
@@ -211,11 +251,11 @@ struct ActivityDetailView: View {
     }
 
     private func updateBreakdown() {
-        guard let streams, let analysis, let range = indexRange(analysis.stack.timeline) else {
+        guard let analysis, let range = indexRange(analysis.stack.timeline) else {
             breakdown = nil
             return
         }
-        breakdown = SelectionStats.compute(streams: streams, timeline: analysis.stack.timeline, range: range,
+        breakdown = SelectionStats.compute(streams: analysis.streams, timeline: analysis.stack.timeline, range: range,
                                            ftp: current.ftp, weight: current.weight, isRun: current.isRun)
     }
 
@@ -237,13 +277,33 @@ struct ActivityDetailView: View {
             detail = fresh
             updateBreakdown()
         }
+        if !profileLoaded, streams?.has(.watts) == true, !current.isRun {
+            profile = await library.profile(for: current)
+            profileLoaded = true
+            if wbalSource != .intervals { await rebuild() }
+        }
     }
 
     private func rebuild() async {
-        guard let streams else { return }
+        guard let raw = streams else { return }
         let isRun = current.isRun
         let smoothing = self.smoothing
+        let source = wbalSource
+        let profile = self.profile
         analysis = await Task.detached(priority: .userInitiated) {
+            // Swap in Monument's W'bal when it's chosen and a profile could be fitted.
+            var streams = raw
+            var usingMonument = false
+            if source != .intervals, let profile, raw.has(.watts), let watts = raw[.watts] {
+                let balance = WbalModel.skibaDifferential.balance(watts: watts, time: raw.time,
+                                                                 cp: profile.cp, wPrime: profile.wPrime)
+                if balance.count == raw.count {
+                    var series = raw.series
+                    series[.wbal] = balance
+                    streams = ActivityStreams(time: raw.time, series: series)
+                    usingMonument = true
+                }
+            }
             let stack = ChartStack(streams: streams, isRun: isRun, smoothing: smoothing)
             let peaks = streams.has(.watts)
                 ? PeakEffort.find(watts: streams[.watts] ?? [], timeline: stack.timeline)
@@ -251,7 +311,13 @@ struct ActivityDetailView: View {
             let wbal = streams.has(.watts) && streams.has(.wbal)
                 ? WbalAnalysis.analyse(wbal: streams[.wbal] ?? [])
                 : nil
-            return Analysis(stack: stack, peaks: peaks, wbal: wbal)
+            var comparison: [ChartPoint]?
+            if source == .both, usingMonument, raw.has(.wbal) {
+                comparison = ChartSeries.downsample(x: stack.timeline.x,
+                                                    y: ChartKind.wbal.values(from: raw), maxPoints: 600)
+            }
+            return Analysis(stack: stack, peaks: peaks, wbal: wbal, streams: streams,
+                            comparison: comparison, usingMonument: usingMonument)
         }.value
         updateBreakdown()
     }
@@ -269,6 +335,8 @@ struct ChartPanelView: View {
     let showXAxis: Bool
     /// Only set on the W'bal panel.
     var wbal: WbalMarks? = nil
+    /// A second line drawn dashed on the same scale (Intervals' W'bal when comparing).
+    var comparison: [ChartPoint]? = nil
 
     /// Press-and-hold selection: hold still briefly, feel the tap, then drag across a range.
     @State private var selecting = false
@@ -283,7 +351,7 @@ struct ChartPanelView: View {
     private var sign: Double { kind.reversed ? -1 : 1 }
 
     private var yDomain: ClosedRange<Double> {
-        let d = kind.yDomain(for: panel.points)
+        let d = kind.yDomain(for: panel.points + (comparison ?? []))
         return kind.reversed ? (-d.upperBound)...(-d.lowerBound) : d
     }
 
@@ -318,13 +386,24 @@ struct ChartPanelView: View {
                                  yStart: .value("Base", yDomain.lowerBound),
                                  yEnd: .value(kind.title, p.y * sign))
                             .foregroundStyle(ChartPanelView.color(kind).opacity(0.25))
-                        LineMark(x: .value("Time", p.x), y: .value(kind.title, p.y * sign))
+                        LineMark(x: .value("Time", p.x), y: .value(kind.title, p.y * sign),
+                                 series: .value("Series", "main"))
                             .foregroundStyle(ChartPanelView.color(kind))
                             .lineStyle(StrokeStyle(lineWidth: 1.2))
                     } else {
-                        LineMark(x: .value("Time", p.x), y: .value(kind.title, p.y * sign))
+                        LineMark(x: .value("Time", p.x), y: .value(kind.title, p.y * sign),
+                                 series: .value("Series", "main"))
                             .foregroundStyle(ChartPanelView.color(kind))
                             .lineStyle(StrokeStyle(lineWidth: 1))
+                    }
+                }
+
+                if let comparison {
+                    ForEach(comparison, id: \.x) { p in
+                        LineMark(x: .value("Time", p.x), y: .value(kind.title, p.y * sign),
+                                 series: .value("Series", "comparison"))
+                            .foregroundStyle(Color.secondary)
+                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
                     }
                 }
 
@@ -625,6 +704,67 @@ struct EffortsRow: View {
     private func duration(_ e: WbalEffort) -> String {
         guard let a = timeline.x[safe: e.startIndex], let b = timeline.x[safe: e.endIndex] else { return "–" }
         return Format.clock(b - a)
+    }
+}
+
+// MARK: - W'bal source
+
+/// Switches the W'bal chart between Intervals' (hand-set FTP and W') and Monument's
+/// (profile fitted to recent best efforts), and says which numbers are in use.
+struct WbalSourceBar: View {
+    @Binding var source: String
+    let profile: PowerProfile?
+    let profileLoaded: Bool
+    let usingMonument: Bool
+    let intervalsFTP: Double?
+    /// Joules: the top of Intervals' W'bal stream, which is the W' it used.
+    let intervalsWPrime: Double?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Picker("W'bal source", selection: $source) {
+                ForEach(ActivityDetailView.WbalSource.allCases) { s in Text(s.label).tag(s.rawValue) }
+            }
+            .pickerStyle(.segmented)
+
+            let choice = ActivityDetailView.WbalSource(rawValue: source) ?? .intervals
+            if choice != .monument { line(intervalsText, dashed: choice == .both) }
+            if choice != .intervals { line(monumentText, dashed: false) }
+        }
+        .font(.caption)
+        .foregroundStyle(.secondary)
+    }
+
+    private func line(_ text: String, dashed: Bool) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            if dashed {
+                Text("- -").font(.caption.monospaced())
+            }
+            Text(text).fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var intervalsText: String {
+        var parts = ["Intervals (your settings)"]
+        if let ftp = intervalsFTP { parts.append("FTP \(Int(ftp.rounded())) W") }
+        if let wp = intervalsWPrime { parts.append(String(format: "W′ %.1f kJ", wp / 1000)) }
+        return parts.joined(separator: " · ")
+    }
+
+    private var monumentText: String {
+        guard profileLoaded else { return "Monument: fitting your profile…" }
+        guard let p = profile else {
+            return "Monument: not enough hard 3–20 min efforts in the 90 days before this ride to fit a profile, so Intervals' W'bal is shown."
+        }
+        var text = "Monument · CP \(Int(p.cp.rounded())) W · " + String(format: "W′ %.1f kJ", p.wPrime / 1000)
+        text += " · fitted to best 3–20 min efforts"
+        if let from = p.from, let to = p.to { text += ", " + Self.short(from) + " – " + Self.short(to) }
+        if !usingMonument { text += " (not applied: no power data)" }
+        return text
+    }
+
+    private static func short(_ day: String) -> String {
+        IntervalsDates.parseLocal(day + "T12:00:00")?.formatted(.dateTime.day().month(.abbreviated)) ?? day
     }
 }
 

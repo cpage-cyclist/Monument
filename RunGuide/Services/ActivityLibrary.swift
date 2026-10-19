@@ -124,6 +124,35 @@ final class ActivityLibrary: ObservableObject {
         }
     }
 
+    // MARK: - Monument power profile
+
+    /// Days of best efforts the profile is fitted to, ending on the ride's date.
+    static let profileDays = 90
+
+    /// Monument's CP/W′ for a ride, fitted to the best efforts in the 90 days up to and
+    /// including that ride. Past curves never change, so they're cached for good.
+    func profile(for activity: ActivitySummary) async -> PowerProfile? {
+        guard let start = activity.startDate else { return nil }
+        let cal = Calendar.current
+        let to = IntervalsDates.day(start)
+        let from = IntervalsDates.day(cal.date(byAdding: .day, value: -(Self.profileDays - 1), to: start) ?? start)
+        let key = "curve-Ride-\(from)-\(to)"
+        let isToday = cal.isDateInToday(start)
+
+        if let cached = cache.read(key), !(isToday && cached.age() > 3600),
+           let curve = try? PowerCurve.decodeFirst(cached.data) {
+            return PowerProfile.fitTwoParameter(curve: curve)
+        }
+        do {
+            let data = try await clientProvider().powerCurveData(type: "Ride", from: from, to: to)
+            cache.write(data, for: key)
+            cache.trim(prefix: "curve-", keep: Self.streamsToKeep)
+            return (try PowerCurve.decodeFirst(data)).flatMap { PowerProfile.fitTwoParameter(curve: $0) }
+        } catch {
+            return nil
+        }
+    }
+
     // MARK: - Logging
 
     /// Saves RPE/feel/note on the activity and any wellness fields for its day, then refreshes.
