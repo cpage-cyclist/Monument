@@ -4,8 +4,8 @@ import RunGuideCore
 
 /// One activity: summary figures, stacked charts on a shared timeline, a breakdown panel
 /// for whatever is selected, peak efforts, and the laps table.
-/// Drag on a chart to scrub; press and hold, then drag, to select a range; tap a lap, peak
-/// or W' effort to select it.
+/// Drag on a chart to scrub; press and hold, then drag, to select a range; tap a chart to go
+/// back to the whole activity. Tap a lap, peak or W' effort to select it.
 struct ActivityDetailView: View {
     let summary: ActivitySummary
 
@@ -126,10 +126,6 @@ struct ActivityDetailView: View {
         .onChange(of: smoothingRaw) { _, _ in Task { await rebuild() } }
         .onChange(of: wbalSourceRaw) { _, _ in Task { await rebuild() } }
         .onChange(of: selection) { _, _ in updateBreakdown() }
-        .onChange(of: rangeX) { _, range in
-            // The dragged range clears when the finger lifts; keep what was chosen.
-            if let range, range.upperBound - range.lowerBound >= 2 { selection = .range(range) }
-        }
         .refreshable { await load(force: true) }
     }
 
@@ -157,10 +153,11 @@ struct ActivityDetailView: View {
     @ViewBuilder
     private func charts(_ stack: ChartStack) -> some View {
         let scrubIndex = scrubX.flatMap { stack.timeline.index(atX: $0) }
-        let highlight = highlightRange(stack.timeline)
+        // While a range is being dragged, shade it live; the breakdown waits for the lift.
+        let highlight = rangeX ?? highlightRange(stack.timeline)
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text(scrubIndex.map { Format.clock(stack.timeline.x[$0]) } ?? "Drag to scrub · hold, then drag to select")
+                Text(scrubIndex.map { Format.clock(stack.timeline.x[$0]) } ?? "Drag to scrub · hold to select · tap to reset")
                     .font(.subheadline.monospacedDigit())
                     .foregroundStyle(scrubIndex == nil ? .secondary : .primary)
                     .lineLimit(1)
@@ -188,7 +185,11 @@ struct ActivityDetailView: View {
                                highlight: highlight,
                                showXAxis: panel.id == stack.panels.last?.id,
                                wbal: panel.kind == .wbal ? analysis?.wbal.map { WbalMarks($0, timeline: stack.timeline) } : nil,
-                               comparison: panel.kind == .wbal ? analysis?.comparison : nil)
+                               comparison: panel.kind == .wbal ? analysis?.comparison : nil,
+                               onSelect: { range in
+                                   if range.upperBound - range.lowerBound >= 2 { selection = .range(range) }
+                               },
+                               onTap: { selection = nil })
                 if panel.kind == .wbal {
                     WbalSourceBar(source: $wbalSourceRaw,
                                   profile: profile,
@@ -325,10 +326,14 @@ struct ActivityDetailView: View {
 
 // MARK: - One chart panel
 
+/// One panel: the plotted data (redrawn only when the data changes) with a light overlay on
+/// top for the scrub line, the selection shading and the touch handling. Keeping the
+/// overlay separate means dragging doesn't redraw thousands of chart marks every frame.
 struct ChartPanelView: View {
     let panel: ChartStack.Panel
     let domain: ClosedRange<Double>
     @Binding var scrubX: Double?
+    /// The range being dragged out, shown live; committed with `onSelect` on lift.
     @Binding var rangeX: ClosedRange<Double>?
     let scrubIndex: Int?
     let highlight: ClosedRange<Double>?
@@ -337,7 +342,10 @@ struct ChartPanelView: View {
     var wbal: WbalMarks? = nil
     /// A second line drawn dashed on the same scale (Intervals' W'bal when comparing).
     var comparison: [ChartPoint]? = nil
+    var onSelect: (ClosedRange<Double>) -> Void = { _ in }
+    var onTap: () -> Void = {}
 
+    @State private var plotFrame: CGRect = .zero
     /// Press-and-hold selection: hold still briefly, feel the tap, then drag across a range.
     @State private var selecting = false
     @State private var selectStartX: Double?
@@ -347,8 +355,6 @@ struct ChartPanelView: View {
     @State private var holdFeedback = 0
 
     private var kind: ChartKind { panel.kind }
-    /// Reversed panels (pace) plot negated values so faster sits at the top.
-    private var sign: Double { kind.reversed ? -1 : 1 }
 
     private var yDomain: ClosedRange<Double> {
         let d = kind.yDomain(for: panel.points + (comparison ?? []))
@@ -373,116 +379,64 @@ struct ChartPanelView: View {
                 }
             }
 
-            Chart {
-                if let highlight {
-                    RectangleMark(xStart: .value("Start", highlight.lowerBound),
-                                  xEnd: .value("End", highlight.upperBound))
-                        .foregroundStyle(Color.accentColor.opacity(0.16))
-                }
-
-                ForEach(panel.points, id: \.x) { p in
-                    if kind == .altitude || kind == .wbal {
-                        AreaMark(x: .value("Time", p.x),
-                                 yStart: .value("Base", yDomain.lowerBound),
-                                 yEnd: .value(kind.title, p.y * sign))
-                            .foregroundStyle(ChartPanelView.color(kind).opacity(0.25))
-                        LineMark(x: .value("Time", p.x), y: .value(kind.title, p.y * sign),
-                                 series: .value("Series", "main"))
-                            .foregroundStyle(ChartPanelView.color(kind))
-                            .lineStyle(StrokeStyle(lineWidth: 1.2))
-                    } else {
-                        LineMark(x: .value("Time", p.x), y: .value(kind.title, p.y * sign),
-                                 series: .value("Series", "main"))
-                            .foregroundStyle(ChartPanelView.color(kind))
-                            .lineStyle(StrokeStyle(lineWidth: 1))
-                    }
-                }
-
-                if let comparison {
-                    ForEach(comparison, id: \.x) { p in
-                        LineMark(x: .value("Time", p.x), y: .value(kind.title, p.y * sign),
-                                 series: .value("Series", "comparison"))
-                            .foregroundStyle(Color.secondary)
-                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
-                    }
-                }
-
-                if let wbal {
-                    ForEach(wbal.efforts, id: \.x) { e in
-                        PointMark(x: .value("Time", e.x), y: .value("W'bal", e.y))
-                            .symbolSize(16)
-                            .foregroundStyle(ChartPanelView.color(.wbal))
-                            .annotation(position: .bottom, spacing: 1) {
-                                Text("−" + String(format: "%.1f", e.spent))
-                                    .font(.system(size: 9, weight: .semibold).monospacedDigit())
-                                    .foregroundStyle(.secondary)
-                            }
-                    }
-                    PointMark(x: .value("Time", wbal.low.x), y: .value("W'bal", wbal.low.y))
-                        .symbolSize(40)
-                        .foregroundStyle(.red)
-                }
-
-                if let scrubX {
-                    RuleMark(x: .value("Time", scrubX))
-                        .foregroundStyle(Color.primary.opacity(0.5))
-                        .lineStyle(StrokeStyle(lineWidth: 1))
-                }
-            }
-            .chartXScale(domain: domain)
-            .chartYScale(domain: yDomain)
-            .chartXAxis {
-                AxisMarks(values: .automatic(desiredCount: 5)) { value in
-                    AxisGridLine()
-                    AxisValueLabel {
-                        if let s = value.as(Double.self) { Text(Format.clock(s)) }
-                    }
-                }
-            }
-            .chartXAxis(showXAxis ? .automatic : .hidden)
-            .chartYAxis {
-                AxisMarks(position: .leading, values: .automatic(desiredCount: 3)) { value in
-                    AxisGridLine()
-                    AxisValueLabel {
-                        if let v = value.as(Double.self) { Text(kind.axisLabel(v * sign)) }
-                    }
-                }
-            }
-            .chartOverlay { proxy in
-                GeometryReader { geo in
-                    Rectangle()
-                        .fill(.clear)
-                        .contentShape(Rectangle())
-                        .simultaneousGesture(scrubGesture(proxy, geo))
-                        .simultaneousGesture(selectGesture(proxy, geo))
-                }
-            }
-            .sensoryFeedback(.impact(weight: .medium), trigger: holdFeedback)
-            .frame(height: kind == .altitude ? 72 : (kind == .wbal ? 110 : 96))
-            .clipped()
-            .accessibilityLabel(kind.title)
+            PanelPlot(kind: kind, points: panel.points, comparison: comparison, wbal: wbal,
+                      domain: domain, yDomain: yDomain, showXAxis: showXAxis)
+                .equatable()
+                .onPreferenceChange(PlotFrameKey.self) { plotFrame = $0 }
+                .overlay(alignment: .topLeading) { overlay }
+                .sensoryFeedback(.impact(weight: .medium), trigger: holdFeedback)
+                .frame(height: kind == .altitude ? 72 : (kind == .wbal ? 110 : 96))
+                .clipped()
+                .accessibilityLabel(kind.title)
         }
     }
 
-    // MARK: - Gestures
-
-    /// Chart time at a touch point, clamped to the chart.
-    private func time(at point: CGPoint, _ proxy: ChartProxy, _ geo: GeometryProxy) -> Double? {
-        guard let anchor = proxy.plotFrame else { return nil }
-        let frame = geo[anchor]
-        let x = min(max(point.x - frame.minX, 0), frame.width)
-        guard let value = proxy.value(atX: x, as: Double.self) else { return nil }
-        return min(max(value, domain.lowerBound), domain.upperBound)
+    private var overlay: some View {
+        ZStack(alignment: .topLeading) {
+            if let highlight, plotFrame.width > 0 {
+                let a = position(of: highlight.lowerBound), b = position(of: highlight.upperBound)
+                Rectangle()
+                    .fill(Color.accentColor.opacity(0.18))
+                    .frame(width: max(b - a, 1), height: plotFrame.height)
+                    .offset(x: a, y: plotFrame.minY)
+            }
+            if let scrubX, plotFrame.width > 0 {
+                Rectangle()
+                    .fill(Color.primary.opacity(0.5))
+                    .frame(width: 1, height: plotFrame.height)
+                    .offset(x: position(of: scrubX) - 0.5, y: plotFrame.minY)
+            }
+            Color.clear
+                .contentShape(Rectangle())
+                .simultaneousGesture(scrubGesture)
+                .simultaneousGesture(selectGesture)
+                .simultaneousGesture(TapGesture().onEnded { onTap() })
+        }
     }
 
-    private func scrubGesture(_ proxy: ChartProxy, _ geo: GeometryProxy) -> some Gesture {
+    // MARK: - Mapping and gestures
+
+    private var span: Double { max(domain.upperBound - domain.lowerBound, 1) }
+
+    private func position(of time: Double) -> CGFloat {
+        plotFrame.minX + CGFloat((time - domain.lowerBound) / span) * plotFrame.width
+    }
+
+    /// Chart time under a touch, clamped to the plot.
+    private func time(at point: CGPoint) -> Double? {
+        guard plotFrame.width > 0 else { return nil }
+        let f = min(max((point.x - plotFrame.minX) / plotFrame.width, 0), 1)
+        return domain.lowerBound + Double(f) * span
+    }
+
+    private var scrubGesture: some Gesture {
         DragGesture(minimumDistance: 6)
             .onChanged { value in
                 if dragAxis == nil {
                     dragAxis = abs(value.translation.width) >= abs(value.translation.height) ? .horizontal : .vertical
                 }
                 guard dragAxis == .horizontal, !selecting else { return }
-                scrubX = time(at: value.location, proxy, geo)
+                scrubX = time(at: value.location)
             }
             .onEnded { _ in
                 dragAxis = nil
@@ -490,7 +444,7 @@ struct ChartPanelView: View {
             }
     }
 
-    private func selectGesture(_ proxy: ChartProxy, _ geo: GeometryProxy) -> some Gesture {
+    private var selectGesture: some Gesture {
         LongPressGesture(minimumDuration: 0.35, maximumDistance: 14)
             .sequenced(before: DragGesture(minimumDistance: 0))
             .onChanged { value in
@@ -500,16 +454,16 @@ struct ChartPanelView: View {
                     holdFeedback += 1
                 }
                 guard let drag else { return }
-                if selectStartX == nil { selectStartX = time(at: drag.startLocation, proxy, geo) }
-                guard let start = selectStartX, let current = time(at: drag.location, proxy, geo) else { return }
+                if selectStartX == nil { selectStartX = time(at: drag.startLocation) }
+                guard let start = selectStartX, let current = time(at: drag.location) else { return }
                 scrubX = current
                 rangeX = min(start, current)...max(start, current)
             }
             .onEnded { _ in
+                if let range = rangeX { onSelect(range) }
                 selecting = false
                 selectStartX = nil
                 scrubX = nil
-                // The detail view has already taken the range as its selection.
                 rangeX = nil
             }
     }
@@ -522,6 +476,101 @@ struct ChartPanelView: View {
         case .cadence: return .orange
         case .speed, .pace: return .blue
         case .altitude: return .gray
+        }
+    }
+}
+
+/// The plot area's frame inside a chart, reported up so the overlay can line up with it.
+struct PlotFrameKey: PreferenceKey {
+    static var defaultValue: CGRect = .zero
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        let next = nextValue()
+        if next != .zero { value = next }
+    }
+}
+
+/// The chart marks for one panel. Equatable so SwiftUI skips redrawing it while the scrub
+/// line or selection moves.
+struct PanelPlot: View, Equatable {
+    let kind: ChartKind
+    let points: [ChartPoint]
+    let comparison: [ChartPoint]?
+    let wbal: WbalMarks?
+    let domain: ClosedRange<Double>
+    let yDomain: ClosedRange<Double>
+    let showXAxis: Bool
+
+    /// Reversed panels (pace) plot negated values so faster sits at the top.
+    private var sign: Double { kind.reversed ? -1 : 1 }
+
+    var body: some View {
+        Chart {
+            ForEach(points, id: \.x) { p in
+                if kind == .altitude || kind == .wbal {
+                    AreaMark(x: .value("Time", p.x),
+                             yStart: .value("Base", yDomain.lowerBound),
+                             yEnd: .value(kind.title, p.y * sign))
+                        .foregroundStyle(ChartPanelView.color(kind).opacity(0.25))
+                    LineMark(x: .value("Time", p.x), y: .value(kind.title, p.y * sign),
+                             series: .value("Series", "main"))
+                        .foregroundStyle(ChartPanelView.color(kind))
+                        .lineStyle(StrokeStyle(lineWidth: 1.2))
+                } else {
+                    LineMark(x: .value("Time", p.x), y: .value(kind.title, p.y * sign),
+                             series: .value("Series", "main"))
+                        .foregroundStyle(ChartPanelView.color(kind))
+                        .lineStyle(StrokeStyle(lineWidth: 1))
+                }
+            }
+
+            if let comparison {
+                ForEach(comparison, id: \.x) { p in
+                    LineMark(x: .value("Time", p.x), y: .value(kind.title, p.y * sign),
+                             series: .value("Series", "comparison"))
+                        .foregroundStyle(Color.secondary)
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                }
+            }
+
+            if let wbal {
+                ForEach(wbal.efforts, id: \.x) { e in
+                    PointMark(x: .value("Time", e.x), y: .value("W'bal", e.y))
+                        .symbolSize(16)
+                        .foregroundStyle(ChartPanelView.color(.wbal))
+                        .annotation(position: .bottom, spacing: 1) {
+                            Text("−" + String(format: "%.1f", e.spent))
+                                .font(.system(size: 9, weight: .semibold).monospacedDigit())
+                                .foregroundStyle(.secondary)
+                        }
+                }
+                PointMark(x: .value("Time", wbal.low.x), y: .value("W'bal", wbal.low.y))
+                    .symbolSize(40)
+                    .foregroundStyle(.red)
+            }
+        }
+        .chartXScale(domain: domain)
+        .chartYScale(domain: yDomain)
+        .chartXAxis {
+            AxisMarks(values: .automatic(desiredCount: 5)) { value in
+                AxisGridLine()
+                AxisValueLabel {
+                    if let s = value.as(Double.self) { Text(Format.clock(s)) }
+                }
+            }
+        }
+        .chartXAxis(showXAxis ? .automatic : .hidden)
+        .chartYAxis {
+            AxisMarks(position: .leading, values: .automatic(desiredCount: 3)) { value in
+                AxisGridLine()
+                AxisValueLabel {
+                    if let v = value.as(Double.self) { Text(kind.axisLabel(v * sign)) }
+                }
+            }
+        }
+        .chartOverlay { proxy in
+            GeometryReader { geo in
+                Color.clear.preference(key: PlotFrameKey.self, value: proxy.plotFrame.map { geo[$0] } ?? .zero)
+            }
         }
     }
 }
@@ -653,14 +702,15 @@ struct BreakdownPanel: View {
 // MARK: - W'bal
 
 /// Chart positions for the W'bal markers: the lowest point and each labelled effort's low.
-struct WbalMarks {
-    struct Mark { let x: Double; let y: Double; let spent: Double }
-    let low: (x: Double, y: Double)
+struct WbalMarks: Equatable {
+    struct Mark: Equatable { let x: Double; let y: Double; let spent: Double }
+    struct Point: Equatable { let x: Double; let y: Double }
+    let low: Point
     let efforts: [Mark]
 
     init(_ analysis: WbalAnalysis, timeline: Timeline) {
         let x = timeline.x
-        low = (x[safe: analysis.lowIndex] ?? 0, analysis.lowKJ)
+        low = Point(x: x[safe: analysis.lowIndex] ?? 0, y: analysis.lowKJ)
         efforts = analysis.labelled().compactMap { e in
             x[safe: e.endIndex].map { Mark(x: $0, y: e.lowKJ, spent: e.spentKJ) }
         }
