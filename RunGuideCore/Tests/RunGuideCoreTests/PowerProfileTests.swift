@@ -63,7 +63,7 @@ final class PowerProfileTests: XCTestCase {
         let model = WbalModel.skibaDifferential
         // Drain 10 kJ, then a 10-minute café stop.
         let watts: [Double?] = Array(repeating: 450, count: 101) + [0]
-        let time = (0...100).map(Double.init) + [700]
+        let time: [Double] = (0...100).map { Double($0) } + [700.0]
         let b = model.balance(watts: watts, time: time, cp: 350, wPrime: 20000)
         let after = try XCTUnwrap(b.last ?? nil)
         // 10 kJ short, recovering at 0 W for 600 s: 20000 − 10000·e^(−350·600/20000).
