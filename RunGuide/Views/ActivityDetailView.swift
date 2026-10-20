@@ -892,6 +892,7 @@ struct SummaryGrid: View {
         if let e = s.totalElevationGain, e > 0 { out.append(Stat(label: "Elevation", value: "\(Int(e.rounded())) m")) }
         if let rpe = s.rpe { out.append(Stat(label: "RPE", value: "\(rpe)")) }
         if let feel = s.feel { out.append(Stat(label: "Feel", value: SummaryGrid.feelLabel(feel))) }
+        if let rate = s.carbsPerHour { out.append(Stat(label: "Carbs", value: "\(Int(rate.rounded())) g/h")) }
         return out
     }
 

@@ -114,7 +114,7 @@ final class IntervalsModelTests: XCTestCase {
         XCTAssertEqual(s[.watts]?.compactMap { $0 }, [100, 101])
     }
 
-    func testLogBodiesClampAndSkipEmptyFields() {
+    func testLogBodiesClampAndSkipEmptyFields() throws {
         let log = ActivityLog(rpe: 12, feel: 0)
         XCTAssertEqual(log.body["icu_rpe"] as? Int, 10)
         XCTAssertEqual(log.body["feel"] as? Int, 1)
@@ -124,6 +124,16 @@ final class IntervalsModelTests: XCTestCase {
                        "Run Guide summary\nLegs heavy")
         XCTAssertEqual(ActivityLog.appending(note: "Legs heavy", to: nil), "Legs heavy")
         XCTAssertNil(ActivityLog.appending(note: "  ", to: "kept"))
+
+        // Carbs: entered as g/h, stored by Intervals as total grams over moving time.
+        XCTAssertEqual(ActivityLog.carbs(perHour: 80, movingTime: 7308), 162)
+        XCTAssertNil(ActivityLog.carbs(perHour: 80, movingTime: nil))
+        XCTAssertEqual(ActivityLog(carbsIngested: 162.4).body["carbs_ingested"] as? Int, 162)
+        XCTAssertNil(ActivityLog(rpe: 5).body["carbs_ingested"])
+        let fuelled = try JSONDecoder().decode(ActivitySummary.self, from: Data("""
+        {"id": "i1", "moving_time": 7200, "carbs_ingested": 180}
+        """.utf8))
+        XCTAssertEqual(fuelled.carbsPerHour, 90)
 
         let wellness = WellnessLog(sleepHours: 7.5, soreness: 5)
         XCTAssertEqual(wellness.body["sleepSecs"] as? Int, 27000)

@@ -59,6 +59,8 @@ public struct ActivitySummary: Decodable, Identifiable, Hashable, Sendable {
     /// Intervals' scale: 1 strong … 5 weak.
     public let feel: Int?
     public let pairedEventId: FlexibleID?
+    /// Total carbohydrate eaten during the activity, grams (Intervals' `carbs_ingested`).
+    public let carbsIngested: Double?
 
     enum CodingKeys: String, CodingKey {
         case id, type, name, description, source, distance, feel, decoupling
@@ -78,6 +80,13 @@ public struct ActivitySummary: Decodable, Identifiable, Hashable, Sendable {
         case weight = "icu_weight"
         case rpe = "icu_rpe"
         case pairedEventId = "paired_event_id"
+        case carbsIngested = "carbs_ingested"
+    }
+
+    /// Carbohydrate rate over moving time, g/h.
+    public var carbsPerHour: Double? {
+        guard let g = carbsIngested, let t = movingTime, t > 0 else { return nil }
+        return g / (t / 3600)
     }
 
     /// Activities recorded in the Strava app come back as empty stubs: Strava won't let
@@ -261,11 +270,20 @@ public struct ActivityLog: Equatable, Sendable {
     public var rpe: Int?
     public var feel: Int?
     public var description: String?
+    /// Total grams; Intervals stores carbs per activity, not per hour.
+    public var carbsIngested: Double?
 
-    public init(rpe: Int? = nil, feel: Int? = nil, description: String? = nil) {
+    public init(rpe: Int? = nil, feel: Int? = nil, description: String? = nil, carbsIngested: Double? = nil) {
         self.rpe = rpe
         self.feel = feel
         self.description = description
+        self.carbsIngested = carbsIngested
+    }
+
+    /// Total grams for a rate in g/h over the activity's moving time.
+    public static func carbs(perHour: Double, movingTime: Double?) -> Double? {
+        guard perHour >= 0, let t = movingTime, t > 0 else { return nil }
+        return (perHour * t / 3600).rounded()
     }
 
     /// JSON body for PUT /activity/{id}.
@@ -274,6 +292,7 @@ public struct ActivityLog: Equatable, Sendable {
         if let rpe { b["icu_rpe"] = min(max(rpe, 1), 10) }
         if let feel { b["feel"] = min(max(feel, 1), 5) }
         if let description { b["description"] = description }
+        if let carbsIngested { b["carbs_ingested"] = Int(max(carbsIngested, 0).rounded()) }
         return b
     }
 

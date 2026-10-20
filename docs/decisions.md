@@ -67,3 +67,6 @@ Fixed choices for Monument (formerly Run Guide). Change one only on purpose, and
   at 0 W.
 - The model lives in `RunGuideCore/PowerProfile.swift` so new fits (3-parameter, Pmax) and
   new balance models (e.g. CP/W′ that degrade with work done) can sit alongside it.
+- The quick log records **carbs in g/h**. Intervals stores carbs per activity as total grams
+  (`carbs_ingested`), so Monument converts using moving time and shows g/h back. It's logged
+  as a tag for later W'bal work (e.g. how fuelling relates to how W′ holds up on long rides).

@@ -42,7 +42,7 @@ struct IntervalsClient {
         "elapsed_time", "distance", "total_elevation_gain", "icu_training_load", "icu_intensity",
         "icu_weighted_avg_watts", "icu_average_watts", "average_heartrate", "max_heartrate",
         "average_cadence", "average_speed", "icu_ftp", "icu_weight", "decoupling", "icu_rpe",
-        "feel", "paired_event_id"
+        "feel", "paired_event_id", "carbs_ingested"
     ]
 
     // MARK: - Planned runs (v1)

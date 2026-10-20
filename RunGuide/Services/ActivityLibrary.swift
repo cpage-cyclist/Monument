@@ -156,10 +156,12 @@ final class ActivityLibrary: ObservableObject {
     // MARK: - Logging
 
     /// Saves RPE/feel/note on the activity and any wellness fields for its day, then refreshes.
-    func log(_ activity: ActivitySummary, rpe: Int, feel: Int?, note: String, wellness: WellnessLog) async throws {
+    func log(_ activity: ActivitySummary, rpe: Int, feel: Int?, note: String, carbsPerHour: Double? = nil,
+             wellness: WellnessLog) async throws {
         let client = clientProvider()
         let entry = ActivityLog(rpe: rpe, feel: feel,
-                                description: ActivityLog.appending(note: note, to: activity.description))
+                                description: ActivityLog.appending(note: note, to: activity.description),
+                                carbsIngested: carbsPerHour.flatMap { ActivityLog.carbs(perHour: $0, movingTime: activity.movingTime) })
         try await client.updateActivity(id: activity.id.value, log: entry)
         if !wellness.isEmpty {
             try await client.logWellness(wellness, on: activity.startDate ?? Date())

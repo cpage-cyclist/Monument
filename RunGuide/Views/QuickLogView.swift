@@ -16,6 +16,7 @@ struct QuickLogView: View {
     @State private var rpe: Double = 5
     @State private var feel: Int?
     @State private var note = ""
+    @State private var carbs = ""
     @State private var sleep = ""
     @State private var soreness: Int?
     @State private var weight = ""
@@ -61,6 +62,20 @@ struct QuickLogView: View {
                             .buttonStyle(.plain)
                         }
                     }
+                }
+
+                Section {
+                    HStack {
+                        Text("Carbs")
+                        Spacer()
+                        TextField("g/h", text: $carbs)
+                            .keyboardType(.decimalPad)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 90)
+                        Text("g/h").foregroundStyle(.secondary)
+                    }
+                } footer: {
+                    Text(carbsFooter)
                 }
 
                 Section {
@@ -131,9 +146,19 @@ struct QuickLogView: View {
             .onAppear {
                 if let existing = activity.rpe { rpe = Double(min(max(existing, 1), 10)) }
                 feel = activity.feel
+                if let rate = activity.carbsPerHour { carbs = String(Int(rate.rounded())) }
             }
         }
         .presentationDetents(showWellness ? [.large] : [.medium, .large])
+    }
+
+    private var carbsFooter: String {
+        guard let rate = Self.number(carbs),
+              let total = ActivityLog.carbs(perHour: rate, movingTime: activity.movingTime),
+              let t = activity.movingTime else {
+            return "Optional. Saved to Intervals as total grams over the moving time."
+        }
+        return "≈ \(Int(total)) g over \(Format.clock(t)) moving, saved to Intervals."
     }
 
     private var dayText: String {
@@ -149,7 +174,8 @@ struct QuickLogView: View {
             ? WellnessLog(sleepHours: Self.number(sleep), soreness: soreness, weightKg: Self.number(weight))
             : WellnessLog()
         do {
-            try await library.log(activity, rpe: Int(rpe), feel: feel, note: note, wellness: wellness)
+            try await library.log(activity, rpe: Int(rpe), feel: feel, note: note,
+                                  carbsPerHour: Self.number(carbs), wellness: wellness)
             onSaved()
             dismiss()
         } catch {
