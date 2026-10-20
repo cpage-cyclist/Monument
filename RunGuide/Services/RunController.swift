@@ -159,8 +159,11 @@ final class RunController: ObservableObject {
         guard let strava else { return }
         stravaUpload = .uploading
         do {
-            let id = try await strava.uploadActivity(fileURL: store.url(for: run), name: run.name,
-                                                     description: summaryText, externalID: run.fileName)
+            let fileURL = store.url(for: run), summary = summaryText
+            let id = try await BackgroundTime.run("Strava upload") {
+                try await strava.uploadActivity(fileURL: fileURL, name: run.name,
+                                                description: summary, externalID: run.fileName)
+            }
             store.markUploadedToStrava(run, activityId: id)
             stravaUpload = .uploaded
         } catch {
@@ -249,9 +252,10 @@ final class RunController: ObservableObject {
         guard let client else { return }
         upload = .uploading
         do {
-            let id = try await client.uploadActivity(fileURL: store.url(for: run),
-                                                     name: run.name,
-                                                     description: summaryText)
+            let fileURL = store.url(for: run), summary = summaryText
+            let id = try await BackgroundTime.run("Intervals upload") {
+                try await client.uploadActivity(fileURL: fileURL, name: run.name, description: summary)
+            }
             store.markUploaded(run, activityId: id)
             upload = .uploaded
         } catch {
