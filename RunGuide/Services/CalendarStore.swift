@@ -16,6 +16,8 @@ final class CalendarStore: ObservableObject {
     /// Planned sessions from yesterday to three weeks ahead, for "next session".
     @Published private(set) var upcoming: [CalendarEvent] = []
     @Published private(set) var fitness: WellnessDay?
+    /// Daily fitness for the last 180 days, for the Today charts.
+    @Published private(set) var fitnessHistory: [WellnessDay] = []
     @Published private(set) var loading = false
     @Published var lastError: String?
 
@@ -35,11 +37,13 @@ final class CalendarStore: ObservableObject {
         if let data = cache.read(Self.fitnessKey)?.data,
            let days = try? JSONDecoder().decode([WellnessDay].self, from: data) {
             fitness = WellnessDay.latest(in: days, onOrBefore: IntervalsDates.day(Date()))
+            fitnessHistory = days
         }
     }
 
     private static let upcomingKey = "calendar-upcoming"
-    private static let fitnessKey = "fitness-recent"
+    private static let fitnessKey = "fitness-180d"
+    static let fitnessDays = 180
     private static func eventsKey(_ w: DayWindow) -> String { "calendar-events-\(w.first)" }
     private static func activitiesKey(_ w: DayWindow) -> String { "calendar-activities-\(w.first)" }
 
@@ -50,7 +54,7 @@ final class CalendarStore: ObservableObject {
         let cal = Calendar.current
         let from = IntervalsDates.day(cal.date(byAdding: .day, value: -1, to: today) ?? today)
         let to = IntervalsDates.day(cal.date(byAdding: .day, value: 21, to: today) ?? today)
-        let fitFrom = IntervalsDates.day(cal.date(byAdding: .day, value: -7, to: today) ?? today)
+        let fitFrom = IntervalsDates.day(cal.date(byAdding: .day, value: -(Self.fitnessDays - 1), to: today) ?? today)
         let todayKey = IntervalsDates.day(today)
         let client = clientProvider()
 
@@ -68,6 +72,7 @@ final class CalendarStore: ObservableObject {
             if let data = try? await client.wellnessData(oldest: fitFrom, newest: todayKey),
                let days = try? JSONDecoder().decode([WellnessDay].self, from: data) {
                 fitness = WellnessDay.latest(in: days, onOrBefore: todayKey)
+                fitnessHistory = days
                 cache.write(data, for: Self.fitnessKey)
             }
         }

@@ -76,6 +76,33 @@ public struct WellnessDay: Decodable, Hashable, Sendable {
     public static func latest(in days: [WellnessDay], onOrBefore today: String) -> WellnessDay? {
         days.filter { $0.id <= today && $0.ctl != nil }.max { $0.id < $1.id }
     }
+
+    /// Days with fitness numbers in the last `count` days up to `today`, oldest first.
+    public static func recent(_ days: [WellnessDay], count: Int, today: String,
+                              calendar: Calendar = .current) -> [WellnessDay] {
+        guard let end = IntervalsDates.parseLocal(today + "T12:00:00"),
+              let start = calendar.date(byAdding: .day, value: -(count - 1), to: end) else { return [] }
+        let first = IntervalsDates.day(start)
+        return days.filter { $0.id >= first && $0.id <= today && $0.ctl != nil && $0.atl != nil }
+            .sorted { $0.id < $1.id }
+    }
+
+    /// Intervals' form zones (TSB).
+    public enum FormZone: String, Sendable {
+        case transition = "Transition", fresh = "Fresh", grey = "Grey zone", optimal = "Optimal", highRisk = "High risk"
+
+        public init(form: Double) {
+            switch form {
+            case 25...: self = .transition
+            case 5..<25: self = .fresh
+            case -10..<5: self = .grey
+            case -30 ..< -10: self = .optimal
+            default: self = .highRisk
+            }
+        }
+    }
+
+    public var formZone: FormZone? { form.map(FormZone.init(form:)) }
 }
 
 /// Seven days centred on a date: three either side.

@@ -94,6 +94,22 @@ final class CalendarTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(today.form), 10.3, accuracy: 0.001)
     }
 
+    func testRecentFitnessWindowAndFormZones() throws {
+        let days = (1...31).map { d in
+            WellnessDay(id: String(format: "2026-10-%02d", d), ctl: Double(60 + d), atl: Double(70 + d))
+        } + [WellnessDay(id: "2026-09-30", ctl: nil, atl: nil)]
+        let last7 = WellnessDay.recent(days, count: 7, today: "2026-10-19")
+        XCTAssertEqual(last7.map(\.id).first, "2026-10-13")
+        XCTAssertEqual(last7.map(\.id).last, "2026-10-19")
+        XCTAssertEqual(last7.count, 7)
+
+        XCTAssertEqual(WellnessDay.FormZone(form: 30), .transition)
+        XCTAssertEqual(WellnessDay.FormZone(form: 10.3), .fresh)
+        XCTAssertEqual(WellnessDay.FormZone(form: -6.7), .grey)
+        XCTAssertEqual(WellnessDay.FormZone(form: -20), .optimal)
+        XCTAssertEqual(WellnessDay.FormZone(form: -35), .highRisk)
+    }
+
     func testStepOutlineDropsTheProse() throws {
         let e = try events()
         let lines = StepOutline.lines(e[0].description)
