@@ -16,8 +16,12 @@ enum Brand {
     /// Accent for controls: forest green on light, sage on dark (forest is too dark on black).
     static let accent = Color(light: UIColor(red: 0, green: 50 / 255, blue: 31 / 255, alpha: 1),
                               dark: UIColor(red: 160 / 255, green: 186 / 255, blue: 176 / 255, alpha: 1))
-    /// Page and sky behind the ridges: white on light, forest green on dark.
-    static let page = Color(light: .white, dark: UIColor(red: 0, green: 50 / 255, blue: 31 / 255, alpha: 1))
+    /// Sky behind the ridges: white on light, forest green on dark.
+    static let sky = Color(light: .white, dark: UIColor(red: 0, green: 50 / 255, blue: 31 / 255, alpha: 1))
+    /// The page: the colour of all five ridges overlapping, so the header flows straight into it.
+    /// Light: #B8C6C1 (five 15% light-green layers on white). Dark: #68867B (five 10% white layers on forest).
+    static let page = Color(light: UIColor(red: 184 / 255, green: 198 / 255, blue: 193 / 255, alpha: 1),
+                            dark: UIColor(red: 104 / 255, green: 134 / 255, blue: 123 / 255, alpha: 1))
     /// Crisp Standert-style rules.
     static let hairline = Color(light: UIColor(white: 0.07, alpha: 1), dark: UIColor(white: 1, alpha: 0.55))
 
@@ -28,6 +32,8 @@ enum Brand {
     static let ridgeArtboard = CGSize(width: 3000, height: 2200)
     /// How far each ridge's top sits above Roubaix's, in artboard units. Used to compact or spread the stack.
     static let ridgeLift: [CGFloat] = [1634, 1138, 665, 288, 0]
+    /// Vertical squash of the profiles (like reducing an elevation chart's vertical exaggeration).
+    static let ridgeSquash: CGFloat = 0.4
 
     /// The stacking recipe: every layer the same tint at the same opacity, so overlaps read darker.
     /// Light: light green at 15% on white. Dark: white at 10% on forest green.
@@ -39,12 +45,14 @@ enum Brand {
 
     enum Header {
         /// Header height below the status bar at rest.
-        static let body: CGFloat = 190
+        static let body: CGFloat = 84
         /// Ridge compaction at rest (0 = as drawn, positive = squeezed, negative = spread).
-        static let restSpread: CGFloat = 0.45
+        static let restSpread: CGFloat = 0.12
         /// Full spread at the end of a pull, and on the launch screen.
-        static let pulledSpread: CGFloat = -0.45
-        static let launchSpread: CGFloat = -1.1
+        static let pulledSpread: CGFloat = -1.5
+        static let launchSpread: CGFloat = -3.0
+        /// The stack sits this far below its natural position, trimming Roubaix's flat base.
+        static let stackDrop: CGFloat = 14
         /// Pull distance that triggers a refresh.
         static let refreshPull: CGFloat = 110
         static let maxPull: CGFloat = 160

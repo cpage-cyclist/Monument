@@ -14,6 +14,7 @@ struct RidgeStack: View {
 
     var body: some View {
         let scale = width / Brand.ridgeArtboard.width
+        let vertical = scale * Brand.ridgeSquash
         let tint = Brand.ridgeTint(scheme)
         ZStack(alignment: .bottom) {
             ForEach(Array(Brand.ridges.enumerated()), id: \.offset) { index, name in
@@ -21,7 +22,7 @@ struct RidgeStack: View {
                     Image(name)
                         .resizable()
                         .renderingMode(.template)
-                        .frame(width: width, height: Brand.ridgeArtboard.height * scale)
+                        .frame(width: width, height: Brand.ridgeArtboard.height * vertical)
                     Rectangle()
                         .frame(width: width, height: base)
                 }
@@ -29,7 +30,7 @@ struct RidgeStack: View {
                 // Flatten each layer before fading it, so its own base doesn't double up.
                 .compositingGroup()
                 .opacity(tint.opacity)
-                .offset(y: base + Brand.ridgeLift[index] * scale * spread)
+                .offset(y: base + Brand.Header.stackDrop + Brand.ridgeLift[index] * vertical * spread)
             }
         }
         .frame(width: width)
@@ -44,7 +45,7 @@ struct RidgeBackdrop: View {
     var body: some View {
         GeometryReader { geo in
             ZStack(alignment: .bottom) {
-                Brand.page
+                Brand.sky
                 RidgeStack(spread: spread, width: geo.size.width * Brand.Header.bleed)
                     .frame(width: geo.size.width, height: geo.size.height, alignment: .bottom)
             }
