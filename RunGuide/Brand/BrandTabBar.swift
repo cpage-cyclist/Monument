@@ -28,7 +28,7 @@ enum AppTab: CaseIterable, Hashable {
     }
 }
 
-/// Forest green tab bar with white icons; the selected tab gets the logotype's gold slant.
+/// Forest green tab bar with white icons; the selected tab is full white, the rest dimmed.
 struct BrandTabBar: View {
     @Binding var selection: AppTab
 
@@ -40,9 +40,6 @@ struct BrandTabBar: View {
                     selection = tab
                 } label: {
                     VStack(spacing: 4) {
-                        MedalFill(medal: .gold, shape: SlantBar())
-                            .frame(width: 22, height: 4)
-                            .opacity(selected ? 1 : 0)
                         Image(systemName: tab.icon)
                             .font(.system(size: 20, weight: selected ? .semibold : .regular))
                             .frame(height: 24)
@@ -58,7 +55,7 @@ struct BrandTabBar: View {
                 .accessibilityAddTraits(selected ? [.isSelected] : [])
             }
         }
-        .padding(.top, 6)
+        .padding(.top, 8)
         .background(Brand.forest.ignoresSafeArea(edges: .bottom))
     }
 }
