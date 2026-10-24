@@ -36,30 +36,40 @@ struct RunGuideApp: App {
 }
 
 /// Tabs: Today, the week around it, activities from Intervals, and the Run Guide run player.
+/// A custom container rather than TabView, so the brand tab bar can rise in with the launch animation.
+/// All four tabs stay alive so each keeps its scroll position and navigation.
 struct RootView: View {
+    @StateObject private var launch = LaunchState()
     @State private var showSplash = true
+    @State private var tab: AppTab = .today
 
     var body: some View {
         ZStack {
-            tabs
-                .tint(Brand.accent)
-                .font(.brand(.body))
+            ZStack {
+                page(.today) { TodayView() }
+                page(.week) { WeekView() }
+                page(.activities) { ActivitiesView() }
+                page(.run) { HomeView() }
+            }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                BrandTabBar(selection: $tab)
+                    .offset(y: launch.revealed ? 0 : 140)
+            }
+            .tint(Brand.accent)
+            .font(.brand(.body))
+            .environmentObject(launch)
+
             if showSplash {
-                LaunchSplash { showSplash = false }
+                LaunchSplash(launch: launch) { showSplash = false }
             }
         }
     }
 
-    private var tabs: some View {
-        TabView {
-            TodayView()
-                .tabItem { Label("Today", systemImage: "sun.max") }
-            WeekView()
-                .tabItem { Label("Week", systemImage: "calendar") }
-            ActivitiesView()
-                .tabItem { Label("Activities", systemImage: "chart.xyaxis.line") }
-            HomeView()
-                .tabItem { Label("Run", systemImage: "figure.run") }
-        }
+    private func page<Content: View>(_ which: AppTab, @ViewBuilder _ content: () -> Content) -> some View {
+        let shown = tab == which
+        return content()
+            .opacity(shown ? 1 : 0)
+            .allowsHitTesting(shown)
+            .accessibilityHidden(!shown)
     }
 }

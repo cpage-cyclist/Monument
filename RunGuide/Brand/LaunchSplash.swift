@@ -2,9 +2,11 @@ import SwiftUI
 
 /// Opening animation. The full MONUMENT ALMANAC lockup sits over the spread ridges; then ALMANAC
 /// and the gold bars drop away while MONUMENT crossfades to the standalone wordmark (retracting
-/// the extended M and T), and the wordmark and ridges rise together into Today's header.
+/// the extended M and T), and the wordmark and ridges rise together into Today's header,
+/// with Today's content and the tab bar rising in from below.
 /// It ends exactly where Today's header sits at rest, so removing it is invisible.
 struct LaunchSplash: View {
+    @ObservedObject var launch: LaunchState
     var onFinish: () -> Void
 
     private enum Phase { case lockup, dropped, settled }
@@ -42,6 +44,7 @@ struct LaunchSplash: View {
 
     private func play() async {
         if reduceMotion {
+            launch.revealed = true
             try? await Task.sleep(for: .milliseconds(500))
             onFinish()
             return
@@ -49,7 +52,10 @@ struct LaunchSplash: View {
         try? await Task.sleep(for: .milliseconds(700))
         withAnimation(.easeIn(duration: 0.4)) { phase = .dropped }
         try? await Task.sleep(for: .milliseconds(320))
-        withAnimation(.spring(response: 0.85, dampingFraction: 0.9)) { phase = .settled }
+        withAnimation(.spring(response: 0.85, dampingFraction: 0.9)) {
+            phase = .settled
+            launch.revealed = true
+        }
         try? await Task.sleep(for: .milliseconds(1000))
         onFinish()
     }

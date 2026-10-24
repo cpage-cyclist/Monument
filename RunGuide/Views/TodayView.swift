@@ -9,6 +9,7 @@ struct TodayView: View {
     @EnvironmentObject private var strava: StravaAccount
     @EnvironmentObject private var library: ActivityLibrary
     @EnvironmentObject private var calendar: CalendarStore
+    @EnvironmentObject private var launch: LaunchState
     @StateObject private var tracker = LocationTracker()
     @State private var showSettings = false
     @State private var running: Workout?
@@ -92,6 +93,8 @@ struct TodayView: View {
                     }
                 }
                 .padding(16)
+                // Rises in with the ridges at launch.
+                .offset(y: launch.revealed ? 0 : 420)
                 }
             }
             .coordinateSpace(name: BrandScroll.space)
