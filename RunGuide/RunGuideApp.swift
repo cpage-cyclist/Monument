@@ -10,6 +10,10 @@ struct RunGuideApp: App {
     @StateObject private var library = ActivityLibrary()
     @StateObject private var calendar = CalendarStore()
 
+    init() {
+        Brand.applyAppearance()
+    }
+
     var body: some Scene {
         WindowGroup {
             RootView()
@@ -33,7 +37,20 @@ struct RunGuideApp: App {
 
 /// Tabs: Today, the week around it, activities from Intervals, and the Run Guide run player.
 struct RootView: View {
+    @State private var showSplash = true
+
     var body: some View {
+        ZStack {
+            tabs
+                .tint(Brand.accent)
+                .font(.brand(.body))
+            if showSplash {
+                LaunchSplash { showSplash = false }
+            }
+        }
+    }
+
+    private var tabs: some View {
         TabView {
             TodayView()
                 .tabItem { Label("Today", systemImage: "sun.max") }

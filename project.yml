@@ -23,7 +23,11 @@ targets:
       path: RunGuide/Info.plist
       properties:
         CFBundleDisplayName: Monument
-        UILaunchScreen: {}
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        # Akira (demo, personal use) for the hero numbers; the wordmark itself is SVG artwork.
+        UIAppFonts:
+          - AkiraExpanded-SuperBold.otf
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
         UISupportedInterfaceOrientations:

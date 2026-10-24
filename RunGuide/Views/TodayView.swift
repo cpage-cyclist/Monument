@@ -13,13 +13,31 @@ struct TodayView: View {
     @State private var showSettings = false
     @State private var running: Workout?
     @State private var logging: ActivitySummary?
+    @StateObject private var puller = PullToRefresh()
+    @State private var headerOffset: CGFloat = 0
 
     private var today: String { IntervalsDates.day(Date()) }
 
     var body: some View {
         NavigationStack {
+            GeometryReader { outer in
             ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                PullRidgeHeader(topInset: outer.safeAreaInsets.top, refreshing: puller.refreshing) {
+                    Button { showSettings = true } label: {
+                        Image(systemName: "gearshape")
+                            .font(.system(size: 18, weight: .regular))
+                            .foregroundStyle(Brand.wordmark)
+                            .frame(width: 44, height: 44)
+                    }
+                    .accessibilityLabel("Settings")
+                }
+
                 VStack(alignment: .leading, spacing: 16) {
+                    Text("Today")
+                        .font(.brand(.largeTitle, weight: .bold))
+                        .padding(.top, 4)
+
                     if !settings.hasCredentials {
                         Button("Add your Intervals athlete ID and API key") { showSettings = true }
                             .buttonStyle(.borderedProminent)
@@ -74,20 +92,25 @@ struct TodayView: View {
                     }
                 }
                 .padding(16)
+                }
             }
-            .background(Color(.systemGroupedBackground))
+            .coordinateSpace(name: BrandScroll.space)
+            .ignoresSafeArea(edges: .top)
+            .onPreferenceChange(HeaderOffsetKey.self) { offset in
+                headerOffset = offset
+                puller.update(offset: offset) { await pullRefresh() }
+            }
+            .overlay(alignment: .top) {
+                CollapsedRidgeBar(topInset: outer.safeAreaInsets.top, offset: headerOffset)
+                    .ignoresSafeArea(edges: .top)
+            }
+            }
+            .background(Brand.page)
+            .toolbar(.hidden, for: .navigationBar)
             .navigationTitle("Today")
             .navigationDestination(for: ActivitySummary.self) { ActivityDetailView(summary: $0) }
             .navigationDestination(item: $running) { workout in
                 PreviewView(workout: workout, tracker: tracker)
-            }
-            .refreshable {
-                async let a: Void = calendar.refreshToday(force: true)
-                async let b: Void = library.refresh(force: true)
-                _ = await (a, b)
-            }
-            .toolbar {
-                Button { showSettings = true } label: { Image(systemName: "gearshape") }
             }
             .sheet(isPresented: $showSettings) {
                 SettingsView()
@@ -105,6 +128,13 @@ struct TodayView: View {
         }
     }
 
+    /// Pull-to-refresh on the ridge header.
+    private func pullRefresh() async {
+        async let a: Void = calendar.refreshToday(force: true)
+        async let b: Void = library.refresh(force: true)
+        _ = await (a, b)
+    }
+
     private func refresh() async {
         guard settings.hasCredentials else { return }
         async let a: Void = calendar.refreshToday()
@@ -120,7 +150,7 @@ struct Card<Content: View>: View {
         content
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(14)
-            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+            .overlay { Rectangle().strokeBorder(Brand.hairline, lineWidth: 1) }
     }
 }
 
