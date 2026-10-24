@@ -386,7 +386,9 @@ struct ChartPanelView: View {
                 .onPreferenceChange(PlotFrameKey.self) { plotFrame = $0 }
                 .overlay(alignment: .topLeading) { overlay }
                 .sensoryFeedback(.impact(weight: .medium), trigger: holdFeedback)
-                .frame(height: kind == .altitude ? 72 : (kind == .wbal ? 110 : 96))
+                // Room for the top and bottom axis labels, which hang over the plot's edges.
+                .padding(.vertical, 8)
+                .frame(height: kind == .altitude ? 88 : (kind == .wbal ? 126 : 112))
                 .clipped()
                 .accessibilityLabel(kind.title)
         }

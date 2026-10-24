@@ -45,16 +45,18 @@ struct RootView: View {
 
     var body: some View {
         ZStack {
-            ZStack {
-                page(.today) { TodayView() }
-                page(.week) { WeekView() }
-                page(.activities) { ActivitiesView() }
-                page(.run) { HomeView() }
-            }
-            .safeAreaInset(edge: .bottom, spacing: 0) {
+            // The pages end at the top of the tab bar, so nothing scrolls underneath it.
+            VStack(spacing: 0) {
+                ZStack {
+                    page(.today) { TodayView() }
+                    page(.week) { WeekView() }
+                    page(.activities) { ActivitiesView() }
+                    page(.run) { HomeView() }
+                }
                 BrandTabBar(selection: $tab)
                     .offset(y: launch.revealed ? 0 : 140)
             }
+            .background(Brand.forest.ignoresSafeArea())
             .tint(Brand.accent)
             .font(.brand(.body))
             .environmentObject(launch)
