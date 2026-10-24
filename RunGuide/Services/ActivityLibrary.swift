@@ -127,9 +127,9 @@ final class ActivityLibrary: ObservableObject {
     // MARK: - Monument power profile
 
     /// Days of best efforts the profile is fitted to, ending on the ride's date.
-    static let profileDays = 90
+    static let profileDays = 42
 
-    /// Monument's CP/W′ for a ride, fitted to the best efforts in the 90 days up to and
+    /// Monument's CP/W′ for a ride, fitted to the best efforts in the 42 days up to and
     /// including that ride. Past curves never change, so they're cached for good.
     func profile(for activity: ActivitySummary) async -> PowerProfile? {
         guard let start = activity.startDate else { return nil }

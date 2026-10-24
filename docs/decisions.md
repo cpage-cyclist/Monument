@@ -60,7 +60,8 @@ Fixed choices for Monument (formerly Run Guide). Change one only on purpose, and
   markers and the breakdown follow whichever is shown (Monument's when both).
 - Monument's profile is fitted per ride: a **2-parameter critical power model**
   (work = CP·t + W′, least squares) on best efforts at 3, 4, 5, 7, 10, 12, 15 and 20 min
-  from the Intervals power curve for the **90 days up to and including the ride**. Fits that
+  from the Intervals power curve for the **42 days up to and including the ride** (a rolling window, shortened from 90 days so the
+  profile tracks current form). Fits that
   aren't physiologically plausible are rejected and Intervals' W'bal is shown instead.
 - Monument's W'bal uses **Skiba's differential model**: above CP, W′ drains joule for joule;
   below CP it refills at (W′ − W)·(CP − P)/W′, solved exactly per sample. Stops count as rest
