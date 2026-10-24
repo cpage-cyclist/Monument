@@ -808,7 +808,7 @@ struct WbalSourceBar: View {
     private var monumentText: String {
         guard profileLoaded else { return "Monument: fitting your profile…" }
         guard let p = profile else {
-            return "Monument: not enough hard 3–20 min efforts in the 42 days before this ride to fit a profile, so Intervals' W'bal is shown."
+            return "Monument: not enough hard 3–20 min efforts in the 90 days before this ride to fit a profile, so Intervals' W'bal is shown."
         }
         var text = "Monument · CP \(Int(p.cp.rounded())) W · " + String(format: "W′ %.1f kJ", p.wPrime / 1000)
         text += " · fitted to best 3–20 min efforts"
