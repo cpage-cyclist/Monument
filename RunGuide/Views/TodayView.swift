@@ -9,35 +9,20 @@ struct TodayView: View {
     @EnvironmentObject private var strava: StravaAccount
     @EnvironmentObject private var library: ActivityLibrary
     @EnvironmentObject private var calendar: CalendarStore
-    @EnvironmentObject private var launch: LaunchState
     @StateObject private var tracker = LocationTracker()
     @State private var showSettings = false
     @State private var running: Workout?
     @State private var logging: ActivitySummary?
-    @StateObject private var puller = PullToRefresh()
-    @State private var headerOffset: CGFloat = 0
 
     private var today: String { IntervalsDates.day(Date()) }
 
     var body: some View {
         NavigationStack {
-            GeometryReader { outer in
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                PullRidgeHeader(topInset: outer.safeAreaInsets.top, refreshing: puller.refreshing) {
-                    Button { showSettings = true } label: {
-                        Image(systemName: "gearshape")
-                            .font(.system(size: 18, weight: .regular))
-                            .foregroundStyle(Brand.wordmark)
-                            .frame(width: 44, height: 44)
-                    }
-                    .accessibilityLabel("Settings")
-                }
-
-                VStack(alignment: .leading, spacing: 16) {
-                    Text("Today")
-                        .font(.brand(.largeTitle, weight: .bold))
-
+            BrandScrollPage(onRefresh: pullRefresh) {
+                PageTitle(text: "Today")
+            } accessory: {
+                HeaderButton(systemImage: "gearshape", label: "Settings") { showSettings = true }
+            } content: {
                     if !settings.hasCredentials {
                         Button("Add your Intervals athlete ID and API key") { showSettings = true }
                             .buttonStyle(.borderedProminent)
@@ -48,7 +33,7 @@ struct TodayView: View {
 
                     if let last = library.activities.first(where: { !$0.isStravaPlaceholder }) {
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Last activity").font(.headline)
+                            SectionTitle(text: "Last activity")
                             Card {
                                 VStack(alignment: .leading, spacing: 10) {
                                     NavigationLink(value: last) {
@@ -61,7 +46,7 @@ struct TodayView: View {
                                     }
                                     .buttonStyle(.plain)
                                     if !last.isLogged {
-                                        Divider()
+                                        Hairline()
                                         Button {
                                             logging = last
                                         } label: {
@@ -90,27 +75,7 @@ struct TodayView: View {
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
-                }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 16)
-                .padding(.top, 2)
-                // Rises in with the ridges at launch.
-                .offset(y: launch.revealed ? 0 : 420)
-                }
             }
-            .coordinateSpace(name: BrandScroll.space)
-            .ignoresSafeArea(edges: .top)
-            .onPreferenceChange(HeaderOffsetKey.self) { offset in
-                headerOffset = offset
-                puller.update(offset: offset) { await pullRefresh() }
-            }
-            .overlay(alignment: .top) {
-                CollapsedRidgeBar(topInset: outer.safeAreaInsets.top, offset: headerOffset)
-                    .ignoresSafeArea(edges: .top)
-            }
-            }
-            .background(Brand.page)
-            .toolbar(.hidden, for: .navigationBar)
             .navigationTitle("Today")
             .navigationDestination(for: ActivitySummary.self) { ActivityDetailView(summary: $0) }
             .navigationDestination(item: $running) { workout in
@@ -191,7 +156,7 @@ struct NextSessionCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(heading).font(.headline)
+            SectionTitle(text: heading)
             Card {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(alignment: .firstTextBaseline) {

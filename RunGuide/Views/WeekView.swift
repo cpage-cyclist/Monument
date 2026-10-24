@@ -19,19 +19,17 @@ struct WeekView: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                Section {
-                    totals
-                }
+            BrandScrollPage(onRefresh: { await calendar.load(window, force: true) }) {
+                weekTitle
+            } accessory: {
+                EmptyView()
+            } content: {
+                Card { totals }
 
                 ForEach(plans) { plan in
-                    Section {
-                        dayContent(plan)
-                    } header: {
+                    VStack(alignment: .leading, spacing: 8) {
                         HStack {
-                            Text(WeekView.dayTitle(plan.day, today: today))
-                                .foregroundStyle(plan.day == today ? Color.accentColor : .secondary)
-                                .fontWeight(plan.day == today ? .bold : .regular)
+                            SectionTitle(text: WeekView.dayTitle(plan.day, today: today), emphasised: plan.day == today)
                             Spacer()
                             Button {
                                 noteTitle = ""
@@ -39,36 +37,26 @@ struct WeekView: View {
                                 noteDay = plan.day
                             } label: {
                                 Image(systemName: "note.text.badge.plus")
+                                    .frame(width: 36, height: 30)
                             }
                             .accessibilityLabel("Add a note")
+                        }
+                        Card {
+                            VStack(alignment: .leading, spacing: 12) {
+                                dayContent(plan)
+                            }
                         }
                     }
                 }
 
                 if let error = calendar.lastError {
-                    Section {
-                        Label(error, systemImage: "exclamationmark.triangle")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
+                    Label(error, systemImage: "exclamationmark.triangle")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
             }
-            .navigationTitle(rangeTitle)
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationTitle("Week")
             .navigationDestination(for: ActivitySummary.self) { ActivityDetailView(summary: $0) }
-            .toolbar {
-                ToolbarItemGroup(placement: .topBarLeading) {
-                    Button { shift(-1) } label: { Image(systemName: "chevron.left") }
-                        .accessibilityLabel("Previous week")
-                }
-                ToolbarItemGroup(placement: .topBarTrailing) {
-                    if window.center != today {
-                        Button("Today") { withAnimation { window = DayWindow(center: Date()) } }
-                    }
-                    Button { shift(1) } label: { Image(systemName: "chevron.right") }
-                        .accessibilityLabel("Next week")
-                }
-            }
             .overlay {
                 if calendar.loading && calendar.data(for: window) == nil { ProgressView() }
             }
@@ -80,7 +68,6 @@ struct WeekView: View {
                         shift(dx < 0 ? 1 : -1)
                     }
             )
-            .refreshable { await calendar.load(window, force: true) }
             .task(id: window.first) {
                 guard settings.hasCredentials else { return }
                 await calendar.load(window)
@@ -135,6 +122,31 @@ struct WeekView: View {
 
     // MARK: - Pieces
 
+    /// "Week", then the date range with arrows to move a week (and back to this week).
+    private var weekTitle: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            PageTitle(text: "Week")
+            HStack(spacing: 0) {
+                Text(rangeTitle)
+                    .font(.brand(.title3, weight: .medium))
+                Spacer()
+                if window.center != today {
+                    Button("This week") { withAnimation { window = DayWindow(center: Date()) } }
+                        .font(.brand(.subheadline, weight: .medium))
+                        .padding(.trailing, 6)
+                }
+                Button { shift(-1) } label: {
+                    Image(systemName: "chevron.left").frame(width: 40, height: 40)
+                }
+                .accessibilityLabel("Previous week")
+                Button { shift(1) } label: {
+                    Image(systemName: "chevron.right").frame(width: 40, height: 40)
+                }
+                .accessibilityLabel("Next week")
+            }
+        }
+    }
+
     private var totals: some View {
         let planned = plans.map(\.plannedLoad).reduce(0, +)
         let done = plans.map(\.completedLoad).reduce(0, +)
@@ -164,11 +176,7 @@ struct WeekView: View {
 
         ForEach(plan.sessions) { event in
             sessionRow(event, done: plan.isDone(event), past: plan.day < today)
-                .swipeActions(edge: .trailing) {
-                    Button(role: .destructive) { deleting = event } label: { Label("Delete", systemImage: "trash") }
-                    Button { moving = event } label: { Label("Move", systemImage: "calendar") }
-                        .tint(.indigo)
-                }
+                .contentShape(Rectangle())
                 .contextMenu {
                     Button { moving = event } label: { Label("Move to another day", systemImage: "calendar") }
                     Button(role: .destructive) { deleting = event } label: { Label("Delete", systemImage: "trash") }
@@ -177,8 +185,14 @@ struct WeekView: View {
 
         ForEach(plan.activities) { activity in
             NavigationLink(value: activity) {
-                ActivityRow(activity: activity)
+                HStack {
+                    ActivityRow(activity: activity)
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                }
             }
+            .buttonStyle(.plain)
         }
 
         ForEach(plan.notes) { note in
@@ -189,7 +203,8 @@ struct WeekView: View {
                     Text(text).font(.caption).foregroundStyle(.secondary).lineLimit(3)
                 }
             }
-            .swipeActions(edge: .trailing) {
+            .contentShape(Rectangle())
+            .contextMenu {
                 Button(role: .destructive) { deleting = note } label: { Label("Delete", systemImage: "trash") }
             }
         }
@@ -198,7 +213,7 @@ struct WeekView: View {
     private func sessionRow(_ event: CalendarEvent, done: Bool, past: Bool) -> some View {
         HStack(spacing: 12) {
             Image(systemName: done ? "checkmark.circle.fill" : (past ? "xmark.circle" : "circle"))
-                .foregroundStyle(done ? Color.green : (past ? Color.orange : Color.secondary))
+                .foregroundStyle(done ? Brand.forest : (past ? Brand.Medal.bronze.flat : Color.secondary))
                 .accessibilityLabel(done ? "Done" : (past ? "Missed" : "Planned"))
             VStack(alignment: .leading, spacing: 2) {
                 Text(event.name ?? "Session")

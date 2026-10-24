@@ -109,6 +109,7 @@ struct ActivityDetailView: View {
         }
         .navigationTitle(current.name ?? "Activity")
         .navigationBarTitleDisplayMode(.inline)
+        .brandPageBackground()
         .toolbar {
             Button {
                 logging = true
@@ -470,12 +471,13 @@ struct ChartPanelView: View {
 
     static func color(_ kind: ChartKind) -> Color {
         switch kind {
-        case .power: return .indigo
-        case .wbal: return .teal
-        case .heartRate: return .red
-        case .cadence: return .orange
-        case .speed, .pace: return .blue
-        case .altitude: return .gray
+        // Deep, saturated tones that hold up on the sage page.
+        case .power: return Brand.forest
+        case .wbal: return .white
+        case .heartRate: return Color(red: 0.62, green: 0.12, blue: 0.16)
+        case .cadence: return Color(red: 0.42, green: 0.35, blue: 0.10)
+        case .speed, .pace: return Color(red: 0.10, green: 0.25, blue: 0.45)
+        case .altitude: return Color(red: 0.30, green: 0.36, blue: 0.34)
         }
     }
 }
@@ -648,7 +650,7 @@ struct BreakdownPanel: View {
             }
         }
         .padding(14)
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
+        .overlay { Rectangle().strokeBorder(Brand.hairline, lineWidth: 1) }
     }
 
     private func bigFigure(_ label: String, _ value: String) -> some View {
@@ -738,7 +740,7 @@ struct EffortsRow: View {
                             .frame(minWidth: 58)
                             .padding(.vertical, 8)
                             .padding(.horizontal, 6)
-                            .background(selected == i ? Color.accentColor.opacity(0.2) : Color(.secondarySystemBackground),
+                            .background(selected == i ? Color.accentColor.opacity(0.2) : Color.white.opacity(0.35),
                                         in: RoundedRectangle(cornerRadius: 10))
                         }
                         .buttonStyle(.plain)
@@ -839,7 +841,7 @@ struct PeaksRow: View {
                             .frame(minWidth: 52)
                             .padding(.vertical, 8)
                             .padding(.horizontal, 6)
-                            .background(selected == p.seconds ? Color.accentColor.opacity(0.2) : Color(.secondarySystemBackground),
+                            .background(selected == p.seconds ? Color.accentColor.opacity(0.2) : Color.white.opacity(0.35),
                                         in: RoundedRectangle(cornerRadius: 10))
                         }
                         .buttonStyle(.plain)

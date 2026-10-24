@@ -20,17 +20,23 @@ struct ActivitiesView: View {
 
     var body: some View {
         NavigationStack {
-            List {
+            BrandScrollPage(onRefresh: { await library.refresh(force: true) }) {
+                PageTitle(text: "Activities")
+            } accessory: {
+                HeaderButton(systemImage: "gearshape", label: "Settings") { showSettings = true }
+            } content: {
                 if !settings.hasCredentials {
-                    Section {
+                    VStack(alignment: .leading, spacing: 6) {
                         Button("Add your Intervals athlete ID and API key") { showSettings = true }
-                    } footer: {
+                            .buttonStyle(.borderedProminent)
                         Text("Monument reads your activities from Intervals.icu.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
                     }
                 }
 
                 if let unlogged = library.unlogged {
-                    Section {
+                    Card {
                         LogPromptCard(activity: unlogged) {
                             logging = LogTarget(activity: unlogged, fromPrompt: true)
                         } onDismiss: {
@@ -40,37 +46,45 @@ struct ActivitiesView: View {
                 }
 
                 if let error = library.lastError {
-                    Section {
-                        Label(error, systemImage: "exclamationmark.triangle")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
+                    Label(error, systemImage: "exclamationmark.triangle")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
 
                 ForEach(days, id: \.day) { group in
-                    Section(group.title) {
-                        ForEach(group.activities) { activity in
-                            NavigationLink(value: activity) {
-                                ActivityRow(activity: activity)
-                            }
-                            .swipeActions(edge: .leading) {
-                                Button {
-                                    logging = LogTarget(activity: activity, fromPrompt: false)
-                                } label: {
-                                    Label("Log", systemImage: "square.and.pencil")
+                    VStack(alignment: .leading, spacing: 8) {
+                        SectionTitle(text: group.title)
+                        Card {
+                            VStack(alignment: .leading, spacing: 0) {
+                                ForEach(Array(group.activities.enumerated()), id: \.element.id) { index, activity in
+                                    if index > 0 { Hairline().padding(.vertical, 10) }
+                                    NavigationLink(value: activity) {
+                                        HStack {
+                                            ActivityRow(activity: activity)
+                                            Image(systemName: "chevron.right")
+                                                .font(.caption.weight(.semibold))
+                                                .foregroundStyle(.tertiary)
+                                        }
+                                        .contentShape(Rectangle())
+                                    }
+                                    .buttonStyle(.plain)
+                                    .contextMenu {
+                                        Button {
+                                            logging = LogTarget(activity: activity, fromPrompt: false)
+                                        } label: {
+                                            Label(activity.isLogged ? "Edit log" : "Log", systemImage: "square.and.pencil")
+                                        }
+                                    }
                                 }
-                                .tint(.accentColor)
                             }
                         }
                     }
                 }
 
                 if hiddenStravaCount > 0 {
-                    Section {
-                        EmptyView()
-                    } footer: {
-                        Text("\(hiddenStravaCount) recorded in the Strava app aren't shown: Strava doesn't let Intervals share them. Activities synced straight to Intervals (Wahoo, Run Guide) appear here.")
-                    }
+                    Text("\(hiddenStravaCount) recorded in the Strava app aren't shown: Strava doesn't let Intervals share them. Activities synced straight to Intervals (Wahoo, Run Guide) appear here.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
 
                 if settings.hasCredentials && library.activities.isEmpty && !library.refreshing && library.lastError == nil {
@@ -84,10 +98,6 @@ struct ActivitiesView: View {
             }
             .overlay {
                 if library.refreshing && library.activities.isEmpty { ProgressView() }
-            }
-            .refreshable { await library.refresh(force: true) }
-            .toolbar {
-                Button { showSettings = true } label: { Image(systemName: "gearshape") }
             }
             .sheet(isPresented: $showSettings) {
                 SettingsView()
