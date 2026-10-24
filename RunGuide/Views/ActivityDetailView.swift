@@ -64,6 +64,7 @@ struct ActivityDetailView: View {
     @State private var logging = false
     @State private var profile: PowerProfile?
     @State private var profileLoaded = false
+    @State private var ranks: BestEffortRanks?
 
     private var smoothing: Smoothing { Smoothing(rawValue: smoothingRaw) ?? .s3 }
     private var wbalSource: WbalSource { WbalSource(rawValue: wbalSourceRaw) ?? .intervals }
@@ -82,7 +83,7 @@ struct ActivityDetailView: View {
                                    canClear: selection != nil,
                                    onClear: { selection = nil })
                     if !analysis.peaks.isEmpty {
-                        PeaksRow(peaks: analysis.peaks, selected: selectedPeak) { seconds in
+                        PeaksRow(peaks: analysis.peaks, medals: medals(for: analysis.peaks), selected: selectedPeak) { seconds in
                             selection = (selection == .peak(seconds)) ? nil : .peak(seconds)
                         }
                     }
@@ -284,6 +285,19 @@ struct ActivityDetailView: View {
             profileLoaded = true
             if wbalSource != .intervals { await rebuild() }
         }
+        if ranks == nil, streams?.has(.watts) == true, !current.isRun {
+            ranks = await library.bestEffortRanks()
+        }
+    }
+
+    /// Year / all-time top-three medals for this ride's peaks, keyed by duration.
+    private func medals(for peaks: [PeakEffort]) -> [Int: EffortMedal] {
+        guard let ranks else { return [:] }
+        var out: [Int: EffortMedal] = [:]
+        for p in peaks {
+            if let m = ranks.medal(activity: summary.id.value, seconds: p.seconds) { out[p.seconds] = m }
+        }
+        return out
     }
 
     private func rebuild() async {
@@ -826,6 +840,7 @@ struct WbalSourceBar: View {
 
 struct PeaksRow: View {
     let peaks: [PeakEffort]
+    var medals: [Int: EffortMedal] = [:]
     let selected: Int?
     let onTap: (Int) -> Void
 
@@ -837,9 +852,14 @@ struct PeaksRow: View {
                     ForEach(peaks) { p in
                         Button { onTap(p.seconds) } label: {
                             VStack(spacing: 2) {
-                                Text(p.label).font(.caption).foregroundStyle(.secondary)
+                                HStack(spacing: 4) {
+                                    Text(p.label).font(.caption).foregroundStyle(.secondary)
+                                    if let medal = medals[p.seconds] { MedalBadge(medal: medal) }
+                                }
                                 Text("\(Int(p.watts.rounded()))").font(.headline.monospacedDigit())
                             }
+                            .accessibilityElement(children: .combine)
+                            .accessibilityHint(medals[p.seconds]?.description ?? "")
                             .frame(minWidth: 52)
                             .padding(.vertical, 8)
                             .padding(.horizontal, 6)

@@ -110,6 +110,13 @@ struct IntervalsClient {
                        query: ["type": type, "curves": "r.\(from).\(to)"])
     }
 
+    /// Year and all-time best power with the 2nd and 3rd best efforts at each duration
+    /// (and the activities they came from), for medalling peaks.
+    func powerCurveRanksData(type: String) async throws -> Data {
+        try await send("GET", "/athlete/\(athleteId)/power-curves.json",
+                       query: ["type": type, "curves": "1y,all", "subMaxEfforts": "2"])
+    }
+
     // MARK: - Calendar and fitness (v2)
 
     /// Raw JSON for calendar entries (planned workouts, races, notes) between two days.

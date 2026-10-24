@@ -153,6 +153,29 @@ final class ActivityLibrary: ObservableObject {
         }
     }
 
+    // MARK: - Best-effort medals
+
+    /// Year and all-time top-three efforts for rides. Cached, and refetched at most every few hours.
+    func bestEffortRanks() async -> BestEffortRanks? {
+        let key = "ranks-Ride"
+        if let cached = cache.read(key), cached.age() < 6 * 3600,
+           let curves = try? RankedCurve.decodeAll(cached.data) {
+            return BestEffortRanks(curves: curves)
+        }
+        do {
+            let data = try await clientProvider().powerCurveRanksData(type: "Ride")
+            let curves = try RankedCurve.decodeAll(data)
+            cache.write(data, for: key)
+            return BestEffortRanks(curves: curves)
+        } catch {
+            // Fall back to an older copy rather than showing nothing.
+            if let cached = cache.read(key), let curves = try? RankedCurve.decodeAll(cached.data) {
+                return BestEffortRanks(curves: curves)
+            }
+            return nil
+        }
+    }
+
     // MARK: - Logging
 
     /// Saves RPE/feel/note on the activity and any wellness fields for its day, then refreshes.

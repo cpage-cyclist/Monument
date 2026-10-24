@@ -1,4 +1,5 @@
 import SwiftUI
+import RunGuideCore
 
 /// The five monument ridges stacked with the opacity recipe.
 /// `spread` 0 draws them as on the artboard; positive values squeeze the back layers down behind
@@ -120,16 +121,50 @@ struct Lockup: View {
     }
 }
 
-/// A shape filled with a medal texture – for PR and best-effort moments.
+/// A shape filled with a medal texture – for PR and best-effort moments. Sizes to its frame.
 struct MedalFill<S: Shape>: View {
     var medal: Brand.Medal
     var shape: S
 
     var body: some View {
-        Image(medal.texture)
-            .resizable()
-            .scaledToFill()
+        shape
+            .fill(medal.flat)
+            .overlay {
+                Image(medal.texture)
+                    .resizable()
+                    .scaledToFill()
+            }
             .clipShape(shape)
+    }
+}
+
+/// A best-effort medal. This year's top three: the logotype's slanted bar in gold, silver or
+/// bronze. All-time top three: inverted – a solid metal badge with the bar cut out of it.
+struct MedalBadge: View {
+    let medal: EffortMedal
+
+    private var metal: Brand.Medal { Brand.Medal(rawValue: medal.place) ?? .bronze }
+
+    var body: some View {
+        Group {
+            if medal.period == .allTime {
+                MedalFill(medal: metal, shape: RoundedRectangle(cornerRadius: 3))
+                    .frame(width: 20, height: 13)
+                    .mask {
+                        ZStack {
+                            Rectangle()
+                            SlantBar()
+                                .frame(width: 10, height: 5)
+                                .blendMode(.destinationOut)
+                        }
+                        .compositingGroup()
+                    }
+            } else {
+                MedalFill(medal: metal, shape: SlantBar())
+                    .frame(width: 14, height: 6)
+            }
+        }
+        .accessibilityLabel(medal.description)
     }
 }
 
