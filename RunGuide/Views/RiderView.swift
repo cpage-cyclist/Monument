@@ -63,7 +63,16 @@ struct RiderView: View {
     // MARK: - Card
 
     private var weight: Double? { rider.athlete?.weight ?? library.activities.first { $0.weight != nil }?.weight }
-    private var ftp: Double? { rider.athlete?.ride?.ftp ?? library.latestFTP }
+    private var source: ThresholdSource { settings.thresholdSource }
+    private var other: ThresholdSource { source == .intervals ? .monument : .intervals }
+    private var ftp: Double? { rider.ftp(source, intervalsFallback: library.latestFTP) }
+
+    private func ftpText(_ s: ThresholdSource) -> String? {
+        rider.ftp(s, intervalsFallback: library.latestFTP).map { "\(Int($0.rounded())) W" }
+    }
+    private func wPrimeText(_ s: ThresholdSource) -> String? {
+        rider.wPrime(s).map { String(format: "%.1f kJ", $0 / 1000) }
+    }
     private var efforts: [RiderEffort] { RiderCard.efforts(rider.curves[period.curve]) }
 
     private var card: some View {
@@ -84,7 +93,8 @@ struct RiderView: View {
                         .font(.hero(38))
                         .akiraSlant()
                         .foregroundStyle(Brand.wordmark)
-                    Text("FTP W/kg").font(.brand(.caption2, weight: .medium)).foregroundStyle(.secondary)
+                    Text(source == .monument ? "FTP W/kg · Monument" : "FTP W/kg")
+                        .font(.brand(.caption2, weight: .medium)).foregroundStyle(.secondary)
                 }
             }
 
@@ -99,10 +109,10 @@ struct RiderView: View {
             Hairline()
 
             HStack(alignment: .top) {
-                stat("FTP", ftp.map { "\(Int($0.rounded())) W" })
-                stat("W′", rider.athlete?.ride?.wPrime.map { String(format: "%.1f kJ", $0 / 1000) })
-                stat("CP · fitted", rider.fitted.map { "\(Int($0.cp.rounded())) W" })
-                stat("W′ · fitted", rider.fitted.map { String(format: "%.1f kJ", $0.wPrime / 1000) })
+                stat("FTP", ftpText(source), also: ftpText(other).map { "\(other.label) \($0)" })
+                stat("W′", wPrimeText(source), also: wPrimeText(other).map { "\(other.label) \($0)" })
+                stat("CP", rider.monument.map { "\(Int($0.cp.rounded())) W" }, also: "Monument")
+                stat("Pmax", rider.monument?.omni.map { "\(Int($0.pmax.rounded())) W" }, also: "Monument")
             }
             HStack(alignment: .top) {
                 stat("Fitness", calendar.fitness?.ctl.map { "\(Int($0.rounded()))" })
@@ -172,11 +182,15 @@ struct RiderView: View {
         .accessibilityElement(children: .combine)
     }
 
-    private func stat(_ label: String, _ value: String?) -> some View {
+    private func stat(_ label: String, _ value: String?, also: String? = nil) -> some View {
         VStack(alignment: .leading, spacing: 1) {
             Text(label).font(.brand(.caption2)).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.8)
             Text(value ?? "–").font(.brand(.subheadline, weight: .bold).monospacedDigit())
                 .lineLimit(1).minimumScaleFactor(0.7)
+            if let also {
+                Text(also).font(.brand(.caption2).monospacedDigit()).foregroundStyle(.secondary)
+                    .lineLimit(1).minimumScaleFactor(0.7)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

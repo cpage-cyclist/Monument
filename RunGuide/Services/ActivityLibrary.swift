@@ -141,13 +141,13 @@ final class ActivityLibrary: ObservableObject {
 
         if let cached = cache.read(key), !(isToday && cached.age() > 3600),
            let curve = try? PowerCurve.decodeFirst(cached.data) {
-            return PowerProfile.fitTwoParameter(curve: curve)
+            return PowerProfile.fitBest(curve: curve)
         }
         do {
             let data = try await clientProvider().powerCurveData(type: "Ride", from: from, to: to)
             cache.write(data, for: key)
             cache.trim(prefix: "curve-", keep: Self.streamsToKeep)
-            return (try PowerCurve.decodeFirst(data)).flatMap { PowerProfile.fitTwoParameter(curve: $0) }
+            return (try PowerCurve.decodeFirst(data)).flatMap { PowerProfile.fitBest(curve: $0) }
         } catch {
             return nil
         }

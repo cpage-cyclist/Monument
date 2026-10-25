@@ -23,6 +23,14 @@ final class AppSettings: ObservableObject {
     @Published var uploadToStrava: Bool {
         didSet { defaults.set(uploadToStrava, forKey: "uploadToStrava") }
     }
+    /// Whose FTP and W′ the app works from: the values set by hand in Intervals, or Monument's
+    /// own fitted to recent best efforts. Also sets the W′bal chart's default.
+    @Published var thresholdSource: ThresholdSource {
+        didSet {
+            defaults.set(thresholdSource.rawValue, forKey: "thresholdSource")
+            defaults.set(thresholdSource.rawValue, forKey: "wbalSource")
+        }
+    }
     /// Empty means "automatic: best UK voice".
     @Published var voiceIdentifier: String {
         didSet { defaults.set(voiceIdentifier, forKey: Announcer.voiceKey) }
@@ -36,6 +44,7 @@ final class AppSettings: ObservableObject {
         autoUpload = defaults.object(forKey: "autoUpload") as? Bool ?? true
         uploadToStrava = defaults.object(forKey: "uploadToStrava") as? Bool ?? true
         voiceIdentifier = defaults.string(forKey: Announcer.voiceKey) ?? ""
+        thresholdSource = ThresholdSource(rawValue: defaults.string(forKey: "thresholdSource") ?? "") ?? .intervals
     }
 
     var hasCredentials: Bool {
@@ -62,4 +71,11 @@ final class AppSettings: ObservableObject {
         get { RecordSport(rawValue: UserDefaults.standard.string(forKey: "recordSport") ?? "") ?? .run }
         set { UserDefaults.standard.set(newValue.rawValue, forKey: "recordSport"); objectWillChange.send() }
     }
+}
+
+/// Where FTP and W′ come from.
+enum ThresholdSource: String, CaseIterable, Identifiable {
+    case intervals, monument
+    var id: String { rawValue }
+    var label: String { self == .intervals ? "Intervals" : "Monument" }
 }

@@ -8,6 +8,7 @@ struct TodayView: View {
     @EnvironmentObject private var heartRate: HeartRateMonitor
     @EnvironmentObject private var strava: StravaAccount
     @EnvironmentObject private var library: ActivityLibrary
+    @EnvironmentObject private var rider: RiderStore
     @EnvironmentObject private var calendar: CalendarStore
     @StateObject private var tracker = LocationTracker()
     @State private var showSettings = false
@@ -64,7 +65,7 @@ struct TodayView: View {
                     if let next = TodayPlan.next(events: calendar.upcoming, activities: library.activities, today: today) {
                         NextSessionCard(event: next, today: today) {
                             if let sport = RecordSport(intervalsType: next.type) {
-                                running = RecordStart(workout: Workout(plan: WorkoutPlan(event: next), ftp: library.latestFTP),
+                                running = RecordStart(workout: Workout(plan: WorkoutPlan(event: next), ftp: rider.ftp(settings.thresholdSource, intervalsFallback: library.latestFTP)),
                                                       sport: sport)
                             }
                         }

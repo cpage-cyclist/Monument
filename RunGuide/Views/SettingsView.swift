@@ -4,6 +4,8 @@ struct SettingsView: View {
     @EnvironmentObject private var settings: AppSettings
     @EnvironmentObject private var heartRate: HeartRateMonitor
     @EnvironmentObject private var sensors: CyclingSensors
+    @EnvironmentObject private var rider: RiderStore
+    @EnvironmentObject private var library: ActivityLibrary
     @Environment(\.dismiss) private var dismiss
     @State private var announcer = Announcer()
     @State private var voices = Announcer.englishVoices
@@ -26,6 +28,26 @@ struct SettingsView: View {
                 }
 
                 StravaSettingsSection()
+
+                Section {
+                    Picker("Thresholds from", selection: $settings.thresholdSource) {
+                        ForEach(ThresholdSource.allCases) { Text($0.label).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    LabeledContent("Intervals FTP",
+                                   value: rider.ftp(.intervals, intervalsFallback: library.latestFTP)
+                                       .map { "\(Int($0.rounded())) W" } ?? "–")
+                    LabeledContent("Monument FTP",
+                                   value: rider.monument.map { "\(Int($0.ftp.rounded())) W" } ?? "Not enough efforts yet")
+                    if let m = rider.monument {
+                        LabeledContent("Monument CP · W′",
+                                       value: "\(Int(m.cp.rounded())) W · " + String(format: "%.1f kJ", m.wPrime / 1000))
+                    }
+                } header: {
+                    Text("Power profile")
+                } footer: {
+                    Text("Monument fits the omni-domain power-duration model (Puchowicz et al. 2020) to your best efforts over the last 90 days; its FTP is the modelled one-hour power. The choice sets workout target watts, the Rider card and the W′bal chart's default.")
+                }
 
                 heartRateSection
                 SensorSettingsSection(sensor: sensors.power)
