@@ -110,6 +110,18 @@ struct IntervalsClient {
                        query: ["type": type, "curves": "r.\(from).\(to)"])
     }
 
+    /// Raw JSON for several best-power curves at once (e.g. 42d, 90d, 1y, all), with the activity
+    /// behind each effort.
+    func powerCurvesData(type: String, curves: [String]) async throws -> Data {
+        try await send("GET", "/athlete/\(athleteId)/power-curves.json",
+                       query: ["type": type, "curves": curves.joined(separator: ",")])
+    }
+
+    /// Raw JSON for the athlete: name, weight, and per-sport FTP, W′, LTHR, max HR.
+    func athleteData() async throws -> Data {
+        try await send("GET", "/athlete/\(athleteId)")
+    }
+
     /// Year and all-time best power with the 2nd and 3rd best efforts at each duration
     /// (and the activities they came from), for medalling peaks.
     func powerCurveRanksData(type: String) async throws -> Data {
