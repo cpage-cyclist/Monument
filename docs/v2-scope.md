@@ -68,6 +68,8 @@ it is and becomes the "Start" action for planned runs.
 5. **Insights:** toggle Monument's power profile against the Intervals values, dFRC
    alongside W'bal, W' decay over long efforts, then a WKO5-style custom chart builder.
 
+Also to come: a further pass on the activity view.
+
 ## API notes
 
 - The Intervals.icu API exposes calendar/events, activities, streams (including
