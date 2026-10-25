@@ -107,8 +107,7 @@ final class WorkoutPlanTests: XCTestCase {
         let steps = plan.blocks.flatMap(\.steps)
         XCTAssertEqual(steps.map(\.length), [.distance(3000), .distance(5000), .distance(3000)])
         XCTAssertEqual(steps[1].target, PlanTarget(metric: .pace, mode: .absolute, low: 260))
-        // Timed from the pace: 3 × 5:20 + 5 × 4:20 + 3 × 5:20.
-        let expected: Double = 3 * 320 + 5 * 260 + 3 * 320
+        let expected = 3220.0 // 3 × 5:20 + 5 × 4:20 + 3 × 5:20
         XCTAssertEqual(plan.totalSeconds(), expected, accuracy: 0.001)
     }
 
