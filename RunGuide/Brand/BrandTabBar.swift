@@ -7,12 +7,12 @@ final class LaunchState: ObservableObject {
 }
 
 enum AppTab: CaseIterable, Hashable {
-    case today, week, activities, run
+    case today, calendar, activities, run
 
     var title: String {
         switch self {
         case .today: "Today"
-        case .week: "Week"
+        case .calendar: "Calendar"
         case .activities: "Activities"
         case .run: "Run"
         }
@@ -21,7 +21,7 @@ enum AppTab: CaseIterable, Hashable {
     var icon: String {
         switch self {
         case .today: "sun.max"
-        case .week: "calendar"
+        case .calendar: "calendar"
         case .activities: "chart.xyaxis.line"
         case .run: "figure.run"
         }

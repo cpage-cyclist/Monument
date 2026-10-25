@@ -8,7 +8,7 @@ your pocket. Every step ends on its own terms, distance by GPS or time by the cl
 mixed sessions like 5 × (1 km rep + 90 s float) auto-lap with no taps.
 
 The rest of the app (activity charts with W'bal, selection breakdowns, quick RPE logging,
-Today and Week views) is being built; see `docs/v2-scope.md`.
+Today and Calendar views) is being built; see `docs/v2-scope.md`.
 
 What you hear on a 5 × 1 km session:
 

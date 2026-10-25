@@ -1,7 +1,7 @@
 import Foundation
 import RunGuideCore
 
-/// Calendar entries, the activities alongside them, and fitness, for the Today and Week
+/// Calendar entries, the activities alongside them, and fitness, for the Today and Calendar
 /// tabs. Served from the disk cache first and refreshed in the background, like
 /// ActivityLibrary.
 @MainActor
@@ -11,7 +11,7 @@ final class CalendarStore: ObservableObject {
         var activities: [ActivitySummary]
     }
 
-    /// Keyed by the window's first day.
+    /// Keyed by the month grid's first day.
     @Published private(set) var windows: [String: WindowData] = [:]
     /// Planned sessions from yesterday to three weeks ahead, for "next session".
     @Published private(set) var upcoming: [CalendarEvent] = []
@@ -44,8 +44,8 @@ final class CalendarStore: ObservableObject {
     private static let upcomingKey = "calendar-upcoming"
     private static let fitnessKey = "fitness-180d"
     static let fitnessDays = 180
-    private static func eventsKey(_ w: DayWindow) -> String { "calendar-events-\(w.first)" }
-    private static func activitiesKey(_ w: DayWindow) -> String { "calendar-activities-\(w.first)" }
+    private static func eventsKey(_ m: MonthGrid) -> String { "calendar-month-events-\(m.first)" }
+    private static func activitiesKey(_ m: MonthGrid) -> String { "calendar-month-activities-\(m.first)" }
 
     // MARK: - Today
 
@@ -78,66 +78,105 @@ final class CalendarStore: ObservableObject {
         }
     }
 
-    // MARK: - Week
+    // MARK: - Month
 
-    func data(for window: DayWindow) -> WindowData? {
-        if let loaded = windows[window.first] { return loaded }
-        guard let e = cache.read(Self.eventsKey(window))?.data,
+    func data(for month: MonthGrid) -> WindowData? {
+        if let loaded = windows[month.first] { return loaded }
+        guard let e = cache.read(Self.eventsKey(month))?.data,
               let events = try? JSONDecoder().decode([CalendarEvent].self, from: e) else { return nil }
-        let activities = cache.read(Self.activitiesKey(window))
+        let activities = cache.read(Self.activitiesKey(month))
             .flatMap { try? JSONDecoder().decode([ActivitySummary].self, from: $0.data) } ?? []
         return WindowData(events: events, activities: activities)
     }
 
-    func load(_ window: DayWindow, force: Bool = false) async {
-        if windows[window.first] == nil, let cached = data(for: window) {
-            windows[window.first] = cached
+    func load(_ month: MonthGrid, force: Bool = false) async {
+        if windows[month.first] == nil, let cached = data(for: month) {
+            windows[month.first] = cached
         }
-        guard force || windows[window.first] == nil || isStale(Self.eventsKey(window)) else { return }
+        guard force || windows[month.first] == nil || isStale(Self.eventsKey(month)) else { return }
         loading = true
         defer { loading = false }
         do {
             let client = clientProvider()
-            async let e = client.eventsData(oldest: window.first, newest: window.last)
-            async let a = client.activitiesData(oldest: window.first, newest: window.last)
+            async let e = client.eventsData(oldest: month.first, newest: month.last)
+            async let a = client.activitiesData(oldest: month.first, newest: month.last)
             let (eventsData, activitiesData) = try await (e, a)
             let events = try JSONDecoder().decode([CalendarEvent].self, from: eventsData)
             let activities = (try? JSONDecoder().decode([ActivitySummary].self, from: activitiesData)) ?? []
-            cache.write(eventsData, for: Self.eventsKey(window))
-            cache.write(activitiesData, for: Self.activitiesKey(window))
-            cache.trim(prefix: "calendar-events-", keep: Self.windowsToKeep)
-            cache.trim(prefix: "calendar-activities-", keep: Self.windowsToKeep)
-            windows[window.first] = WindowData(events: events, activities: activities)
+            cache.write(eventsData, for: Self.eventsKey(month))
+            cache.write(activitiesData, for: Self.activitiesKey(month))
+            cache.trim(prefix: "calendar-month-events-", keep: Self.windowsToKeep)
+            cache.trim(prefix: "calendar-month-activities-", keep: Self.windowsToKeep)
+            windows[month.first] = WindowData(events: events, activities: activities)
             lastError = nil
         } catch {
             lastError = error.localizedDescription
         }
     }
 
+    // MARK: - Projection
+
+    /// Planned sessions from today to `aheadEnd`, and today's activities, for projecting fitness.
+    @Published private(set) var ahead = WindowData(events: [], activities: [])
+    @Published private(set) var aheadEnd: String = ""
+    private var aheadFetched: Date?
+
+    /// Makes sure planned sessions are loaded from today through `end`.
+    func loadAhead(through end: String, force: Bool = false) async {
+        let today = IntervalsDates.day(Date())
+        let target = max(end, IntervalsDates.adding(28, to: today))
+        let fresh = aheadFetched.map { Date().timeIntervalSince($0) < Self.maxAge } ?? false
+        guard force || !fresh || aheadEnd < target else { return }
+        do {
+            let client = clientProvider()
+            async let e = client.eventsData(oldest: today, newest: target)
+            async let a = client.activitiesData(oldest: today, newest: today)
+            let (eventsData, activitiesData) = try await (e, a)
+            ahead = WindowData(events: try JSONDecoder().decode([CalendarEvent].self, from: eventsData),
+                               activities: (try? JSONDecoder().decode([ActivitySummary].self, from: activitiesData)) ?? [])
+            aheadEnd = target
+            aheadFetched = Date()
+        } catch {
+            lastError = error.localizedDescription
+        }
+    }
+
+    /// Fitness, fatigue and form projected from the last known day through `end`.
+    func projection(through end: String) -> [WellnessDay] {
+        let today = IntervalsDates.day(Date())
+        guard end >= today else { return [] }
+        return FitnessProjection.project(
+            history: fitnessHistory,
+            planned: FitnessProjection.plannedLoads(events: ahead.events, activities: ahead.activities, from: today),
+            completed: FitnessProjection.completedLoads(ahead.activities),
+            today: today, through: end)
+    }
+
     // MARK: - Light edits
 
-    func move(_ event: CalendarEvent, to day: String, in window: DayWindow) async {
-        await edit(window) { try await $0.moveEvent(id: event.id, to: day) }
+    func move(_ event: CalendarEvent, to day: String, in month: MonthGrid) async {
+        await edit(month) { try await $0.moveEvent(id: event.id, to: day) }
     }
 
-    func delete(_ event: CalendarEvent, in window: DayWindow) async {
-        await edit(window) { try await $0.deleteEvent(id: event.id) }
+    func delete(_ event: CalendarEvent, in month: MonthGrid) async {
+        await edit(month) { try await $0.deleteEvent(id: event.id) }
     }
 
-    func addNote(on day: String, title: String, text: String, in window: DayWindow) async {
-        await edit(window) { try await $0.addNote(on: day, title: title, text: text) }
+    func addNote(on day: String, title: String, text: String, in month: MonthGrid) async {
+        await edit(month) { try await $0.addNote(on: day, title: title, text: text) }
     }
 
-    private func edit(_ window: DayWindow, _ change: (IntervalsClient) async throws -> Void) async {
+    private func edit(_ month: MonthGrid, _ change: (IntervalsClient) async throws -> Void) async {
         do {
             try await change(clientProvider())
             lastError = nil
         } catch {
             lastError = error.localizedDescription
         }
-        // Moves can cross windows, so drop the others rather than show stale days.
-        windows = windows.filter { $0.key == window.first }
-        await load(window, force: true)
+        // Moves can cross months, so drop the others rather than show stale days.
+        windows = windows.filter { $0.key == month.first }
+        await load(month, force: true)
+        await loadAhead(through: aheadEnd, force: true)
         await refreshToday(force: true)
     }
 
