@@ -221,7 +221,8 @@ final class StravaAccount: ObservableObject {
     /// Uploads a FIT file as a new Strava activity and waits for Strava to
     /// process it. Returns the activity id. A run already on Strava (same
     /// file or same external id) counts as success.
-    func uploadActivity(fileURL: URL, name: String, description: String, externalID: String) async throws -> String? {
+    func uploadActivity(fileURL: URL, name: String, description: String, externalID: String,
+                        sportType: String = "Run") async throws -> String? {
         guard hasUploadAccess else { throw StravaError.missingUploadScope }
         let t = try await validTokens()
 
@@ -234,7 +235,7 @@ final class StravaAccount: ObservableObject {
         field("name", name)
         field("description", description)
         field("external_id", externalID)
-        field("sport_type", "Run")
+        field("sport_type", sportType)
         body.append(Data("--\(boundary)\r\nContent-Disposition: form-data; name=\"file\"; filename=\"\(fileURL.lastPathComponent)\"\r\nContent-Type: application/octet-stream\r\n\r\n".utf8))
         body.append(try Data(contentsOf: fileURL))
         body.append(Data("\r\n--\(boundary)--\r\n".utf8))

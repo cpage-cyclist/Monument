@@ -40,6 +40,12 @@ public enum Speech {
         return "\(m) \(s)"
     }
 
+    /// Seconds per km as a speed: 120 → "30 kilometres an hour".
+    public static func speed(secondsPerKm: Double) -> String {
+        guard secondsPerKm > 0 else { return "stopped" }
+        return "\(Int((3600 / secondsPerKm).rounded())) kilometres an hour"
+    }
+
     /// Speaks a target as written in the session.
     /// "4:00/km" → "4 minutes per kilometre", "5:00-5:30/km" → "5 to 5 30 per kilometre".
     public static func target(_ raw: String) -> String {
@@ -54,6 +60,10 @@ public enum Speech {
             return "\(pace(first)) \(unit)"
         }
         var text = raw
+        text = text.replacingOccurrences(of: #"\bramp\b"#, with: "ramping", options: [.regularExpression, .caseInsensitive])
+        text = text.replacingOccurrences(of: #"(\d+)-(\d+)rpm"#, with: "at $1 to $2 R P M", options: .regularExpression)
+        text = text.replacingOccurrences(of: #"(\d+)rpm"#, with: "at $1 R P M", options: .regularExpression)
+        text = text.replacingOccurrences(of: #"(\d+)w\b"#, with: "$1 watts", options: .regularExpression)
         text = text.replacingOccurrences(of: #"\bZ(\d)\b"#, with: "zone $1", options: .regularExpression)
         text = text.replacingOccurrences(of: "LTHR", with: "threshold heart rate")
         text = text.replacingOccurrences(of: "HR", with: "heart rate")
@@ -102,6 +112,12 @@ public enum Format {
         guard let p = secondsPerKm, p.isFinite, p > 0, p < 3600 else { return "–:––" }
         let t = Int(p.rounded())
         return String(format: "%d:%02d", t / 60, t % 60)
+    }
+
+    /// 250...270 → "250–270 W", 250...250 → "250 W".
+    public static func watts(_ range: ClosedRange<Double>) -> String {
+        let a = Int(range.lowerBound.rounded()), b = Int(range.upperBound.rounded())
+        return a == b ? "\(a) W" : "\(a)–\(b) W"
     }
 
     /// 10420 → "10.42 km"

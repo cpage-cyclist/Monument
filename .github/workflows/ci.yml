@@ -32,6 +32,7 @@ jobs:
           python3 -m pip install --quiet --break-system-packages garmin-fit-sdk
           python3 scripts/validate_fit.py build/fit/full.fit --laps 12 --hr --gps
           python3 scripts/validate_fit.py build/fit/no-gps-no-hr.fit --laps 12
+          python3 scripts/validate_fit.py build/fit/ride-power.fit --laps 6 --hr --gps --sport cycling --power
 
       - name: Install XcodeGen
         run: brew install xcodegen

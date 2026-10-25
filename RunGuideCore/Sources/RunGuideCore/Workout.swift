@@ -25,13 +25,17 @@ public struct Step: Hashable, Identifiable {
     /// The target as written in the session, e.g. "4:00/km" or "5:00-5:30/km".
     public let target: String?
     public let kind: StepKind
+    /// The power the step asks for, in watts, when it has a power target and FTP is known.
+    public let watts: ClosedRange<Double>?
 
-    public init(id: Int, label: String, end: StepEnd, target: String?, kind: StepKind = .active) {
+    public init(id: Int, label: String, end: StepEnd, target: String?, kind: StepKind = .active,
+                watts: ClosedRange<Double>? = nil) {
         self.id = id
         self.label = label
         self.end = end
         self.target = target
         self.kind = kind
+        self.watts = watts
     }
 }
 

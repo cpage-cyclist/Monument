@@ -193,3 +193,11 @@ final class ActivityLibrary: ObservableObject {
         await refresh(force: true)
     }
 }
+
+extension ActivityLibrary {
+    /// FTP as of the most recent ride, for turning power targets into watts.
+    var latestFTP: Double? {
+        activities.first { !$0.isStravaPlaceholder && $0.ftp != nil
+            && !(($0.type ?? "").lowercased().contains("run")) }?.ftp
+    }
+}

@@ -58,6 +58,13 @@ Fixed choices for Monument (formerly Run Guide). Change one only on purpose, and
   property of the workout.
 - **Record** is sport-agnostic: the sport is chosen before starting and locked for the session.
   Cycling route cues get a bigger warning buffer than running (about 500 m vs 100 m).
+- **Record** offers Run, Ride and Walk, plus **Just record** (laps by hand, carries on until
+  stopped). Sessions play from Intervals workout text for any sport, with power targets shown in
+  watts from the latest FTP. Rides show km/h, say speed rather than pace and split every 5 km.
+- **Power meters and cadence sensors** over Bluetooth (Cycling Power 0x1818, CSC 0x1816), paired
+  in Settings like the HR strap. Cadence comes from the power meter's crank data when it sends
+  it. Live 3 s power against the step's target band; power and cadence go in the FIT file
+  (records, laps, session, with normalised power).
 - A **Rider tab**: one page, no scrolling, a top-trumps card of best efforts and stats, a clean
   link to settings, and launch points into the rest of the app.
 - The builder **reads and writes Intervals workout text** (what's in the step text on the web), so

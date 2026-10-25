@@ -4,6 +4,7 @@ import SwiftUI
 struct RunGuideApp: App {
     @StateObject private var settings = AppSettings()
     @StateObject private var heartRate = HeartRateMonitor()
+    @StateObject private var sensors = CyclingSensors()
     @StateObject private var store = RunStore()
     @StateObject private var routes = RouteStore()
     @StateObject private var strava = StravaAccount()
@@ -20,6 +21,7 @@ struct RunGuideApp: App {
             RootView()
                 .environmentObject(settings)
                 .environmentObject(heartRate)
+                .environmentObject(sensors)
                 .environmentObject(store)
                 .environmentObject(routes)
                 .environmentObject(strava)
@@ -37,7 +39,7 @@ struct RunGuideApp: App {
     }
 }
 
-/// Tabs: Today, the calendar, activities from Intervals, and the Run Guide run player.
+/// Tabs: Today, the calendar, activities from Intervals, and Record.
 /// A custom container rather than TabView, so the brand tab bar can rise in with the launch animation.
 /// All four tabs stay alive so each keeps its scroll position and navigation.
 struct RootView: View {
@@ -53,7 +55,7 @@ struct RootView: View {
                     page(.today) { TodayView() }
                     page(.calendar) { CalendarView() }
                     page(.activities) { ActivitiesView() }
-                    page(.run) { HomeView() }
+                    page(.record) { RecordView() }
                 }
                 BrandTabBar(selection: $tab)
                     .offset(y: launch.revealed ? 0 : 140)

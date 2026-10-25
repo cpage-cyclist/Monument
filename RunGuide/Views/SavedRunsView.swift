@@ -181,8 +181,8 @@ struct SavedRunDetailView: View {
         let fileURL = store.url(for: run)
         do {
             let id = try await BackgroundTime.run("Strava upload") {
-                try await strava.uploadActivity(fileURL: fileURL, name: run.name,
-                                                description: "", externalID: run.fileName)
+                try await strava.uploadActivity(fileURL: fileURL, name: run.name, description: "",
+                                                externalID: run.fileName, sportType: (run.sport ?? .run).stravaType)
             }
             store.markUploadedToStrava(run, activityId: id)
         } catch {

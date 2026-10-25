@@ -3,6 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject private var settings: AppSettings
     @EnvironmentObject private var heartRate: HeartRateMonitor
+    @EnvironmentObject private var sensors: CyclingSensors
     @Environment(\.dismiss) private var dismiss
     @State private var announcer = Announcer()
     @State private var voices = Announcer.englishVoices
@@ -17,7 +18,7 @@ struct SettingsView: View {
                     SecureField("API key", text: $settings.apiKey)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
-                    Toggle("Upload runs automatically", isOn: $settings.autoUpload)
+                    Toggle("Upload recordings automatically", isOn: $settings.autoUpload)
                 } header: {
                     Text("Intervals.icu")
                 } footer: {
@@ -27,10 +28,12 @@ struct SettingsView: View {
                 StravaSettingsSection()
 
                 heartRateSection
+                SensorSettingsSection(sensor: sensors.power)
+                SensorSettingsSection(sensor: sensors.cadence)
 
                 Section {
-                    Toggle("Say pace at the end of each step", isOn: $settings.lapPaceFeedback)
-                    Toggle("Km splits on long steps", isOn: $settings.kmSplits)
+                    Toggle("Say pace (or speed on rides) at the end of each step", isOn: $settings.lapPaceFeedback)
+                    Toggle("Splits on long steps (every km, or 5 km on rides)", isOn: $settings.kmSplits)
                     Picker("Voice", selection: $settings.voiceIdentifier) {
                         Text("Automatic (best UK voice)").tag("")
                         ForEach(voices, id: \.identifier) { voice in

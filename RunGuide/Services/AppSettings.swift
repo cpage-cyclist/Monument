@@ -56,4 +56,10 @@ final class AppSettings: ObservableObject {
     var engineOptions: EngineOptions {
         EngineOptions(lapPaceFeedback: lapPaceFeedback, kmSplits: kmSplits)
     }
+
+    /// The sport Record last used, so it opens on it next time.
+    var recordSport: RecordSport {
+        get { RecordSport(rawValue: UserDefaults.standard.string(forKey: "recordSport") ?? "") ?? .run }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: "recordSport"); objectWillChange.send() }
+    }
 }
