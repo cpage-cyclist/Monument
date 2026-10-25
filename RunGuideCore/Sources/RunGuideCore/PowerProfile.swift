@@ -98,6 +98,8 @@ public struct PowerProfile: Equatable, Sendable {
     public let r2: Double
     public let from: String?
     public let to: String?
+    /// The full omni-domain model, when this profile came from an OmPD fit.
+    public var omni: OmniDomain? = nil
 
     /// Durations the 2-parameter fit uses: 3 to 20 minutes, where the model holds up best.
     public static let fitDurations = [180, 240, 300, 420, 600, 720, 900, 1200]
