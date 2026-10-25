@@ -230,6 +230,20 @@ public enum ChartKind: String, CaseIterable, Identifiable, Sendable {
     }
 
     /// Short label for the y axis.
+    /// Where a value sits on a shared 0–1 scale for overlaid charts (faster pace higher).
+    public func normalized(_ v: Double, in domain: ClosedRange<Double>) -> Double {
+        let span = domain.upperBound - domain.lowerBound
+        guard span > 0 else { return 0.5 }
+        let f = (v - domain.lowerBound) / span
+        return reversed ? 1 - f : f
+    }
+
+    /// The value at a point on the shared 0–1 scale.
+    public func value(atNormalized f: Double, in domain: ClosedRange<Double>) -> Double {
+        let g = reversed ? 1 - f : f
+        return domain.lowerBound + g * (domain.upperBound - domain.lowerBound)
+    }
+
     public func axisLabel(_ v: Double) -> String {
         switch self {
         case .pace: return Format.pace(v)

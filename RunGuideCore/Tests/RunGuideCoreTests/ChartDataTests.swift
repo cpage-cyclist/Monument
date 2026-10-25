@@ -81,4 +81,13 @@ final class ChartDataTests: XCTestCase {
         XCTAssertEqual(wbal.value(at: 3), 29.5)
         XCTAssertNil(power.value(at: 99))
     }
+
+    func testNormalisedOverlayScale() {
+        XCTAssertEqual(ChartKind.power.normalized(250, in: 0...500), 0.5)
+        XCTAssertEqual(ChartKind.power.value(atNormalized: 0.5, in: 0...500), 250)
+        // Pace: faster (fewer seconds) sits higher.
+        XCTAssertEqual(ChartKind.pace.normalized(240, in: 240...360), 1)
+        XCTAssertEqual(ChartKind.pace.value(atNormalized: 1, in: 240...360), 240)
+        XCTAssertEqual(ChartKind.heartRate.normalized(150, in: 150...150), 0.5)
+    }
 }
