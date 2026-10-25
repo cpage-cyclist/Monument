@@ -18,8 +18,11 @@ struct TodayView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+            BrandScrollPage(onRefresh: pullRefresh) {
+                PageTitle(text: "Today")
+            } accessory: {
+                HeaderButton(systemImage: "gearshape", label: "Settings") { showSettings = true }
+            } content: {
                     if !settings.hasCredentials {
                         Button("Add your Intervals athlete ID and API key") { showSettings = true }
                             .buttonStyle(.borderedProminent)
@@ -28,20 +31,9 @@ struct TodayView: View {
                     FitnessCard(day: calendar.fitness)
                     FitnessChartsCard(history: calendar.fitnessHistory, today: today)
 
-                    if let next = TodayPlan.next(events: calendar.upcoming, activities: library.activities, today: today) {
-                        NextSessionCard(event: next, today: today) {
-                            running = WorkoutParser.parse(next.description ?? "", name: next.name ?? "Planned run")
-                        }
-                    } else {
-                        Card {
-                            Text("Nothing planned in the next three weeks.")
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-
                     if let last = library.activities.first(where: { !$0.isStravaPlaceholder }) {
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Last activity").font(.headline)
+                            SectionTitle(text: "Last activity")
                             Card {
                                 VStack(alignment: .leading, spacing: 10) {
                                     NavigationLink(value: last) {
@@ -54,7 +46,7 @@ struct TodayView: View {
                                     }
                                     .buttonStyle(.plain)
                                     if !last.isLogged {
-                                        Divider()
+                                        Hairline()
                                         Button {
                                             logging = last
                                         } label: {
@@ -67,27 +59,27 @@ struct TodayView: View {
                         }
                     }
 
+                    if let next = TodayPlan.next(events: calendar.upcoming, activities: library.activities, today: today) {
+                        NextSessionCard(event: next, today: today) {
+                            running = WorkoutParser.parse(next.description ?? "", name: next.name ?? "Planned run")
+                        }
+                    } else {
+                        Card {
+                            Text("Nothing planned in the next three weeks.")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
                     if let error = calendar.lastError {
                         Label(error, systemImage: "exclamationmark.triangle")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
-                }
-                .padding(16)
             }
-            .background(Color(.systemGroupedBackground))
             .navigationTitle("Today")
             .navigationDestination(for: ActivitySummary.self) { ActivityDetailView(summary: $0) }
             .navigationDestination(item: $running) { workout in
                 PreviewView(workout: workout, tracker: tracker)
-            }
-            .refreshable {
-                async let a: Void = calendar.refreshToday(force: true)
-                async let b: Void = library.refresh(force: true)
-                _ = await (a, b)
-            }
-            .toolbar {
-                Button { showSettings = true } label: { Image(systemName: "gearshape") }
             }
             .sheet(isPresented: $showSettings) {
                 SettingsView()
@@ -105,6 +97,13 @@ struct TodayView: View {
         }
     }
 
+    /// Pull-to-refresh on the ridge header.
+    private func pullRefresh() async {
+        async let a: Void = calendar.refreshToday(force: true)
+        async let b: Void = library.refresh(force: true)
+        _ = await (a, b)
+    }
+
     private func refresh() async {
         guard settings.hasCredentials else { return }
         async let a: Void = calendar.refreshToday()
@@ -120,7 +119,7 @@ struct Card<Content: View>: View {
         content
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(14)
-            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+            .overlay { Rectangle().strokeBorder(Brand.hairline, lineWidth: 1) }
     }
 }
 
@@ -157,7 +156,7 @@ struct NextSessionCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(heading).font(.headline)
+            SectionTitle(text: heading)
             Card {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(alignment: .firstTextBaseline) {
@@ -267,9 +266,9 @@ struct FitnessChartsCard: View {
 
     private var legend: some View {
         HStack(spacing: 14) {
-            key("Fitness", .blue, selected?.day.ctl)
-            key("Fatigue", .pink, selected?.day.atl)
-            key("Form", .orange, selected?.day.form, signed: true)
+            key("Fitness", Brand.forest, selected?.day.ctl)
+            key("Fatigue", .white, selected?.day.atl)
+            key("Form", Brand.forest, selected?.day.form, signed: true)
             if let zone = selected?.day.formZone {
                 Text(zone.rawValue).font(.caption).foregroundStyle(.secondary)
             }
@@ -292,13 +291,13 @@ struct FitnessChartsCard: View {
             ForEach(points) { p in
                 if let ctl = p.day.ctl {
                     LineMark(x: .value("Day", p.date), y: .value("Load", ctl), series: .value("Series", "Fitness"))
-                        .foregroundStyle(.blue)
-                        .lineStyle(StrokeStyle(lineWidth: 2))
+                        .foregroundStyle(Brand.forest)
+                        .lineStyle(StrokeStyle(lineWidth: 2.5))
                 }
                 if let atl = p.day.atl {
                     LineMark(x: .value("Day", p.date), y: .value("Load", atl), series: .value("Series", "Fatigue"))
-                        .foregroundStyle(.pink)
-                        .lineStyle(StrokeStyle(lineWidth: 1))
+                        .foregroundStyle(.white)
+                        .lineStyle(StrokeStyle(lineWidth: 1.5))
                 }
             }
             if let selected {
@@ -318,14 +317,14 @@ struct FitnessChartsCard: View {
         Chart {
             // Intervals' "optimal" training zone.
             RectangleMark(yStart: .value("Form", -30), yEnd: .value("Form", -10))
-                .foregroundStyle(Color.green.opacity(0.12))
-            RuleMark(y: .value("Form", 0)).foregroundStyle(Color.secondary.opacity(0.5))
+                .foregroundStyle(Color.white.opacity(0.4))
+            RuleMark(y: .value("Form", 0)).foregroundStyle(Brand.forest.opacity(0.6))
             ForEach(points) { p in
                 if let form = p.day.form {
                     AreaMark(x: .value("Day", p.date), yStart: .value("Zero", 0), yEnd: .value("Form", form))
-                        .foregroundStyle(Color.orange.opacity(0.25))
+                        .foregroundStyle(Brand.forest.opacity(0.14))
                     LineMark(x: .value("Day", p.date), y: .value("Form", form))
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(Brand.forest)
                         .lineStyle(StrokeStyle(lineWidth: 1.5))
                 }
             }

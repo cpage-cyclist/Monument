@@ -70,3 +70,13 @@ Fixed choices for Monument (formerly Run Guide). Change one only on purpose, and
 - The quick log records **carbs in g/h**. Intervals stores carbs per activity as total grams
   (`carbs_ingested`), so Monument converts using moving time and shows g/h back. It's logged
   as a tag for later W'bal work (e.g. how fuelling relates to how W′ holds up on long rides).
+
+## Look and feel
+
+- Monument Almanac branding: forest green `#00321F`, light green `#7F9990`, Helvetica Neue for all
+  text, Akira (demo, personal use) only for the wordmark artwork and hero numbers.
+- The ridge header stacks the five monuments' profiles at 15% light green on white (10% white on
+  forest in dark mode), squashed to 40% height; the page takes the colour of all five overlapping.
+- **Medals** mark peak efforts that rank 1st, 2nd or 3rd over the last year (slanted gold/silver/
+  bronze bar) or all time (inverted: solid metal badge with the bar cut out). All time outranks
+  year. Ranks come from Intervals' `power-curves` with `curves=1y,all&subMaxEfforts=2`.

@@ -64,6 +64,7 @@ struct ActivityDetailView: View {
     @State private var logging = false
     @State private var profile: PowerProfile?
     @State private var profileLoaded = false
+    @State private var ranks: BestEffortRanks?
 
     private var smoothing: Smoothing { Smoothing(rawValue: smoothingRaw) ?? .s3 }
     private var wbalSource: WbalSource { WbalSource(rawValue: wbalSourceRaw) ?? .intervals }
@@ -82,7 +83,7 @@ struct ActivityDetailView: View {
                                    canClear: selection != nil,
                                    onClear: { selection = nil })
                     if !analysis.peaks.isEmpty {
-                        PeaksRow(peaks: analysis.peaks, selected: selectedPeak) { seconds in
+                        PeaksRow(peaks: analysis.peaks, medals: medals(for: analysis.peaks), selected: selectedPeak) { seconds in
                             selection = (selection == .peak(seconds)) ? nil : .peak(seconds)
                         }
                     }
@@ -109,6 +110,7 @@ struct ActivityDetailView: View {
         }
         .navigationTitle(current.name ?? "Activity")
         .navigationBarTitleDisplayMode(.inline)
+        .brandPageBackground()
         .toolbar {
             Button {
                 logging = true
@@ -283,6 +285,19 @@ struct ActivityDetailView: View {
             profileLoaded = true
             if wbalSource != .intervals { await rebuild() }
         }
+        if ranks == nil, streams?.has(.watts) == true, !current.isRun {
+            ranks = await library.bestEffortRanks()
+        }
+    }
+
+    /// Year / all-time top-three medals for this ride's peaks, keyed by duration.
+    private func medals(for peaks: [PeakEffort]) -> [Int: EffortMedal] {
+        guard let ranks else { return [:] }
+        var out: [Int: EffortMedal] = [:]
+        for p in peaks {
+            if let m = ranks.medal(activity: summary.id.value, seconds: p.seconds) { out[p.seconds] = m }
+        }
+        return out
     }
 
     private func rebuild() async {
@@ -385,7 +400,9 @@ struct ChartPanelView: View {
                 .onPreferenceChange(PlotFrameKey.self) { plotFrame = $0 }
                 .overlay(alignment: .topLeading) { overlay }
                 .sensoryFeedback(.impact(weight: .medium), trigger: holdFeedback)
-                .frame(height: kind == .altitude ? 72 : (kind == .wbal ? 110 : 96))
+                // Room for the top and bottom axis labels, which hang over the plot's edges.
+                .padding(.vertical, 8)
+                .frame(height: kind == .altitude ? 88 : (kind == .wbal ? 126 : 112))
                 .clipped()
                 .accessibilityLabel(kind.title)
         }
@@ -470,12 +487,13 @@ struct ChartPanelView: View {
 
     static func color(_ kind: ChartKind) -> Color {
         switch kind {
-        case .power: return .indigo
-        case .wbal: return .teal
-        case .heartRate: return .red
-        case .cadence: return .orange
-        case .speed, .pace: return .blue
-        case .altitude: return .gray
+        // Deep, saturated tones that hold up on the sage page.
+        case .power: return Brand.forest
+        case .wbal: return .white
+        case .heartRate: return Color(red: 0.62, green: 0.12, blue: 0.16)
+        case .cadence: return Color(red: 0.42, green: 0.35, blue: 0.10)
+        case .speed, .pace: return Color(red: 0.10, green: 0.25, blue: 0.45)
+        case .altitude: return Color(red: 0.30, green: 0.36, blue: 0.34)
         }
     }
 }
@@ -648,7 +666,7 @@ struct BreakdownPanel: View {
             }
         }
         .padding(14)
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
+        .overlay { Rectangle().strokeBorder(Brand.hairline, lineWidth: 1) }
     }
 
     private func bigFigure(_ label: String, _ value: String) -> some View {
@@ -738,7 +756,7 @@ struct EffortsRow: View {
                             .frame(minWidth: 58)
                             .padding(.vertical, 8)
                             .padding(.horizontal, 6)
-                            .background(selected == i ? Color.accentColor.opacity(0.2) : Color(.secondarySystemBackground),
+                            .background(selected == i ? Color.accentColor.opacity(0.2) : Color.white.opacity(0.35),
                                         in: RoundedRectangle(cornerRadius: 10))
                         }
                         .buttonStyle(.plain)
@@ -822,6 +840,7 @@ struct WbalSourceBar: View {
 
 struct PeaksRow: View {
     let peaks: [PeakEffort]
+    var medals: [Int: EffortMedal] = [:]
     let selected: Int?
     let onTap: (Int) -> Void
 
@@ -833,13 +852,18 @@ struct PeaksRow: View {
                     ForEach(peaks) { p in
                         Button { onTap(p.seconds) } label: {
                             VStack(spacing: 2) {
-                                Text(p.label).font(.caption).foregroundStyle(.secondary)
+                                HStack(spacing: 4) {
+                                    Text(p.label).font(.caption).foregroundStyle(.secondary)
+                                    if let medal = medals[p.seconds] { MedalBadge(medal: medal) }
+                                }
                                 Text("\(Int(p.watts.rounded()))").font(.headline.monospacedDigit())
                             }
+                            .accessibilityElement(children: .combine)
+                            .accessibilityHint(medals[p.seconds]?.description ?? "")
                             .frame(minWidth: 52)
                             .padding(.vertical, 8)
                             .padding(.horizontal, 6)
-                            .background(selected == p.seconds ? Color.accentColor.opacity(0.2) : Color(.secondarySystemBackground),
+                            .background(selected == p.seconds ? Color.accentColor.opacity(0.2) : Color.white.opacity(0.35),
                                         in: RoundedRectangle(cornerRadius: 10))
                         }
                         .buttonStyle(.plain)
