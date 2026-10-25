@@ -65,8 +65,9 @@ it is and becomes the "Start" action for planned runs.
    locked before starting; about 500 m route cue warning for cycling; plays builder workouts.
 4. **v2.5 Rider:** single top-trumps page of best efforts and stats, settings link, launch
    points into the app.
-5. **Insights:** toggle Monument's power profile against the Intervals values, dFRC
-   alongside W'bal, W' decay over long efforts, then a WKO5-style custom chart builder.
+5. **Insights:** toggle Monument's power profile against the Intervals values (done), then a
+   WKO5-style custom chart builder. dFRC alongside W'bal and W' decay over long efforts are
+   parked for later.
 
 Also to come: a further pass on the activity view, and a full visual polish pass across the app,
 including bringing the workout builder's step and text editors into the Monument style used on
