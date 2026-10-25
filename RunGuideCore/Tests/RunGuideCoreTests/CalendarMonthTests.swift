@@ -134,4 +134,36 @@ final class CalendarMonthTests: XCTestCase {
         XCTAssertEqual(plan.unpairedSessions.map(\.id), [2])
         XCTAssertEqual(plan.unplannedActivities.map(\.id.value), ["i2"])
     }
+
+    func testWeekTotals() throws {
+        let events = try JSONDecoder().decode([CalendarEvent].self, from: Data("""
+        [
+          {"id": 1, "start_date_local": "2026-10-19T00:00:00", "category": "WORKOUT", "icu_training_load": 100},
+          {"id": 2, "start_date_local": "2026-10-21T00:00:00", "category": "WORKOUT", "icu_training_load": 60},
+          {"id": 3, "start_date_local": "2026-10-25T00:00:00", "category": "RACE_B", "icu_training_load": 150},
+          {"id": 4, "start_date_local": "2026-10-22T00:00:00", "category": "NOTE"}
+        ]
+        """.utf8))
+        let activities = try JSONDecoder().decode([ActivitySummary].self, from: Data("""
+        [
+          {"id": "a", "start_date_local": "2026-10-19T09:00:00", "moving_time": 5400, "distance": 45000,
+           "total_elevation_gain": 500, "icu_training_load": 95, "paired_event_id": 1},
+          {"id": "b", "start_date_local": "2026-10-23T17:00:00", "moving_time": 1800, "distance": 5000,
+           "icu_training_load": 25}
+        ]
+        """.utf8))
+        let grid = MonthGrid(containing: IntervalsDates.parseLocal("2026-10-22T12:00:00")!)
+        let week = try XCTUnwrap(grid.week(containing: "2026-10-22"))
+        XCTAssertEqual(week.first, "2026-10-19")
+        XCTAssertEqual(week.last, "2026-10-25")
+        let t = WeekTotals(DayPlan.build(days: week, events: events, activities: activities))
+        XCTAssertEqual(t.plannedLoad, 310)
+        XCTAssertEqual(t.doneLoad, 120)
+        XCTAssertEqual(t.plannedSessions, 3)
+        XCTAssertEqual(t.doneSessions, 1)
+        XCTAssertEqual(t.seconds, 7200)
+        XCTAssertEqual(t.metres, 50000)
+        XCTAssertEqual(t.climbing, 500)
+        XCTAssertEqual(t.activities, 2)
+    }
 }

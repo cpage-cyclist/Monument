@@ -129,3 +129,41 @@ public enum FitnessProjection {
         }
     }
 }
+
+/// A week's planned against done, for Today. Load and sessions cover planned workouts and races;
+/// time, distance and climbing are what was actually done (all sports).
+public struct WeekTotals: Equatable, Sendable {
+    public var plannedLoad = 0.0
+    public var doneLoad = 0.0
+    public var plannedSessions = 0
+    public var doneSessions = 0
+    public var seconds = 0.0
+    public var metres = 0.0
+    public var climbing = 0.0
+    public var activities = 0
+
+    public init() {}
+
+    public init(_ plans: [DayPlan]) {
+        for day in plans {
+            plannedLoad += day.plannedLoad
+            doneLoad += day.completedLoad
+            plannedSessions += day.sessions.count
+            doneSessions += day.sessions.filter { day.isDone($0) }.count
+            for a in day.activities {
+                activities += 1
+                seconds += a.movingTime ?? 0
+                metres += a.distance ?? 0
+                climbing += a.totalElevationGain ?? 0
+            }
+        }
+    }
+
+    /// Done load as a share of planned, capped at 1.5 for drawing.
+    public var progress: Double { plannedLoad > 0 ? min(doneLoad / plannedLoad, 1.5) : 0 }
+}
+
+extension MonthGrid {
+    /// The Monday-to-Sunday week holding `day`, from this grid.
+    public func week(containing day: String) -> [String]? { weeks.first { $0.contains(day) } }
+}

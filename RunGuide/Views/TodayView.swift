@@ -12,6 +12,8 @@ struct TodayView: View {
     @StateObject private var tracker = LocationTracker()
     @State private var showSettings = false
     @State private var running: RecordStart?
+    /// The totals card shows the last 7 days instead of Monday to Sunday.
+    @AppStorage("todayRollingWeek") private var rollingWeek = false
     @State private var logging: ActivitySummary?
 
     private var today: String { IntervalsDates.day(Date()) }
@@ -29,7 +31,7 @@ struct TodayView: View {
                     }
 
                     FitnessCard(day: calendar.fitness)
-                    FitnessChartsCard(history: calendar.fitnessHistory, today: today)
+                    WeekTotalsCard(days: weekDays, totals: weekTotals, rolling: $rollingWeek)
 
                     if let last = library.activities.first(where: { !$0.isStravaPlaceholder }) {
                         VStack(alignment: .leading, spacing: 8) {
@@ -97,6 +99,37 @@ struct TodayView: View {
                 if !showing { Task { await refresh() } }
             }
             .task { await refresh() }
+            .onChange(of: rollingWeek) { _, _ in Task { await loadWeek(force: false) } }
+        }
+    }
+
+    /// This month's grid, which always holds the whole of this week.
+    private var month: MonthGrid { MonthGrid(containing: Date()) }
+
+    /// Last month's grid, for the start of a rolling week early in the month.
+    private var previousMonth: MonthGrid { month.shifted(byMonths: -1) }
+
+    private var weekDays: [String] {
+        rollingWeek ? IntervalsDates.days(from: IntervalsDates.adding(-6, to: today), through: today)
+                    : (month.week(containing: today) ?? [today])
+    }
+
+    private var weekTotals: WeekTotals {
+        var events: [CalendarEvent] = [], activities: [ActivitySummary] = []
+        var seenEvents = Set<Int>(), seenActivities = Set<String>()
+        for grid in [month, previousMonth] where weekDays.contains(where: { $0 >= grid.first && $0 <= grid.last }) {
+            let data = calendar.windows[grid.first] ?? calendar.data(for: grid)
+            for e in data?.events ?? [] where seenEvents.insert(e.id).inserted { events.append(e) }
+            for a in data?.activities ?? [] where seenActivities.insert(a.id.value).inserted { activities.append(a) }
+        }
+        return WeekTotals(DayPlan.build(days: weekDays, events: events, activities: activities))
+    }
+
+    /// Loads the grids the totals card needs.
+    private func loadWeek(force: Bool) async {
+        await calendar.load(month, force: force)
+        if rollingWeek, IntervalsDates.adding(-6, to: today) < month.first {
+            await calendar.load(previousMonth, force: force)
         }
     }
 
@@ -104,11 +137,13 @@ struct TodayView: View {
     private func pullRefresh() async {
         async let a: Void = calendar.refreshToday(force: true)
         async let b: Void = library.refresh(force: true)
-        _ = await (a, b)
+        async let c: Void = loadWeek(force: true)
+        _ = await (a, b, c)
     }
 
     private func refresh() async {
         guard settings.hasCredentials else { return }
+        async let w: Void = loadWeek(force: false)
         async let a: Void = calendar.refreshToday()
         async let b: Void = library.refresh()
         _ = await (a, b)
@@ -212,156 +247,78 @@ struct NextSessionCard: View {
     }
 }
 
-/// Fitness and fatigue on one chart, form underneath, over the last 42 or 180 days.
-/// Drag across either chart to read a day's numbers.
-struct FitnessChartsCard: View {
-    let history: [WellnessDay]
-    let today: String
-
-    @AppStorage("fitnessChartDays") private var days = 42
-    @State private var selectedDate: Date?
-
-    private struct Point: Identifiable {
-        let date: Date
-        let day: WellnessDay
-        var id: String { day.id }
-    }
-
-    private var points: [Point] {
-        WellnessDay.recent(history, count: days, today: today).compactMap { d in
-            IntervalsDates.parseLocal(d.id + "T12:00:00").map { Point(date: $0, day: d) }
-        }
-    }
-
-    /// The day under the finger, if any.
-    private var selected: Point? {
-        guard let selectedDate else { return nil }
-        return points.min { abs($0.date.timeIntervalSince(selectedDate)) < abs($1.date.timeIntervalSince(selectedDate)) }
-    }
+/// This week (Monday to Sunday) or the last 7 days: load done against planned, sessions done, and
+/// time, distance and climbing.
+struct WeekTotalsCard: View {
+    let days: [String]
+    let totals: WeekTotals
+    @Binding var rolling: Bool
 
     var body: some View {
-        Card {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Text(selected.map { $0.date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)) } ?? "Trend")
-                        .font(.subheadline.weight(.semibold))
-                    Spacer()
-                    Picker("Range", selection: $days) {
-                        Text("42d").tag(42)
-                        Text("180d").tag(180)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                SectionTitle(text: (rolling ? "Last 7 days" : "This week") + range)
+                Spacer()
+                Picker("Span", selection: $rolling) {
+                    Text("Week").tag(false)
+                    Text("7 days").tag(true)
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 130)
+            }
+            Card {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(alignment: .firstTextBaseline) {
+                        Text("\(Int(totals.doneLoad.rounded()))")
+                            .font(.brand(.title, weight: .bold).monospacedDigit())
+                        Text(totals.plannedLoad > 0 ? "of \(Int(totals.plannedLoad.rounded())) load" : "load")
+                            .font(.brand(.subheadline))
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        if totals.plannedSessions > 0 {
+                            Text("\(totals.doneSessions)/\(totals.plannedSessions) sessions")
+                                .font(.brand(.subheadline, weight: .medium).monospacedDigit())
+                        }
                     }
-                    .pickerStyle(.segmented)
-                    .frame(width: 130)
-                }
-
-                if points.count < 2 {
-                    Text("No fitness history yet.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                } else {
-                    legend
-                    fitnessChart
-                    formChart
+                    if totals.plannedLoad > 0 {
+                        GeometryReader { geo in
+                            ZStack(alignment: .leading) {
+                                Rectangle().fill(Brand.hairline.opacity(0.15))
+                                Rectangle().fill(Brand.forest)
+                                    .frame(width: geo.size.width * min(totals.progress, 1))
+                                if totals.progress > 1 {
+                                    Rectangle().fill(Brand.Medal.bronze.flat)
+                                        .frame(width: geo.size.width * (totals.progress - 1) / 1.5)
+                                        .offset(x: geo.size.width - geo.size.width * (totals.progress - 1) / 1.5)
+                                }
+                            }
+                        }
+                        .frame(height: 6)
+                        .accessibilityLabel("\(Int((totals.progress * 100).rounded())) percent of planned load done")
+                    }
+                    Hairline()
+                    HStack {
+                        figure("Time", totals.seconds > 0 ? Format.clock(totals.seconds) : "–")
+                        figure("Distance", totals.metres > 0 ? String(format: "%.0f km", totals.metres / 1000) : "–")
+                        figure("Climbing", totals.climbing > 0 ? "\(Int(totals.climbing.rounded())) m" : "–")
+                        figure("Activities", "\(totals.activities)")
+                    }
                 }
             }
         }
     }
 
-    private var legend: some View {
-        HStack(spacing: 14) {
-            key("Fitness", Brand.forest, selected?.day.ctl)
-            key("Fatigue", .white, selected?.day.atl)
-            key("Form", Brand.forest, selected?.day.form, signed: true)
-            if let zone = selected?.day.formZone {
-                Text(zone.rawValue).font(.caption).foregroundStyle(.secondary)
-            }
-        }
+    private var range: String {
+        guard let a = days.first.flatMap({ IntervalsDates.parseLocal($0 + "T12:00:00") }),
+              let b = days.last.flatMap({ IntervalsDates.parseLocal($0 + "T12:00:00") }) else { return "" }
+        return " · " + a.formatted(.dateTime.day().month(.abbreviated)) + " – " + b.formatted(.dateTime.day().month(.abbreviated))
     }
 
-    private func key(_ label: String, _ color: Color, _ value: Double?, signed: Bool = false) -> some View {
-        HStack(spacing: 4) {
-            Circle().fill(color).frame(width: 7, height: 7)
+    private func figure(_ label: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
             Text(label).font(.caption).foregroundStyle(.secondary)
-            if let value {
-                let v = Int(value.rounded())
-                Text(signed && v > 0 ? "+\(v)" : "\(v)").font(.caption.monospacedDigit().weight(.semibold))
-            }
+            Text(value).font(.brand(.headline, weight: .bold).monospacedDigit()).lineLimit(1).minimumScaleFactor(0.7)
         }
-    }
-
-    private var fitnessChart: some View {
-        Chart {
-            ForEach(points) { p in
-                if let ctl = p.day.ctl {
-                    LineMark(x: .value("Day", p.date), y: .value("Load", ctl), series: .value("Series", "Fitness"))
-                        .foregroundStyle(Brand.forest)
-                        .lineStyle(StrokeStyle(lineWidth: 2.5))
-                }
-                if let atl = p.day.atl {
-                    LineMark(x: .value("Day", p.date), y: .value("Load", atl), series: .value("Series", "Fatigue"))
-                        .foregroundStyle(.white)
-                        .lineStyle(StrokeStyle(lineWidth: 1.5))
-                }
-            }
-            if let selected {
-                RuleMark(x: .value("Day", selected.date)).foregroundStyle(Color.primary.opacity(0.4))
-            }
-        }
-        .chartYScale(domain: loadDomain)
-        .chartXAxis(.hidden)
-        .chartYAxis {
-            AxisMarks(position: .leading, values: .automatic(desiredCount: 3))
-        }
-        .chartXSelection(value: $selectedDate)
-        .frame(height: 120)
-    }
-
-    private var formChart: some View {
-        Chart {
-            // Intervals' "optimal" training zone.
-            RectangleMark(yStart: .value("Form", -30), yEnd: .value("Form", -10))
-                .foregroundStyle(Color.white.opacity(0.4))
-            RuleMark(y: .value("Form", 0)).foregroundStyle(Brand.forest.opacity(0.6))
-            ForEach(points) { p in
-                if let form = p.day.form {
-                    AreaMark(x: .value("Day", p.date), yStart: .value("Zero", 0), yEnd: .value("Form", form))
-                        .foregroundStyle(Brand.forest.opacity(0.14))
-                    LineMark(x: .value("Day", p.date), y: .value("Form", form))
-                        .foregroundStyle(Brand.forest)
-                        .lineStyle(StrokeStyle(lineWidth: 1.5))
-                }
-            }
-            if let selected {
-                RuleMark(x: .value("Day", selected.date)).foregroundStyle(Color.primary.opacity(0.4))
-            }
-        }
-        .chartYScale(domain: formDomain)
-        .chartXAxis {
-            AxisMarks(values: .automatic(desiredCount: 4)) { _ in
-                AxisGridLine()
-                AxisValueLabel(format: .dateTime.day().month(.abbreviated))
-            }
-        }
-        .chartYAxis {
-            AxisMarks(position: .leading, values: .automatic(desiredCount: 3))
-        }
-        .chartXSelection(value: $selectedDate)
-        .frame(height: 90)
-    }
-
-    /// Snapped to the data with 10% headroom, like the activity charts.
-    private var loadDomain: ClosedRange<Double> {
-        let values = points.flatMap { [$0.day.ctl, $0.day.atl].compactMap { $0 } }
-        guard let lo = values.min(), let hi = values.max() else { return 0...100 }
-        let span = max(hi - lo, 10)
-        return max(lo - span * 0.1, 0)...(hi + span * 0.1)
-    }
-
-    /// Always shows zero and the optimal band, plus the data with headroom.
-    private var formDomain: ClosedRange<Double> {
-        let values = points.compactMap(\.day.form)
-        let lo = min(values.min() ?? -30, -30), hi = max(values.max() ?? 10, 10)
-        let span = hi - lo
-        return (lo - span * 0.08)...(hi + span * 0.08)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
