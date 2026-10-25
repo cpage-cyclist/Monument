@@ -20,6 +20,8 @@ final class CalendarStore: ObservableObject {
     @Published private(set) var fitnessHistory: [WellnessDay] = []
     @Published private(set) var loading = false
     @Published var lastError: String?
+    /// Bumped when something outside the Calendar (the workout builder) changes Intervals' calendar.
+    @Published private(set) var revision = 0
 
     private let cache: DiskCache
     private let clientProvider: () -> IntervalsClient
@@ -178,6 +180,13 @@ final class CalendarStore: ObservableObject {
         await load(month, force: true)
         await loadAhead(through: aheadEnd, force: true)
         await refreshToday(force: true)
+    }
+
+    /// Something else changed the calendar: forget what's loaded so screens fetch it again.
+    func calendarChanged() {
+        windows = [:]
+        aheadFetched = nil
+        revision += 1
     }
 
     private func isStale(_ key: String) -> Bool {

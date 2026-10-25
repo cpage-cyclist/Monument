@@ -17,6 +17,8 @@ struct CalendarView: View {
     @State private var noteDay: String?
     @State private var noteTitle = ""
     @State private var noteText = ""
+    @State private var building: WorkoutLibrary.Origin?
+    @State private var showLibrary = false
 
     private var today: String { IntervalsDates.day(Date()) }
 
@@ -25,7 +27,7 @@ struct CalendarView: View {
             BrandScrollPage(onRefresh: refresh) {
                 monthTitle
             } accessory: {
-                EmptyView()
+                HeaderButton(systemImage: "books.vertical", label: "Workout library") { showLibrary = true }
             } content: {
                 FitnessStripCard(days: month.days,
                                  history: calendar.fitnessHistory,
@@ -40,19 +42,30 @@ struct CalendarView: View {
                         HStack {
                             SectionTitle(text: DayTitle.text(plan.day, today: today), emphasised: plan.day == today)
                             Spacer()
-                            Button {
-                                noteTitle = ""
-                                noteText = ""
-                                noteDay = plan.day
+                            Menu {
+                                Button { building = .new(day: plan.day) } label: {
+                                    Label("New workout", systemImage: "plus.rectangle.on.rectangle")
+                                }
+                                Button { showLibrary = true } label: {
+                                    Label("From library", systemImage: "books.vertical")
+                                }
+                                Button {
+                                    noteTitle = ""
+                                    noteText = ""
+                                    noteDay = plan.day
+                                } label: {
+                                    Label("Add a note", systemImage: "note.text.badge.plus")
+                                }
                             } label: {
-                                Image(systemName: "note.text.badge.plus")
+                                Image(systemName: "plus.circle")
+                                    .font(.system(size: 20))
                                     .frame(width: 36, height: 30)
                             }
-                            .accessibilityLabel("Add a note")
+                            .accessibilityLabel("Add to this day")
                         }
                         Card {
                             VStack(alignment: .leading, spacing: 12) {
-                                DayContent(plan: plan, today: today, moving: $moving, deleting: $deleting)
+                                DayContent(plan: plan, today: today, moving: $moving, deleting: $deleting, building: $building)
                             }
                         }
                     }
@@ -84,6 +97,9 @@ struct CalendarView: View {
                 async let f: Void = calendar.refreshToday()
                 _ = await (m, a, f)
             }
+            .fullScreenCover(item: $building) { WorkoutBuilderView(origin: $0) }
+            .sheet(isPresented: $showLibrary) { WorkoutLibraryView() }
+            .onChange(of: calendar.revision) { _, _ in Task { await refresh() } }
             .sheet(item: $moving) { event in
                 MoveSheet(event: event, days: week(containing: event.day), today: today) { day in
                     Task { await calendar.move(event, to: day, in: month) }
@@ -479,13 +495,14 @@ struct FitnessStripCard: View {
 
 // MARK: - Day
 
-/// A day's planned sessions, activities and notes. Sessions can be moved or deleted from their
-/// context menu; activities open their detail.
+/// A day's planned sessions, activities and notes. Tap a planned workout to edit it; its context
+/// menu also moves or deletes it. Activities open their detail.
 struct DayContent: View {
     let plan: DayPlan
     let today: String
     @Binding var moving: CalendarEvent?
     @Binding var deleting: CalendarEvent?
+    @Binding var building: WorkoutLibrary.Origin?
 
     var body: some View {
         if plan.sessions.isEmpty && plan.activities.isEmpty && plan.notes.isEmpty {
@@ -497,7 +514,12 @@ struct DayContent: View {
         ForEach(plan.sessions) { event in
             sessionRow(event, done: plan.isDone(event), past: plan.day < today)
                 .contentShape(Rectangle())
+                .contentShape(Rectangle())
+                .onTapGesture { if event.isWorkout { building = .event(event) } }
                 .contextMenu {
+                    if event.isWorkout {
+                        Button { building = .event(event) } label: { Label("Edit workout", systemImage: "slider.horizontal.3") }
+                    }
                     Button { moving = event } label: { Label("Move to another day", systemImage: "calendar") }
                     Button(role: .destructive) { deleting = event } label: { Label("Delete", systemImage: "trash") }
                 }

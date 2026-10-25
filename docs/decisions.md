@@ -60,6 +60,15 @@ Fixed choices for Monument (formerly Run Guide). Change one only on purpose, and
   Cycling route cues get a bigger warning buffer than running (about 500 m vs 100 m).
 - A **Rider tab**: one page, no scrolling, a top-trumps card of best efforts and stats, a clean
   link to settings, and launch points into the rest of the app.
+- The builder **reads and writes Intervals workout text** (what's in the step text on the web), so
+  Intervals still works out time and load and syncs to the head unit. `m` always means minutes;
+  metres are written `mtr`. Blocks can repeat, one level deep, as in Intervals.
+- The builder is a **visual block editor with a structure chart**, with "Edit as text" for the raw
+  Intervals text. It edits new workouts, planned sessions and library workouts, and saves to a
+  calendar day and/or a library folder. Targets: power (% FTP, watts, zones, ramps, cadence),
+  heart rate (% max, LTHR, zones), pace (% threshold, min/km, zones), or none with a cue.
+- The **Calendar** is a month grid with the chosen day's sessions underneath and a fitness,
+  fatigue and form strip across the month (projected days dashed).
 - Build order (see `v2-scope.md`): Calendar, then workout builder, then Record, then Rider,
   then insights (power profile, dFRC, custom chart builder).
 
