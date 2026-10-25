@@ -11,6 +11,7 @@ struct RunGuideApp: App {
     @StateObject private var library = ActivityLibrary()
     @StateObject private var calendar = CalendarStore()
     @StateObject private var workouts = WorkoutLibrary()
+    @StateObject private var rider = RiderStore()
 
     init() {
         Brand.applyAppearance()
@@ -28,6 +29,7 @@ struct RunGuideApp: App {
                 .environmentObject(library)
                 .environmentObject(calendar)
                 .environmentObject(workouts)
+                .environmentObject(rider)
                 .onOpenURL { url in
                     if StravaAccount.isCallback(url) {
                         Task { await strava.handleCallback(url) }
@@ -56,6 +58,7 @@ struct RootView: View {
                     page(.calendar) { CalendarView() }
                     page(.activities) { ActivitiesView() }
                     page(.record) { RecordView() }
+                    page(.rider) { RiderView() }
                 }
                 BrandTabBar(selection: $tab)
                     .offset(y: launch.revealed ? 0 : 140)
@@ -64,6 +67,7 @@ struct RootView: View {
             .tint(Brand.accent)
             .font(.brand(.body))
             .environmentObject(launch)
+            .environment(\.switchTab) { tab = $0 }
 
             if showSplash {
                 LaunchSplash(launch: launch) { showSplash = false }
