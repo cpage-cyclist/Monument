@@ -18,7 +18,13 @@ struct CalendarView: View {
     @State private var noteTitle = ""
     @State private var noteText = ""
     @State private var building: WorkoutLibrary.Origin?
-    @State private var showLibrary = false
+    @State private var library: LibraryRequest?
+
+    /// The library, opened from the header (no day) or for a day.
+    struct LibraryRequest: Identifiable {
+        let day: String?
+        var id: String { day ?? "all" }
+    }
 
     private var today: String { IntervalsDates.day(Date()) }
 
@@ -27,7 +33,7 @@ struct CalendarView: View {
             BrandScrollPage(onRefresh: refresh) {
                 monthTitle
             } accessory: {
-                HeaderButton(systemImage: "books.vertical", label: "Workout library") { showLibrary = true }
+                HeaderButton(systemImage: "books.vertical", label: "Workout library") { library = LibraryRequest(day: nil) }
             } content: {
                 FitnessStripCard(days: month.days,
                                  history: calendar.fitnessHistory,
@@ -46,7 +52,7 @@ struct CalendarView: View {
                                 Button { building = .new(day: plan.day) } label: {
                                     Label("New workout", systemImage: "plus.rectangle.on.rectangle")
                                 }
-                                Button { showLibrary = true } label: {
+                                Button { library = LibraryRequest(day: plan.day) } label: {
                                     Label("From library", systemImage: "books.vertical")
                                 }
                                 Button {
@@ -98,7 +104,7 @@ struct CalendarView: View {
                 _ = await (m, a, f)
             }
             .fullScreenCover(item: $building) { WorkoutBuilderView(origin: $0) }
-            .sheet(isPresented: $showLibrary) { WorkoutLibraryView() }
+            .sheet(item: $library) { WorkoutLibraryView(scheduleDay: $0.day) }
             .onChange(of: calendar.revision) { _, _ in Task { await refresh() } }
             .sheet(item: $moving) { event in
                 MoveSheet(event: event, days: week(containing: event.day), today: today) { day in

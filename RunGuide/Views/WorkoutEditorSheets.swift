@@ -315,10 +315,20 @@ struct SaveWorkoutSheet: View {
     @State private var error: String?
     @State private var saved: WorkoutLibrary.Saved?
 
-    init(origin: WorkoutLibrary.Origin, plan: WorkoutPlan, onFinished: @escaping () -> Void) {
+    init(origin: WorkoutLibrary.Origin, plan: WorkoutPlan, scheduleDay: String? = nil,
+         onFinished: @escaping () -> Void) {
         self.origin = origin
         self.plan = plan
         self.onFinished = onFinished
+        if let scheduleDay {
+            // Opened for a calendar day: add it there, and leave the original alone.
+            _updateOriginal = State(initialValue: false)
+            _addToCalendar = State(initialValue: true)
+            _day = State(initialValue: IntervalsDates.parseLocal(scheduleDay + "T12:00:00") ?? Date())
+            _addToLibrary = State(initialValue: false)
+            if case .library(let w) = origin { _folder = State(initialValue: w.folderId) }
+            return
+        }
         switch origin {
         case .new(let d):
             _updateOriginal = State(initialValue: false)
@@ -435,8 +445,10 @@ struct SaveWorkoutSheet: View {
 
 // MARK: - Library
 
-/// The Intervals workout library by folder. Tap a workout to edit or schedule it.
+/// The Intervals workout library by folder. Tap a workout to edit or schedule it. Opened for a
+/// calendar day, tapping one sets it up to be added to that day.
 struct WorkoutLibraryView: View {
+    var scheduleDay: String? = nil
     @EnvironmentObject private var library: WorkoutLibrary
     @EnvironmentObject private var settings: AppSettings
     @Environment(\.dismiss) private var dismiss
@@ -445,6 +457,13 @@ struct WorkoutLibraryView: View {
     var body: some View {
         NavigationStack {
             List {
+                if let scheduleDay {
+                    Section {
+                        Label("Pick a workout to add to \(DayTitle.text(scheduleDay, today: IntervalsDates.day(Date())))",
+                              systemImage: "calendar.badge.plus")
+                            .font(.brand(.subheadline, weight: .medium))
+                    }
+                }
                 ForEach(library.folders) { folder in
                     if !folder.workouts.isEmpty {
                         Section(folder.name ?? "Folder") {
@@ -462,7 +481,7 @@ struct WorkoutLibraryView: View {
             .brandPageBackground()
             .overlay { if library.loading && library.folders.isEmpty { ProgressView() } }
             .refreshable { await library.load(force: true) }
-            .navigationTitle("Library")
+            .navigationTitle(scheduleDay == nil ? "Library" : "Add from library")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } }
@@ -475,7 +494,12 @@ struct WorkoutLibraryView: View {
                 guard settings.hasCredentials else { return }
                 await library.load()
             }
-            .fullScreenCover(item: $opening) { WorkoutBuilderView(origin: $0) }
+            .fullScreenCover(item: $opening) { origin in
+                WorkoutBuilderView(origin: origin, scheduleDay: scheduleDay) {
+                    // Added to the day: back to the Calendar.
+                    if scheduleDay != nil { dismiss() }
+                }
+            }
         }
     }
 

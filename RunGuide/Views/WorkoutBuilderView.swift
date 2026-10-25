@@ -6,6 +6,10 @@ import RunGuideCore
 /// shows the Intervals workout text directly. Saving goes to a calendar day and/or the library.
 struct WorkoutBuilderView: View {
     let origin: WorkoutLibrary.Origin
+    /// The calendar day it was opened for, if any: saving then defaults to adding it there.
+    let scheduleDay: String?
+    /// Called after a successful save, once the builder has closed.
+    let onSaved: () -> Void
 
     @EnvironmentObject private var library: WorkoutLibrary
     @EnvironmentObject private var activities: ActivityLibrary
@@ -27,8 +31,10 @@ struct WorkoutBuilderView: View {
         var id: UUID { step }
     }
 
-    init(origin: WorkoutLibrary.Origin) {
+    init(origin: WorkoutLibrary.Origin, scheduleDay: String? = nil, onSaved: @escaping () -> Void = {}) {
         self.origin = origin
+        self.scheduleDay = scheduleDay
+        self.onSaved = onSaved
         let start: WorkoutPlan
         switch origin {
         case .new: start = WorkoutPlan(name: "", sport: "Ride", blocks: WorkoutBuilderView.starter(sport: "Ride"))
@@ -53,7 +59,8 @@ struct WorkoutBuilderView: View {
                 if textMode { textEditor } else { blockEditor }
             }
             .brandPageBackground()
-            .navigationTitle(isNew ? "New workout" : "Edit workout")
+            .navigationTitle(scheduleDay.map { "Add to " + DayTitle.text($0, today: IntervalsDates.day(Date())) }
+                             ?? (isNew ? "New workout" : "Edit workout"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -82,7 +89,10 @@ struct WorkoutBuilderView: View {
                 }
             }
             .sheet(isPresented: $saving) {
-                SaveWorkoutSheet(origin: origin, plan: currentPlan) { dismiss() }
+                SaveWorkoutSheet(origin: origin, plan: currentPlan, scheduleDay: scheduleDay) {
+                    dismiss()
+                    onSaved()
+                }
             }
             .task { await loadFullTextIfNeeded() }
         }
