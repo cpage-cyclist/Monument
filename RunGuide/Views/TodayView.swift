@@ -198,7 +198,7 @@ struct NextSessionCard: View {
 
     private var heading: String {
         if event.day == today { return "Today" }
-        return "Next · " + WeekView.dayTitle(event.day, today: today)
+        return "Next · " + DayTitle.text(event.day, today: today)
     }
 
     private func stat(_ label: String, _ value: String) -> some View {

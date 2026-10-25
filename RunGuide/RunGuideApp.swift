@@ -35,7 +35,7 @@ struct RunGuideApp: App {
     }
 }
 
-/// Tabs: Today, the week around it, activities from Intervals, and the Run Guide run player.
+/// Tabs: Today, the calendar, activities from Intervals, and the Run Guide run player.
 /// A custom container rather than TabView, so the brand tab bar can rise in with the launch animation.
 /// All four tabs stay alive so each keeps its scroll position and navigation.
 struct RootView: View {
@@ -49,7 +49,7 @@ struct RootView: View {
             VStack(spacing: 0) {
                 ZStack {
                     page(.today) { TodayView() }
-                    page(.week) { WeekView() }
+                    page(.calendar) { CalendarView() }
                     page(.activities) { ActivitiesView() }
                     page(.run) { HomeView() }
                 }
