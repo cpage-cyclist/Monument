@@ -108,7 +108,8 @@ final class WorkoutPlanTests: XCTestCase {
         XCTAssertEqual(steps.map(\.length), [.distance(3000), .distance(5000), .distance(3000)])
         XCTAssertEqual(steps[1].target, PlanTarget(metric: .pace, mode: .absolute, low: 260))
         // Timed from the pace: 3 × 5:20 + 5 × 4:20 + 3 × 5:20.
-        XCTAssertEqual(plan.totalSeconds(), 3 * 320 + 5 * 260 + 3 * 320, accuracy: 0.001)
+        let expected: Double = 3 * 320 + 5 * 260 + 3 * 320
+        XCTAssertEqual(plan.totalSeconds(), expected, accuracy: 0.001)
     }
 
     func testProseOnlyWorkoutKeepsItsNotes() {
