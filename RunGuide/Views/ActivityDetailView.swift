@@ -136,6 +136,14 @@ struct ActivityDetailView: View {
             ToolbarItem(placement: .secondaryAction) {
                 Button { Task { await load(force: true) } } label: { Label("Reload", systemImage: "arrow.clockwise") }
             }
+            ToolbarItem(placement: .secondaryAction) {
+                Picker(selection: $wbalSourceRaw) {
+                    ForEach(WbalSource.allCases) { s in Text(s.label).tag(s.rawValue) }
+                } label: {
+                    Label("W′bal from", systemImage: "bolt.batteryblock")
+                }
+                .pickerStyle(.menu)
+            }
         }
         .sheet(isPresented: $logging) {
             QuickLogView(activity: current) {
@@ -255,58 +263,118 @@ struct ActivityDetailView: View {
     // MARK: - Bottom panel
 
     private func bottomPanel(_ analysis: Analysis) -> some View {
-        VStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: 8) {
             Picker("Show", selection: $tab) {
                 ForEach(Tab.allCases) { t in Text(t.rawValue).tag(t) }
             }
             .pickerStyle(.segmented)
 
-            // The page never scrolls; a long table scrolls inside its own panel.
-            ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    switch tab {
-                    case .selection:
-                        BreakdownPanel(title: selectionTitle(analysis),
-                                       stats: breakdown,
-                                       isRun: current.isRun,
-                                       canClear: selection != nil,
-                                       onClear: { selection = nil })
-                    case .laps:
-                        if let detail, !detail.intervals.isEmpty {
-                            LapsTable(intervals: detail.intervals, isRun: current.isRun, selected: lapBinding)
-                        } else {
-                            Text("No laps recorded.").font(.footnote).foregroundStyle(.secondary)
+            Group {
+                switch tab {
+                case .selection: selectionPanel(analysis)
+                case .laps: lapsPanel
+                case .peaks: peaksPanel(analysis)
+                case .summary: summaryPanel(analysis)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .padding(12)
+            .overlay { Rectangle().strokeBorder(Brand.hairline, lineWidth: 1) }
+        }
+    }
+
+    private func selectionPanel(_ analysis: Analysis) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(selectionTitle(analysis)).font(.brand(.headline, weight: .bold)).lineLimit(1)
+                Spacer()
+                if selection != nil {
+                    Button("Whole activity") { selection = nil }.font(.brand(.footnote, weight: .medium))
+                }
+            }
+            if let s = breakdown {
+                FitPager(items: SelectionFigures.items(s, isRun: current.isRun), columns: 3, rowHeight: 38) { item in
+                    FigureCell(item: item)
+                }
+            } else {
+                Text("Not enough data in this selection.").font(.footnote).foregroundStyle(.secondary)
+                Spacer()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var lapsPanel: some View {
+        if let detail, !detail.intervals.isEmpty {
+            VStack(alignment: .leading, spacing: 4) {
+                LapRow.header(isRun: current.isRun)
+                FitPager(items: detail.intervals.indices.map { LapItem(index: $0) }, columns: 1, rowHeight: 32) { item in
+                    Button {
+                        lapBinding.wrappedValue = lapBinding.wrappedValue == item.index ? nil : item.index
+                    } label: {
+                        LapRow(index: item.index, lap: detail.intervals[item.index], isRun: current.isRun,
+                               selected: lapBinding.wrappedValue == item.index)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        } else {
+            Text("No laps recorded.").font(.footnote).foregroundStyle(.secondary)
+        }
+    }
+
+    private func peaksPanel(_ analysis: Analysis) -> some View {
+        let peakMedals = medals(for: analysis.peaks)
+        var tiles: [PeakTile] = analysis.peaks.map { .peak($0) }
+        if let wbal = analysis.wbal {
+            tiles += wbal.efforts.indices.map { .effort($0, wbal.efforts[$0]) }
+        }
+        return Group {
+            if tiles.isEmpty {
+                Text("No power peaks for this activity.").font(.footnote).foregroundStyle(.secondary)
+            } else {
+                FitPager(items: tiles, columns: 4, rowHeight: 56) { tile in
+                    switch tile {
+                    case .peak(let p):
+                        TileButton(top: p.label, value: "\(Int(p.watts.rounded()))", bottom: "W",
+                                   medal: peakMedals[p.seconds], selected: selectedPeak == p.seconds) {
+                            selection = (selection == .peak(p.seconds)) ? nil : .peak(p.seconds)
                         }
-                    case .peaks:
-                        if !analysis.peaks.isEmpty {
-                            PeaksRow(peaks: analysis.peaks, medals: medals(for: analysis.peaks), selected: selectedPeak) { seconds in
-                                selection = (selection == .peak(seconds)) ? nil : .peak(seconds)
-                            }
-                        }
-                        if let wbal = analysis.wbal, !wbal.efforts.isEmpty {
-                            EffortsRow(efforts: wbal.efforts, timeline: analysis.stack.timeline, selected: selectedEffort) { i in
-                                selection = (selection == .effort(i)) ? nil : .effort(i)
-                            }
-                        }
-                        if analysis.peaks.isEmpty && (analysis.wbal?.efforts.isEmpty ?? true) {
-                            Text("No power peaks for this activity.").font(.footnote).foregroundStyle(.secondary)
-                        }
-                    case .summary:
-                        SummaryGrid(summary: current)
-                        if analysis.stack.panels.contains(where: { $0.kind == .wbal }) {
-                            WbalSourceBar(source: $wbalSourceRaw,
-                                          profile: profile,
-                                          profileLoaded: profileLoaded,
-                                          usingMonument: analysis.usingMonument,
-                                          intervalsFTP: current.ftp,
-                                          intervalsWPrime: streams?[.wbal]?.compactMap { $0 }.max())
+                    case .effort(let i, let e):
+                        TileButton(top: "W′ " + effortDuration(e, analysis.stack.timeline),
+                                   value: String(format: "%.1f", e.spentKJ), bottom: "kJ · to " + String(format: "%.0f", e.lowKJ),
+                                   medal: nil, selected: selectedEffort == i, tint: Brand.Data.wbal) {
+                            selection = (selection == .effort(i)) ? nil : .effort(i)
                         }
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .scrollBounceBehavior(.basedOnSize)
         }
+    }
+
+    private func summaryPanel(_ analysis: Analysis) -> some View {
+        var items = SummaryGrid.items(for: current)
+        if analysis.stack.panels.contains(where: { $0.kind == .wbal }) {
+            items.append(FigureItem("W′bal from", analysis.usingMonument ? "Monument" : "Intervals"))
+            if analysis.usingMonument, let p = profile {
+                items.append(FigureItem("CP", "\(Int(p.cp.rounded())) W"))
+                items.append(FigureItem("W′", String(format: "%.1f kJ", p.wPrime / 1000)))
+            } else if let ftp = current.ftp {
+                items.append(FigureItem("FTP", "\(Int(ftp.rounded())) W"))
+            }
+        }
+        return VStack(alignment: .leading, spacing: 8) {
+            if let date = current.startDate {
+                Text(date.formatted(.dateTime.weekday(.wide).day().month(.wide).hour().minute()))
+                    .font(.brand(.footnote)).foregroundStyle(.secondary)
+            }
+            FitPager(items: items, columns: 3, rowHeight: 38) { item in FigureCell(item: item) }
+        }
+    }
+
+    private func effortDuration(_ e: WbalEffort, _ timeline: Timeline) -> String {
+        guard let a = timeline.x[safe: e.startIndex], let b = timeline.x[safe: e.endIndex] else { return "" }
+        return Format.clock(b - a)
     }
 
     /// Sample indexes the current selection covers.
@@ -497,7 +565,13 @@ struct OverlayChart: View {
             .onPreferenceChange(PlotFrameKey.self) { plotFrame = $0 }
             .overlay(alignment: .topLeading) { overlay }
             .sensoryFeedback(.impact(weight: .medium), trigger: holdFeedback)
-            .padding(.vertical, 6)
+            .padding(.top, 10)
+            .padding(.bottom, 4)
+            .padding(.horizontal, 8)
+            .background(Brand.Data.surface)
+            .overlay { Rectangle().strokeBorder(Brand.hairline, lineWidth: 1) }
+            // The surface is white in both modes, so the axes use light-mode ink.
+            .environment(\.colorScheme, .light)
             .accessibilityLabel("Chart of " + kinds.map(\.title).joined(separator: ", "))
     }
 
@@ -574,13 +648,12 @@ struct OverlayChart: View {
 
     static func color(_ kind: ChartKind) -> Color {
         switch kind {
-        // Deep, saturated tones that hold up on the sage page.
-        case .power: return Brand.forest
-        case .wbal: return .white
-        case .heartRate: return Color(red: 0.62, green: 0.12, blue: 0.16)
-        case .cadence: return Color(red: 0.42, green: 0.35, blue: 0.10)
-        case .speed, .pace: return Color(red: 0.10, green: 0.25, blue: 0.45)
-        case .altitude: return Color(red: 0.30, green: 0.36, blue: 0.34)
+        case .power: return Brand.Data.power
+        case .wbal: return Brand.Data.wbal
+        case .heartRate: return Brand.Data.heartRate
+        case .cadence: return Brand.Data.cadence
+        case .speed, .pace: return Brand.Data.speed
+        case .altitude: return Brand.Data.altitude
         }
     }
 }
@@ -619,12 +692,14 @@ struct OverlayPlot: View, Equatable {
                     if s.kind == .altitude || s.kind == .wbal {
                         AreaMark(x: .value("Time", p.x), y: .value("Value", p.y),
                                  series: .value("Series", s.kind.rawValue + "-area"), stacking: .unstacked)
-                            .foregroundStyle(colour.opacity(s.kind == .altitude ? 0.18 : 0.22))
+                            .foregroundStyle(colour.opacity(s.kind == .altitude ? 0.45 : 0.18))
                     }
-                    LineMark(x: .value("Time", p.x), y: .value("Value", p.y),
-                             series: .value("Series", s.kind.rawValue))
-                        .foregroundStyle(colour)
-                        .lineStyle(StrokeStyle(lineWidth: s.kind == .power ? 1.1 : 1.3))
+                    if s.kind != .altitude {
+                        LineMark(x: .value("Time", p.x), y: .value("Value", p.y),
+                                 series: .value("Series", s.kind.rawValue))
+                            .foregroundStyle(colour)
+                            .lineStyle(StrokeStyle(lineWidth: s.kind == .power ? 1.1 : 1.6))
+                    }
                 }
                 if let comparison = s.comparison {
                     ForEach(comparison, id: \.x) { p in
@@ -1034,6 +1109,11 @@ struct SummaryGrid: View {
 
     private struct Stat { let label: String; let value: String }
 
+    /// The summary as figures for the fitted grid.
+    static func items(for summary: ActivitySummary) -> [FigureItem] {
+        SummaryGrid(summary: summary).stats.map { FigureItem($0.label, $0.value) }
+    }
+
     private var stats: [Stat] {
         let s = summary
         var out: [Stat] = []
@@ -1135,4 +1215,231 @@ struct LapsTable: View {
 
 extension Array {
     subscript(safe index: Int) -> Element? { indices.contains(index) ? self[index] : nil }
+}
+
+
+// MARK: - Fitted panels (nothing scrolls)
+
+/// A label and value for a fitted grid.
+struct FigureItem: Identifiable, Hashable {
+    let label: String
+    let value: String
+    var id: String { label }
+    init(_ label: String, _ value: String) { self.label = label; self.value = value }
+}
+
+struct FigureCell: View {
+    let item: FigureItem
+    var body: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(item.label).font(.brand(.caption2)).foregroundStyle(.secondary).lineLimit(1)
+            Text(item.value).font(.brand(.subheadline, weight: .bold).monospacedDigit())
+                .lineLimit(1).minimumScaleFactor(0.7)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// The selection's figures in reading order: the headline three, then power, heart rate, cadence,
+/// speed or pace, elevation, W'bal.
+enum SelectionFigures {
+    static func items(_ s: SelectionStats, isRun: Bool) -> [FigureItem] {
+        var out: [FigureItem] = []
+        func add(_ label: String, _ value: String?) { if let value { out.append(FigureItem(label, value)) } }
+        func int(_ v: Double) -> String { "\(Int(v.rounded()))" }
+        add("Duration", Format.clock(s.duration))
+        add("Distance", s.distance.map { String(format: "%.2f km", $0 / 1000) })
+        add("Load", s.load.map(int))
+        if let p = s.power {
+            add("Avg power", int(p.avg) + " W")
+            add("Max power", int(p.max) + " W")
+        }
+        add("NP", s.normalizedPower.map { int($0) + " W" })
+        add("IF", s.intensity.map { String(format: "%.2f", $0) })
+        add("W/kg", s.wattsPerKg.map { String(format: "%.2f", $0) })
+        add("Work", s.work.map { int($0) + " kJ" })
+        if let h = s.heartRate {
+            add("Avg HR", int(h.avg) + " bpm")
+            add("Max HR", int(h.max) + " bpm")
+        }
+        if let c = s.cadence { add("Cadence", int(c.avg) + (isRun ? " spm" : " rpm")) }
+        if isRun, let r = s.pace {
+            add("Pace", Format.pace(r.avg) + "/km")
+            add("Best pace", Format.pace(r.min) + "/km")
+        } else if let r = s.speed {
+            add("Speed", String(format: "%.1f km/h", r.avg))
+            add("Max speed", String(format: "%.1f km/h", r.max))
+        }
+        add("VI", s.variabilityIndex.map { String(format: "%.2f", $0) })
+        add("Decoupling", s.decoupling.map { String(format: "%.1f%%", $0) })
+        add("El. gain", s.elevationGain.map { int($0) + " m" })
+        add("El. loss", s.elevationLoss.map { int($0) + " m" })
+        add("VAM", s.vam.map { int($0) + " m/h" })
+        add("Grade", s.grade.map { String(format: "%.1f%%", $0) })
+        add("W′bal low", s.wbalLow.map { String(format: "%.1f kJ", $0) })
+        add("W′ used", s.wbalUsed.map { String(format: "%.1f kJ", $0) })
+        add("W′bal end", s.wbalEnd.map { String(format: "%.1f kJ", $0) })
+        if let t = s.temperature { add("Temp", int(t.avg) + " °C") }
+        return out
+    }
+}
+
+/// Shows as many rows of items as fit the space it's given; if there are more, pages through them
+/// with arrows or a sideways swipe. Never scrolls.
+struct FitPager<Item: Identifiable, Cell: View>: View {
+    let items: [Item]
+    let columns: Int
+    let rowHeight: CGFloat
+    @ViewBuilder let cell: (Item) -> Cell
+
+    @State private var page = 0
+
+    var body: some View {
+        GeometryReader { geo in
+            let controls: CGFloat = 26
+            let fitAll = max(Int(geo.size.height / rowHeight), 1)
+            let needsPages = fitAll * columns < items.count
+            let rows = needsPages ? max(Int((geo.size.height - controls) / rowHeight), 1) : fitAll
+            let perPage = rows * columns
+            let pages = max(Int((Double(items.count) / Double(perPage)).rounded(.up)), 1)
+            let current = min(page, pages - 1)
+            let slice = Array(items.dropFirst(current * perPage).prefix(perPage))
+
+            VStack(spacing: 0) {
+                Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 0) {
+                    ForEach(0..<Int((Double(slice.count) / Double(columns)).rounded(.up)), id: \.self) { r in
+                        GridRow {
+                            ForEach(0..<columns, id: \.self) { c in
+                                let i = r * columns + c
+                                if i < slice.count {
+                                    cell(slice[i]).frame(maxWidth: .infinity, alignment: .leading)
+                                } else {
+                                    Color.clear.frame(maxWidth: .infinity)
+                                }
+                            }
+                        }
+                        .frame(height: rowHeight)
+                    }
+                }
+                Spacer(minLength: 0)
+                if pages > 1 {
+                    HStack {
+                        Button { withAnimation { page = max(current - 1, 0) } } label: {
+                            Image(systemName: "chevron.left").frame(width: 36, height: 24)
+                        }
+                        .disabled(current == 0)
+                        .accessibilityLabel("Previous page")
+                        Spacer()
+                        Text("\(current + 1) of \(pages)").font(.brand(.caption).monospacedDigit()).foregroundStyle(.secondary)
+                        Spacer()
+                        Button { withAnimation { page = min(current + 1, pages - 1) } } label: {
+                            Image(systemName: "chevron.right").frame(width: 36, height: 24)
+                        }
+                        .disabled(current == pages - 1)
+                        .accessibilityLabel("Next page")
+                    }
+                    .frame(height: controls)
+                }
+            }
+            .contentShape(Rectangle())
+            .gesture(DragGesture(minimumDistance: 30).onEnded { v in
+                guard abs(v.translation.width) > abs(v.translation.height) else { return }
+                withAnimation { page = v.translation.width < 0 ? min(current + 1, pages - 1) : max(current - 1, 0) }
+            })
+        }
+        .onChange(of: items.count) { _, _ in page = 0 }
+    }
+}
+
+struct LapItem: Identifiable { let index: Int; var id: Int { index } }
+
+/// One lap as a compact row: name, time, power (or pace), NP (or distance), HR.
+struct LapRow: View {
+    let index: Int
+    let lap: ActivityInterval
+    let isRun: Bool
+    let selected: Bool
+
+    static func header(isRun: Bool) -> some View {
+        HStack {
+            Text("Lap").frame(width: 76, alignment: .leading)
+            Text("Time").frame(maxWidth: .infinity, alignment: .trailing)
+            Text(isRun ? "Pace" : "Avg W").frame(maxWidth: .infinity, alignment: .trailing)
+            Text(isRun ? "Dist" : "NP").frame(maxWidth: .infinity, alignment: .trailing)
+            Text("HR").frame(maxWidth: .infinity, alignment: .trailing)
+        }
+        .font(.brand(.caption2, weight: .medium))
+        .foregroundStyle(.secondary)
+    }
+
+    var body: some View {
+        let duration = lap.movingTime ?? lap.elapsedTime
+        let pace: String = {
+            guard let d = lap.distance, let t = duration, d > 0 else { return "–" }
+            return Format.pace(t / (d / 1000))
+        }()
+        HStack {
+            Text(lap.label ?? "Lap \(index + 1)")
+                .lineLimit(1)
+                .frame(width: 76, alignment: .leading)
+                .foregroundStyle(lap.isWork ? .primary : .secondary)
+            Text(duration.map(Format.clock) ?? "–").frame(maxWidth: .infinity, alignment: .trailing)
+            Text(isRun ? pace : (lap.averagePower.map { "\(Int($0.rounded()))" } ?? "–"))
+                .frame(maxWidth: .infinity, alignment: .trailing)
+            Text(isRun ? (lap.distance.map { String(format: "%.2f", $0 / 1000) } ?? "–")
+                       : (lap.normalizedPower.map { "\(Int($0.rounded()))" } ?? "–"))
+                .frame(maxWidth: .infinity, alignment: .trailing)
+            Text(lap.averageHeartRate.map { "\(Int($0.rounded()))" } ?? "–")
+                .frame(maxWidth: .infinity, alignment: .trailing)
+        }
+        .font(.brand(.subheadline).monospacedDigit())
+        .frame(maxHeight: .infinity)
+        .padding(.horizontal, 4)
+        .background(selected ? Brand.forest.opacity(0.14) : .clear)
+        .overlay(alignment: .bottom) { Hairline() }
+        .contentShape(Rectangle())
+    }
+}
+
+/// A peak or W′ effort in the Peaks grid.
+enum PeakTile: Identifiable {
+    case peak(PeakEffort)
+    case effort(Int, WbalEffort)
+    var id: String {
+        switch self {
+        case .peak(let p): return "p\(p.seconds)"
+        case .effort(let i, _): return "e\(i)"
+        }
+    }
+}
+
+struct TileButton: View {
+    let top: String
+    let value: String
+    let bottom: String
+    let medal: EffortMedal?
+    let selected: Bool
+    var tint: Color = Brand.Data.power
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 1) {
+                HStack(spacing: 4) {
+                    Text(top).font(.brand(.caption2, weight: .medium)).foregroundStyle(.secondary).lineLimit(1)
+                    if let medal { MedalBadge(medal: medal) }
+                }
+                Text(value).font(.brand(.headline, weight: .bold).monospacedDigit()).lineLimit(1).minimumScaleFactor(0.7)
+                Text(bottom).font(.brand(.caption2)).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.7)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+            .padding(.horizontal, 6)
+            .overlay(alignment: .leading) { Rectangle().fill(tint).frame(width: 2) }
+            .background(selected ? tint.opacity(0.16) : .clear)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .padding(.vertical, 3)
+        .accessibilityHint(medal?.description ?? "")
+    }
 }

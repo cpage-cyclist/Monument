@@ -68,6 +68,25 @@ enum Brand {
         }
     }
 
+    // MARK: Data colours
+
+    /// Series colours for charts, picked from the brand (forest's green, the medal gold) plus
+    /// reserves that sit with it. Validated as a set on the white chart surface: every pair stays
+    /// distinct with full colour vision, and red/green colour-blind readers get them apart with the
+    /// labelled chips and readout. Charts always draw on white, in light and dark mode alike.
+    enum Data {
+        static let surface = Color.white
+        /// Axis labels and grid on the white surface.
+        static let ink = Color(red: 0.10, green: 0.12, blue: 0.11)
+        static let power = Color(hex: 0x237A52)
+        static let wbal = Color(hex: 0xB8860B)
+        static let heartRate = Color(hex: 0xC0392B)
+        static let cadence = Color(hex: 0x6A3FA0)
+        static let speed = Color(hex: 0x3A86D8)
+        /// Context, not identity: a quiet warm grey fill.
+        static let altitude = Color(hex: 0xB7B0A4)
+    }
+
     // MARK: Medals (gold / silver / bronze for top efforts)
 
     enum Medal: Int, CaseIterable {
@@ -166,6 +185,12 @@ extension Brand {
 }
 
 extension Color {
+    /// 0xRRGGBB.
+    init(hex: UInt32) {
+        self.init(red: Double((hex >> 16) & 0xFF) / 255, green: Double((hex >> 8) & 0xFF) / 255,
+                  blue: Double(hex & 0xFF) / 255)
+    }
+
     /// A colour that switches with light and dark mode.
     init(light: UIColor, dark: UIColor) {
         self.init(UIColor { $0.userInterfaceStyle == .dark ? dark : light })
