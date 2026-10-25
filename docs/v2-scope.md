@@ -68,7 +68,9 @@ it is and becomes the "Start" action for planned runs.
 5. **Insights:** toggle Monument's power profile against the Intervals values, dFRC
    alongside W'bal, W' decay over long efforts, then a WKO5-style custom chart builder.
 
-Also to come: a further pass on the activity view.
+Also to come: a further pass on the activity view, and a full visual polish pass across the app,
+including bringing the workout builder's step and text editors into the Monument style used on
+Today.
 
 ## API notes
 
