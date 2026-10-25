@@ -47,10 +47,13 @@ public struct EngineOptions: Equatable {
     public var lapPaceFeedback: Bool
     /// Say a split every km during long steps (≥ 2 km or ≥ 10 min).
     public var kmSplits: Bool
+    /// Rides say speed instead of pace, and split every 5 km rather than every km.
+    public var sport: RecordSport
 
-    public init(lapPaceFeedback: Bool = true, kmSplits: Bool = true) {
+    public init(lapPaceFeedback: Bool = true, kmSplits: Bool = true, sport: RecordSport = .run) {
         self.lapPaceFeedback = lapPaceFeedback
         self.kmSplits = kmSplits
+        self.sport = sport
     }
 }
 
@@ -180,17 +183,36 @@ public final class SessionEngine {
         return events
     }
 
-    /// The runner tapped Lap: end the current step now.
+    /// A free recording: one open step with no target, laps by hand until stopped.
+    public var isFree: Bool {
+        workout.steps.count == 1 && workout.steps[0].end == .open && workout.steps[0].target == nil
+    }
+
+    /// The runner tapped Lap: end the current step now. In a free recording the lap closes and
+    /// recording carries on.
     public func manualLap() -> [EngineEvent] {
-        guard started, !finished, currentStep != nil else { return [] }
-        return completeStep(trigger: .manual)
+        guard started, !finished, let step = currentStep else { return [] }
+        guard isFree else { return completeStep(trigger: .manual) }
+        let lap = Lap(stepIndex: stepIndex, label: "Lap \(laps.count + 1)", distance: stepDistance,
+                      duration: stepTime, kind: step.kind, trigger: .manual)
+        laps.append(lap)
+        stepDistance = 0
+        stepTime = 0
+        splitsAnnounced = 0
+        lastSplitTime = 0
+        var speech = "Lap \(laps.count)."
+        if let p = lap.pace, lap.distance >= 200 {
+            speech += options.sport.usesPace ? " \(Speech.pace(p)) per kilometre." : " \(Speech.speed(secondsPerKm: p))."
+        }
+        return [.lap(lap), .speak(speech)]
     }
 
     /// The runner ended the session early.
     public func finishEarly() -> [EngineEvent] {
         guard started, !finished else { return [] }
         if let step = currentStep, stepTime > 0 {
-            let lap = Lap(stepIndex: stepIndex, label: step.label, distance: stepDistance, duration: stepTime,
+            let label = isFree && !laps.isEmpty ? "Lap \(laps.count + 1)" : step.label
+            let lap = Lap(stepIndex: stepIndex, label: label, distance: stepDistance, duration: stepTime,
                           kind: step.kind, trigger: .sessionEnd)
             laps.append(lap)
             finished = true
@@ -218,7 +240,11 @@ public final class SessionEngine {
         var events: [EngineEvent] = [.lap(lap)]
         var speech = ""
         if options.lapPaceFeedback, let p = lap.pace, lap.distance >= 200 {
-            speech += "\(Speech.shortLabel(step.label)) done, \(Speech.pace(p)) per kilometre. "
+            if options.sport.usesPace {
+                speech += "\(Speech.shortLabel(step.label)) done, \(Speech.pace(p)) per kilometre. "
+            } else {
+                speech += "\(Speech.shortLabel(step.label)) done, \(Speech.speed(secondsPerKm: p)). "
+            }
         }
 
         stepIndex += 1
@@ -246,14 +272,18 @@ public final class SessionEngine {
 
         // Splits on long steps.
         if options.kmSplits, isLong(step) {
-            let km = Int(stepDistance / 1000)
-            if km > splitsAnnounced {
-                splitsAnnounced = km
+            let every = options.sport.splitDistance
+            let n = Int(stepDistance / every)
+            if n > splitsAnnounced {
+                splitsAnnounced = n
                 let splitTime = stepTime - lastSplitTime
                 lastSplitTime = stepTime
                 if !nearEnd(step) {
+                    let km = Int(Double(n) * every / 1000)
                     let label = km == 1 ? "1 kilometre" : "\(km) kilometres"
-                    out.append(.speak("\(label), \(Speech.pace(splitTime)) pace."))
+                    let perKm = splitTime / (every / 1000)
+                    out.append(.speak(options.sport.usesPace ? "\(label), \(Speech.pace(perKm)) pace."
+                                                             : "\(label), \(Speech.speed(secondsPerKm: perKm))."))
                 }
             }
         }
@@ -297,7 +327,7 @@ public final class SessionEngine {
 
     private func isLong(_ step: Step) -> Bool {
         switch step.end {
-        case .distance(let d): return d >= 2000
+        case .distance(let d): return d >= 2 * options.sport.splitDistance
         case .time(let t): return t >= 600
         case .open: return true
         }

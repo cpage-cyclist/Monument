@@ -59,7 +59,9 @@ public enum FITEncoder {
         Field(number: 2, base: .uint16),        // altitude (scale 5, offset 500)
         Field(number: 3, base: .uint8),         // heart_rate
         Field(number: 5, base: .uint32),        // distance (scale 100)
-        Field(number: 6, base: .uint16)         // speed (scale 1000)
+        Field(number: 6, base: .uint16),        // speed (scale 1000)
+        Field(number: 4, base: .uint8),         // cadence (rpm)
+        Field(number: 7, base: .uint16)         // power (watts)
     ])
     static let lap = MessageType(local: 3, global: 19, fields: [
         Field(number: 254, base: .uint16),      // message_index
@@ -79,7 +81,12 @@ public enum FITEncoder {
         Field(number: 23, base: .enumeration),  // intensity
         Field(number: 24, base: .enumeration),  // lap_trigger
         Field(number: 25, base: .enumeration),  // sport
-        Field(number: 71, base: .uint16)        // wkt_step_index
+        Field(number: 71, base: .uint16),       // wkt_step_index
+        Field(number: 17, base: .uint8),        // avg_cadence
+        Field(number: 18, base: .uint8),        // max_cadence
+        Field(number: 19, base: .uint16),       // avg_power
+        Field(number: 20, base: .uint16),       // max_power
+        Field(number: 33, base: .uint16)        // normalized_power
     ])
     static let session = MessageType(local: 4, global: 18, fields: [
         Field(number: 254, base: .uint16),      // message_index
@@ -98,7 +105,12 @@ public enum FITEncoder {
         Field(number: 17, base: .uint8),        // max_heart_rate
         Field(number: 25, base: .uint16),       // first_lap_index
         Field(number: 26, base: .uint16),       // num_laps
-        Field(number: 28, base: .enumeration)   // trigger
+        Field(number: 28, base: .enumeration),  // trigger
+        Field(number: 18, base: .uint8),        // avg_cadence
+        Field(number: 19, base: .uint8),        // max_cadence
+        Field(number: 20, base: .uint16),       // avg_power
+        Field(number: 21, base: .uint16),       // max_power
+        Field(number: 34, base: .uint16)        // normalized_power
     ])
     static let activity = MessageType(local: 5, global: 34, fields: [
         Field(number: 253, base: .uint32),      // timestamp
@@ -120,7 +132,6 @@ public enum FITEncoder {
 
     enum Event: UInt64 { case timer = 0, session = 8, lap = 9, activity = 26 }
     enum EventType: UInt64 { case start = 0, stop = 1, stopAll = 4 }
-    static let sportRunning: UInt64 = 1
 
     // MARK: - Encoding
 
@@ -155,7 +166,9 @@ public enum FITEncoder {
                     p.altitude.map { clamp(($0 + 500) * 5, max: 0xFFFE) } ?? invalidU16,
                     p.heartRate.map { clamp(Double($0), max: 0xFE) } ?? invalidU8,
                     clamp(p.distance * 100, max: 0xFFFF_FFFE),
-                    p.speed.map { clamp($0 * 1000, max: 0xFFFE) } ?? invalidU16
+                    p.speed.map { clamp($0 * 1000, max: 0xFFFE) } ?? invalidU16,
+                    p.cadence.map { clampOrZero(Double($0), max: 0xFE) } ?? invalidU8,
+                    p.power.map { clampOrZero(Double($0), max: 0xFFFE) } ?? invalidU16
                 ])
             case .lap(let l):
                 writer.write(lap, [
@@ -175,9 +188,9 @@ public enum FITEncoder {
                     l.maxHeartRate.map { clamp(Double($0), max: 0xFE) } ?? invalidU8,
                     intensity(l.kind),
                     lapTrigger(l.trigger),
-                    sportRunning,
+                    recording.sport.fitSport,
                     UInt64(l.stepIndex)
-                ])
+                ] + powerValues(l.power))
             }
         }
 
@@ -187,7 +200,7 @@ public enum FITEncoder {
             Event.session.rawValue,
             EventType.stop.rawValue,
             timestamp(recording.start),
-            sportRunning,
+            recording.sport.fitSport,
             0, // generic
             clamp(recording.elapsedTime * 1000, max: 0xFFFF_FFFE),
             clamp(recording.totalTimerTime * 1000, max: 0xFFFF_FFFE),
@@ -199,7 +212,7 @@ public enum FITEncoder {
             0,
             UInt64(recording.laps.count),
             0 // activity_end
-        ])
+        ] + powerValues(recording.power))
 
         let end = timestamp(recording.end)
         let offset = Int64(timeZone.secondsFromGMT(for: recording.end))
@@ -233,6 +246,21 @@ public enum FITEncoder {
         guard value.isFinite, value > 0 else { return 0 }
         if value >= Double(max) { return max }
         return UInt64(value.rounded())
+    }
+
+    /// Cadence average/max, then power average, max and normalised, for laps and the session.
+    static func powerValues(_ p: PowerSummary) -> [UInt64] {
+        [p.averageCadence.map { clampOrZero(Double($0), max: 0xFE) } ?? invalidU8,
+         p.maxCadence.map { clampOrZero(Double($0), max: 0xFE) } ?? invalidU8,
+         p.average.map { clampOrZero(Double($0), max: 0xFFFE) } ?? invalidU16,
+         p.max.map { clampOrZero(Double($0), max: 0xFFFE) } ?? invalidU16,
+         p.normalized.map { clampOrZero(Double($0), max: 0xFFFE) } ?? invalidU16]
+    }
+
+    /// Like `clamp`, but a real zero (coasting, 0 rpm) stays zero rather than meaning "no value".
+    static func clampOrZero(_ value: Double, max: UInt64) -> UInt64 {
+        guard value.isFinite, value > 0 else { return 0 }
+        return clamp(value, max: max)
     }
 
     static func intensity(_ kind: StepKind) -> UInt64 {

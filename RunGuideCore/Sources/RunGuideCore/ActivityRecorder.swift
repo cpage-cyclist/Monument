@@ -11,9 +11,13 @@ public struct TrackPoint: Hashable {
     /// Metres per second, if GPS knows it.
     public let speed: Double?
     public let heartRate: Int?
+    /// Watts, from a power meter.
+    public let power: Int?
+    /// Revolutions per minute, from a power meter or cadence sensor.
+    public let cadence: Int?
 
     public init(time: Date, latitude: Double?, longitude: Double?, altitude: Double?,
-                distance: Double, speed: Double?, heartRate: Int?) {
+                distance: Double, speed: Double?, heartRate: Int?, power: Int? = nil, cadence: Int? = nil) {
         self.time = time
         self.latitude = latitude
         self.longitude = longitude
@@ -21,6 +25,8 @@ public struct TrackPoint: Hashable {
         self.distance = distance
         self.speed = speed
         self.heartRate = heartRate
+        self.power = power
+        self.cadence = cadence
     }
 }
 
@@ -46,13 +52,36 @@ public struct RecordedLap: Hashable {
     public let maxHeartRate: Int?
     public let startLatitude: Double?
     public let startLongitude: Double?
+    public var power = PowerSummary()
 
     public var averageSpeed: Double? { timerTime > 0 ? distance / timerTime : nil }
     public var elapsedTime: Double { end.timeIntervalSince(start) }
 }
 
+/// Power and cadence over a stretch of points. Cadence averages leave out coasting (zero).
+public struct PowerSummary: Hashable, Sendable {
+    public var average: Int?
+    public var max: Int?
+    public var normalized: Int?
+    public var averageCadence: Int?
+    public var maxCadence: Int?
+
+    public init() {}
+
+    public init(points: [TrackPoint]) {
+        let watts = points.compactMap(\.power)
+        average = PowerMath.average(watts)
+        max = watts.max()
+        normalized = PowerMath.normalized(watts)
+        let cadence = points.compactMap(\.cadence)
+        averageCadence = PowerMath.average(cadence.filter { $0 > 0 })
+        maxCadence = cadence.max()
+    }
+}
+
 public struct ActivityRecording: Hashable {
     public let name: String
+    public var sport: RecordSport = .run
     public let start: Date
     public let end: Date
     public let points: [TrackPoint]
@@ -66,6 +95,7 @@ public struct ActivityRecording: Hashable {
     public var maxSpeed: Double? { points.compactMap(\.speed).max() }
     public var averageHeartRate: Int? { Self.average(points.compactMap(\.heartRate)) }
     public var maxHeartRate: Int? { points.compactMap(\.heartRate).max() }
+    public var power: PowerSummary { PowerSummary(points: points) }
 
     static func average(_ values: [Int]) -> Int? {
         values.isEmpty ? nil : Int((Double(values.reduce(0, +)) / Double(values.count)).rounded())
@@ -77,6 +107,7 @@ public struct ActivityRecording: Hashable {
 public final class ActivityRecorder {
     public let name: String
     public let start: Date
+    public let sport: RecordSport
 
     public private(set) var points: [TrackPoint] = []
     public private(set) var laps: [RecordedLap] = []
@@ -86,9 +117,10 @@ public final class ActivityRecorder {
     private var lapPoints: [TrackPoint] = []
     private var paused = false
 
-    public init(name: String, start: Date) {
+    public init(name: String, start: Date, sport: RecordSport = .run) {
         self.name = name
         self.start = start
+        self.sport = sport
         self.lapStart = start
         events.append(TimerEvent(time: start, kind: .start))
     }
@@ -115,7 +147,7 @@ public final class ActivityRecorder {
     public func closeLap(_ lap: Lap, at time: Date) {
         let heartRates = lapPoints.compactMap(\.heartRate)
         let first = lapPoints.first { $0.latitude != nil && $0.longitude != nil }
-        laps.append(RecordedLap(
+        var recorded = RecordedLap(
             index: laps.count,
             stepIndex: lap.stepIndex,
             label: lap.label,
@@ -130,7 +162,9 @@ public final class ActivityRecorder {
             maxHeartRate: heartRates.max(),
             startLatitude: first?.latitude,
             startLongitude: first?.longitude
-        ))
+        )
+        recorded.power = PowerSummary(points: lapPoints)
+        laps.append(recorded)
         lapStart = time
         lapPoints = []
     }
@@ -140,6 +174,7 @@ public final class ActivityRecorder {
         events.append(TimerEvent(time: time, kind: .stop))
         return ActivityRecording(
             name: name,
+            sport: sport,
             start: start,
             end: max(time, start),
             points: points,
