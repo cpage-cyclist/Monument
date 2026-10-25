@@ -25,14 +25,36 @@ final class RiderStore: ObservableObject {
         if let d = cache.read(Self.athleteKey)?.data { athlete = try? JSONDecoder().decode(AthleteProfile.self, from: d) }
         if let d = cache.read(Self.curvesKey)?.data, let list = try? PowerCurve.decodeAll(d) {
             curves = RiderCard.byPeriod(list)
+            refit()
         }
         if let d = cache.read(Self.totalsKey)?.data, let list = try? JSONDecoder().decode([ActivitySummary].self, from: d) {
             totals = SeasonTotals(list, year: Self.year)
         }
     }
 
-    /// Monument's CP and W′ from the last 90 days.
-    var fitted: PowerProfile? { curves["90d"].flatMap { PowerProfile.fitTwoParameter(curve: $0) } }
+    /// Monument's profile from the last 90 days: OmPD where the curve allows, else 2-parameter CP.
+    /// Worked out once per new set of curves.
+    private(set) var monument: PowerProfile?
+
+    private func refit() {
+        monument = curves["90d"].flatMap { PowerProfile.fitBest(curve: $0) }
+    }
+
+    /// FTP for a source. Intervals' comes from the athlete settings, else the latest ride.
+    func ftp(_ source: ThresholdSource, intervalsFallback: Double?) -> Double? {
+        let intervals = athlete?.ride?.ftp ?? intervalsFallback
+        switch source {
+        case .intervals: return intervals
+        case .monument: return monument?.ftp ?? intervals
+        }
+    }
+
+    func wPrime(_ source: ThresholdSource) -> Double? {
+        switch source {
+        case .intervals: return athlete?.ride?.wPrime
+        case .monument: return monument?.wPrime ?? athlete?.ride?.wPrime
+        }
+    }
 
     func load(force: Bool = false) async {
         let stale = [Self.athleteKey, Self.curvesKey, Self.totalsKey]
@@ -53,6 +75,7 @@ final class RiderStore: ObservableObject {
         }
         if let curveData, let list = try? PowerCurve.decodeAll(curveData) {
             curves = RiderCard.byPeriod(list)
+            refit()
             cache.write(curveData, for: Self.curvesKey)
         }
         if let totalsData, let list = try? JSONDecoder().decode([ActivitySummary].self, from: totalsData) {

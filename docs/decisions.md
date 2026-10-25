@@ -84,7 +84,14 @@ Fixed choices for Monument (formerly Run Guide). Change one only on purpose, and
 - The W'bal chart can show **Intervals' W'bal** (its `w_bal` stream, from the FTP and W'
   set by hand in Intervals), **Monument's**, or **both** (Intervals' dashed). Efforts,
   markers and the breakdown follow whichever is shown (Monument's when both).
-- Monument's profile is fitted per ride: a **2-parameter critical power model**
+- Monument's profile is the **omni-domain power-duration model** (OmPD, Puchowicz, Baker & Clarke
+  2020): Pmax, CP, W′ and a log-linear fade past 30 min (TCPmax 1800 s), fitted to best efforts
+  from 1 s to 2 h by least squares on relative error. **Monument's FTP is the modelled hour power.**
+  Where the curve has no sprint or long efforts it falls back to the 2-parameter fit below.
+- **One app-wide setting** (Settings › Power profile) picks thresholds from Intervals or Monument.
+  It sets workout target watts (builder, Record, Today), the Rider card and the W′bal chart's
+  default; the other source is shown alongside.
+- The 2-parameter fallback: a **2-parameter critical power model**
   (work = CP·t + W′, least squares) on best efforts at 3, 4, 5, 7, 10, 12, 15 and 20 min
   from the Intervals power curve for the **90 days up to and including the ride**. Fits that
   aren't physiologically plausible are rejected and Intervals' W'bal is shown instead.

@@ -14,6 +14,7 @@ struct WorkoutBuilderView: View {
     @EnvironmentObject private var library: WorkoutLibrary
     @EnvironmentObject private var activities: ActivityLibrary
     @EnvironmentObject private var settings: AppSettings
+    @EnvironmentObject private var rider: RiderStore
     @Environment(\.dismiss) private var dismiss
 
     @State private var plan: WorkoutPlan
@@ -46,9 +47,7 @@ struct WorkoutBuilderView: View {
     }
 
     private var context: PlanContext {
-        let ftp = activities.activities.first { !$0.isStravaPlaceholder && $0.ftp != nil
-            && !(($0.type ?? "").lowercased().contains("run")) }?.ftp
-        return PlanContext(ftp: ftp)
+        PlanContext(ftp: rider.ftp(settings.thresholdSource, intervalsFallback: activities.latestFTP))
     }
 
     private var isNew: Bool { if case .new = origin { true } else { false } }

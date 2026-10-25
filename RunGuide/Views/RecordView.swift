@@ -17,6 +17,7 @@ struct RecordView: View {
     @EnvironmentObject private var routes: RouteStore
     @EnvironmentObject private var strava: StravaAccount
     @EnvironmentObject private var library: ActivityLibrary
+    @EnvironmentObject private var rider: RiderStore
     @StateObject private var tracker = LocationTracker()
 
     @State private var sport: RecordSport = .run
@@ -147,7 +148,7 @@ struct RecordView: View {
                     ForEach(sessions) { event in
                         Button {
                             starting = RecordStart(
-                                workout: Workout(plan: WorkoutPlan(event: event), ftp: library.latestFTP),
+                                workout: Workout(plan: WorkoutPlan(event: event), ftp: rider.ftp(settings.thresholdSource, intervalsFallback: library.latestFTP)),
                                 sport: sport)
                         } label: {
                             HStack(spacing: 12) {
@@ -312,6 +313,8 @@ struct PasteSessionView: View {
     let sport: RecordSport
     let onStart: (RecordStart) -> Void
     @EnvironmentObject private var library: ActivityLibrary
+    @EnvironmentObject private var rider: RiderStore
+    @EnvironmentObject private var settings: AppSettings
     @State private var text = ""
 
     var body: some View {
@@ -328,7 +331,7 @@ struct PasteSessionView: View {
             }
             Button("Use this session") {
                 let plan = WorkoutPlan(text: text, name: "Pasted session", sport: sport.title)
-                onStart(RecordStart(workout: Workout(plan: plan, ftp: library.latestFTP), sport: sport))
+                onStart(RecordStart(workout: Workout(plan: plan, ftp: rider.ftp(settings.thresholdSource, intervalsFallback: library.latestFTP)), sport: sport))
             }
             .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
