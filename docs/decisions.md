@@ -110,6 +110,13 @@ Fixed choices for Monument (formerly Run Guide). Change one only on purpose, and
   text, Akira (demo, personal use) only for the wordmark artwork and hero numbers.
 - The ridge header stacks the five monuments' profiles at 15% light green on white (10% white on
   forest in dark mode), squashed to 40% height; the page takes the colour of all five overlapping.
+- **Data colours** (`Brand.Data`), for every chart: power #237A52, W′bal #B8860B, heart rate
+  #C0392B, cadence #6A3FA0, speed/pace #3A86D8, altitude #B7B0A4 (a context fill, not an identity
+  colour). Validated as a set on white with the dataviz palette checks: every pair distinct with
+  full colour vision; power/HR is the closest pair for red-green colour blindness, so series are
+  always labelled (chips, readout). Charts sit on a **white surface in light and dark mode**.
+- The **activity view never scrolls**: key figures, overlay chips, one chart filling the space,
+  and a fixed bottom panel whose tabs page rather than scroll.
 - **Medals** mark peak efforts that rank 1st, 2nd or 3rd over the last year (slanted gold/silver/
   bronze bar) or all time (inverted: solid metal badge with the bar cut out). All time outranks
   year. Ranks come from Intervals' `power-curves` with `curves=1y,all&subMaxEfforts=2`.
