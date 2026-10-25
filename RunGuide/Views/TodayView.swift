@@ -2,7 +2,7 @@ import SwiftUI
 import Charts
 import RunGuideCore
 
-/// Today: fitness, the next planned session (with Start for runs), and the last activity.
+/// Today: fitness, the next planned session (with Start for runs, rides and walks), and the last activity.
 struct TodayView: View {
     @EnvironmentObject private var settings: AppSettings
     @EnvironmentObject private var heartRate: HeartRateMonitor
@@ -11,7 +11,7 @@ struct TodayView: View {
     @EnvironmentObject private var calendar: CalendarStore
     @StateObject private var tracker = LocationTracker()
     @State private var showSettings = false
-    @State private var running: Workout?
+    @State private var running: RecordStart?
     @State private var logging: ActivitySummary?
 
     private var today: String { IntervalsDates.day(Date()) }
@@ -61,7 +61,10 @@ struct TodayView: View {
 
                     if let next = TodayPlan.next(events: calendar.upcoming, activities: library.activities, today: today) {
                         NextSessionCard(event: next, today: today) {
-                            running = WorkoutParser.parse(next.description ?? "", name: next.name ?? "Planned run")
+                            if let sport = RecordSport(intervalsType: next.type) {
+                                running = RecordStart(workout: Workout(plan: WorkoutPlan(event: next), ftp: library.latestFTP),
+                                                      sport: sport)
+                            }
                         }
                     } else {
                         Card {
@@ -78,8 +81,8 @@ struct TodayView: View {
             }
             .navigationTitle("Today")
             .navigationDestination(for: ActivitySummary.self) { ActivityDetailView(summary: $0) }
-            .navigationDestination(item: $running) { workout in
-                PreviewView(workout: workout, tracker: tracker)
+            .navigationDestination(item: $running) { start in
+                PreviewView(workout: start.workout, sport: start.sport, tracker: tracker)
             }
             .sheet(isPresented: $showSettings) {
                 SettingsView()
@@ -183,7 +186,7 @@ struct NextSessionCard: View {
                         }
                     }
 
-                    if event.isRun, event.day == today {
+                    if RecordSport(intervalsType: event.type) != nil, event.isWorkout, event.day == today {
                         Button(action: onStart) {
                             Label("Start", systemImage: "play.fill")
                                 .frame(maxWidth: .infinity)

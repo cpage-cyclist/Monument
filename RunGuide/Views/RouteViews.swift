@@ -78,6 +78,7 @@ struct RouteRow: View {
 
 struct RouteDetailView: View {
     let saved: SavedRoute
+    var sport: RecordSport = .run
     @ObservedObject var tracker: LocationTracker
     @EnvironmentObject private var routes: RouteStore
 
@@ -93,9 +94,10 @@ struct RouteDetailView: View {
                     LabeledContent("Distance", value: Format.km(route.length))
                     LabeledContent("Shape", value: route.isLoop ? "Loop (laps available)" : "Point to point")
                     NavigationLink {
-                        PreviewView(workout: .freeRun(name: route.name), tracker: tracker, initialRouteID: saved.id)
+                        PreviewView(workout: Workout(name: route.name, steps: [Step(id: 0, label: sport.title, end: .open, target: nil)]),
+                                    sport: sport, tracker: tracker, initialRouteID: saved.id)
                     } label: {
-                        Label("Run this route", systemImage: "figure.run")
+                        Label("\(sport.title) this route", systemImage: sport.icon)
                     }
                 }
                 Section("Cues") {

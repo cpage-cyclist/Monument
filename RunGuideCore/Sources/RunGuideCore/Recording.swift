@@ -38,6 +38,12 @@ public enum RecordSport: String, CaseIterable, Codable, Sendable, Identifiable {
     /// Strava `sport_type`.
     public var stravaType: String { title }
 
+    /// The sport for an Intervals activity type, if Record handles it.
+    public init?(intervalsType type: String?) {
+        guard let match = Self.allCases.first(where: { $0.matches(intervalsType: type) }) else { return nil }
+        self = match
+    }
+
     /// Planned Intervals sessions of these types are offered for this sport.
     public func matches(intervalsType type: String?) -> Bool {
         let t = (type ?? "").lowercased()
@@ -108,11 +114,11 @@ extension PlanTarget {
             let a = low, b = high ?? low
             return min(a, b)...max(a, b)
         case .percent:
-            let a = low / 100 * ftp, b = (high ?? low) / 100 * ftp
+            let a = low * ftp / 100, b = (high ?? low) * ftp / 100
             return min(a, b)...max(a, b)
         case .zone:
             let lo = PowerZones.percent(zone: Int(low)).0, hi = PowerZones.percent(zone: Int(high ?? low)).1
-            return (lo / 100 * ftp)...(hi / 100 * ftp)
+            return (lo * ftp / 100)...(hi * ftp / 100)
         }
     }
 }

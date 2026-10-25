@@ -114,6 +114,12 @@ public enum Format {
         return String(format: "%d:%02d", t / 60, t % 60)
     }
 
+    /// 250...270 → "250–270 W", 250...250 → "250 W".
+    public static func watts(_ range: ClosedRange<Double>) -> String {
+        let a = Int(range.lowerBound.rounded()), b = Int(range.upperBound.rounded())
+        return a == b ? "\(a) W" : "\(a)–\(b) W"
+    }
+
     /// 10420 → "10.42 km"
     public static func km(_ metres: Double) -> String {
         String(format: "%.2f km", metres / 1000)

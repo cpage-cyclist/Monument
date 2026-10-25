@@ -20,6 +20,11 @@ final class RunController: ObservableObject {
     let guide: RouteGuide?
     let tracker: LocationTracker
     let heartRate: HeartRateMonitor
+    /// Fixed for the session.
+    let sport: RecordSport
+    /// Power meter and cadence sensor, for rides.
+    let power: CyclingSensor?
+    let cadenceSensor: CyclingSensor?
     private let store: RunStore
     private let client: IntervalsClient?
     private let strava: StravaAccount?
@@ -45,18 +50,30 @@ final class RunController: ObservableObject {
     private var started = false
 
     /// `client` is nil when auto-upload is off or Intervals isn't set up.
-    init(workout: Workout, options: EngineOptions, tracker: LocationTracker,
-         heartRate: HeartRateMonitor, store: RunStore, client: IntervalsClient?,
+    init(workout: Workout, sport: RecordSport, options: EngineOptions, tracker: LocationTracker,
+         heartRate: HeartRateMonitor, power: CyclingSensor? = nil, cadence: CyclingSensor? = nil,
+         store: RunStore, client: IntervalsClient?,
          route: Route? = nil, loopRoute: Bool = false, strava: StravaAccount? = nil) {
+        var options = options
+        options.sport = sport
+        self.sport = sport
         self.engine = SessionEngine(workout: workout, options: options)
-        self.guide = route.map { RouteGuide(route: $0, loop: loopRoute) }
+        self.guide = route.map { r in
+            let guide = RouteGuide(route: r, loop: loopRoute)
+            guide.headsUp = sport.routeHeadsUp
+            guide.nowDistance = sport.routeNow
+            guide.chainDistance = sport.routeChain
+            return guide
+        }
         self.tracker = tracker
         self.heartRate = heartRate
+        self.power = sport.usesPower && power?.isPaired == true ? power : nil
+        self.cadenceSensor = sport.usesPower && cadence?.isPaired == true ? cadence : nil
         self.store = store
         self.client = client
         self.strava = strava
         if strava != nil { stravaUpload = .notStarted }
-        self.recorder = ActivityRecorder(name: workout.name, start: Date())
+        self.recorder = ActivityRecorder(name: workout.name, start: Date(), sport: sport)
         if client == nil { upload = .off }
     }
 
@@ -75,9 +92,11 @@ final class RunController: ObservableObject {
         }
         tracker.beginCounting()
         heartRate.connect()
+        power?.connect()
+        cadenceSensor?.connect()
 
         let now = Date()
-        recorder = ActivityRecorder(name: engine.workout.name, start: now)
+        recorder = ActivityRecorder(name: engine.workout.name, start: now, sport: sport)
         lastTick = now
         handle(engine.start(), at: now)
 
@@ -159,10 +178,10 @@ final class RunController: ObservableObject {
         guard let strava else { return }
         stravaUpload = .uploading
         do {
-            let fileURL = store.url(for: run), summary = summaryText
+            let fileURL = store.url(for: run), summary = summaryText, sportType = sport.stravaType
             let id = try await BackgroundTime.run("Strava upload") {
-                try await strava.uploadActivity(fileURL: fileURL, name: run.name,
-                                                description: summary, externalID: run.fileName)
+                try await strava.uploadActivity(fileURL: fileURL, name: run.name, description: summary,
+                                                externalID: run.fileName, sportType: sportType)
             }
             store.markUploadedToStrava(run, activityId: id)
             stravaUpload = .uploaded
@@ -192,6 +211,8 @@ final class RunController: ObservableObject {
         tracker.onUpdate = nil
         tracker.onFix = nil
         heartRate.disconnect()
+        power?.disconnect()
+        cadenceSensor?.disconnect()
     }
 
     // MARK: - Internals
@@ -216,7 +237,9 @@ final class RunController: ObservableObject {
             altitude: fix.flatMap { $0.verticalAccuracy >= 0 ? $0.altitude : nil },
             distance: engine.totalDistance,
             speed: fix.flatMap { $0.speed >= 0 ? $0.speed : nil },
-            heartRate: heartRate.currentBPM
+            heartRate: heartRate.currentBPM,
+            power: power?.currentWatts,
+            cadence: currentCadence
         ))
     }
 
@@ -264,6 +287,17 @@ final class RunController: ObservableObject {
     }
 
     // MARK: - Screen helpers
+
+    /// km/h, for rides.
+    var currentSpeed: Double? {
+        guard let speed = tracker.speed, speed >= 0 else { return nil }
+        return speed * 3.6
+    }
+
+    /// Cadence from the power meter if it sends it, else the cadence sensor.
+    var currentCadence: Int? { power?.currentCadence ?? cadenceSensor?.currentCadence }
+
+    var hasPowerSensors: Bool { power != nil || cadenceSensor != nil }
 
     var currentPace: Double? {
         guard let speed = tracker.speed, speed > 0.5 else { return nil }
