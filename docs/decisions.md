@@ -47,11 +47,21 @@ Fixed choices for Monument (formerly Run Guide). Change one only on purpose, and
 
 - v2 is a phone-first Intervals.icu client; the run-cue player stays as one part of it.
 - Copy the Intervals web layout faithfully, then fix what's poor on a phone.
-- **W'bal comes from the Intervals `w_bal` stream**, not computed in the app, so it
-  matches the website.
-- Workout building stays on desktop/Claude. The app only does light calendar edits
-  (move, delete, add a note).
-- Build order: v2.0 (activity view + quick log) before v2.1 (Today + Week).
+- Monument Almanac is about **insights, not coaching**, with room to grow a collective/social
+  side later.
+- **Intervals stays the source of truth** for now. Removing the dependency is a longer-term
+  option, to be decided after trials.
+- W'bal shows Intervals' `w_bal` stream, Monument's own, or both (see below).
+- The **Calendar tab replaces the Week tab**, with fitness, fatigue and form projected forward
+  from planned load from the first version.
+- Monument has a **proper workout builder** on the phone. It's sport-agnostic: sport is a
+  property of the workout.
+- **Record** is sport-agnostic: the sport is chosen before starting and locked for the session.
+  Cycling route cues get a bigger warning buffer than running (about 500 m vs 100 m).
+- A **Rider tab**: one page, no scrolling, a top-trumps card of best efforts and stats, a clean
+  link to settings, and launch points into the rest of the app.
+- Build order (see `v2-scope.md`): Calendar, then workout builder, then Record, then Rider,
+  then insights (power profile, dFRC, custom chart builder).
 
 ## Monument power profile and W'bal
 

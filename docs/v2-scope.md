@@ -43,12 +43,30 @@ it is and becomes the "Start" action for planned runs.
 
 - **Today:** next planned session (name, duration, load, step structure), a "Start"
   button for runs that opens the voice-cue player, the last activity with a log prompt,
-  and a fitness/fatigue/form readout (numbers only).
-- **Week:** seven days centred on today (three either side), swipeable a week at a time,
-  planned vs completed per day. Light edits only: move a
-  session to another day, delete it, add a note. Workout building stays on
-  desktop/Claude.
+  and fitness/fatigue/form charts.
+- **Week:** seven days centred on today, swipeable a week at a time, planned vs completed
+  per day, with move, delete and add-a-note edits. Replaced by the Calendar in v2.2.
 - **Speed:** local cache so screens open instantly and refresh in the background.
+
+## Built so far
+
+- v2.0 and v2.1 above.
+- Monument Almanac brand: theme, ridge header with pull-to-refresh spread and collapse,
+  launch animation, forest green tab bar, medals for top-three peak efforts.
+- Monument's own W'bal from a fitted 2-parameter CP profile, alongside Intervals'.
+
+## Next, in order
+
+1. **v2.2 Calendar** (replaces Week): planned and completed sessions, the existing edits,
+   and fitness, fatigue and form projected forward from planned load.
+2. **v2.3 Workout builder:** sport-agnostic structured workouts, saved to the calendar and
+   the Intervals library.
+3. **v2.4 Record:** sport-agnostic recording grown from the run player. Sport chosen and
+   locked before starting; about 500 m route cue warning for cycling; plays builder workouts.
+4. **v2.5 Rider:** single top-trumps page of best efforts and stats, settings link, launch
+   points into the app.
+5. **Insights:** toggle Monument's power profile against the Intervals values, dFRC
+   alongside W'bal, W' decay over long efforts, then a WKO5-style custom chart builder.
 
 ## API notes
 
