@@ -135,6 +135,15 @@ struct IntervalsClient {
         _ = try await send("PUT", "/athlete/\(athleteId)/events/\(id)", json: body)
     }
 
+    /// Pairs an activity with a planned session, or unpairs it (nil). Returns the activity as Intervals
+    /// now has it, so the caller can check the change stuck.
+    func setPairing(activityId: String, eventId: Int?) async throws -> ActivitySummary {
+        let value: Any = eventId.map { $0 as Any } ?? NSNull()
+        let data = try await send("PUT", "/activity/\(Self.escape(activityId))",
+                                  json: try JSONSerialization.data(withJSONObject: ["paired_event_id": value]))
+        return try JSONDecoder().decode(ActivitySummary.self, from: data)
+    }
+
     /// Removes a calendar entry. Completed activities aren't affected.
     func deleteEvent(id: Int) async throws {
         _ = try await send("DELETE", "/athlete/\(athleteId)/events/\(id)")
@@ -149,6 +158,67 @@ struct IntervalsClient {
             "description": text
         ])
         _ = try await send("POST", "/athlete/\(athleteId)/events", json: body)
+    }
+
+    // MARK: - Workouts (builder)
+
+    /// Raw JSON for the library: folders and plans with their workouts.
+    func foldersData() async throws -> Data {
+        try await send("GET", "/athlete/\(athleteId)/folders")
+    }
+
+    /// One library workout with its full step text.
+    func libraryWorkout(id: Int) async throws -> LibraryWorkout {
+        let data = try await send("GET", "/athlete/\(athleteId)/workouts/\(id)")
+        return try JSONDecoder().decode(LibraryWorkout.self, from: data)
+    }
+
+    /// Adds a workout to a day's calendar. Returns the entry as Intervals parsed it (load, time).
+    func createWorkoutEvent(_ plan: WorkoutPlan, on day: String) async throws -> CalendarEvent {
+        var fields = plan.intervalsFields()
+        fields["category"] = "WORKOUT"
+        fields["start_date_local"] = day + "T00:00:00"
+        let data = try await send("POST", "/athlete/\(athleteId)/events",
+                                  json: try JSONSerialization.data(withJSONObject: fields))
+        return try JSONDecoder().decode(CalendarEvent.self, from: data)
+    }
+
+    /// Puts a library workout on a day exactly as it's saved (its text isn't rewritten).
+    func scheduleLibraryWorkout(_ w: LibraryWorkout, on day: String) async throws -> CalendarEvent {
+        var fields: [String: Any] = [
+            "category": "WORKOUT",
+            "start_date_local": day + "T00:00:00",
+            "name": w.name ?? "Workout",
+            "description": w.description ?? "",
+            "type": w.type ?? "Ride"
+        ]
+        if let indoor = w.indoor { fields["indoor"] = indoor }
+        let data = try await send("POST", "/athlete/\(athleteId)/events",
+                                  json: try JSONSerialization.data(withJSONObject: fields))
+        return try JSONDecoder().decode(CalendarEvent.self, from: data)
+    }
+
+    /// Rewrites a planned workout's name, sport and steps.
+    func updateWorkoutEvent(id: Int, _ plan: WorkoutPlan) async throws -> CalendarEvent {
+        let data = try await send("PUT", "/athlete/\(athleteId)/events/\(id)",
+                                  json: try JSONSerialization.data(withJSONObject: plan.intervalsFields()))
+        return try JSONDecoder().decode(CalendarEvent.self, from: data)
+    }
+
+    /// Saves a new workout into a library folder.
+    func createLibraryWorkout(_ plan: WorkoutPlan, folderId: Int) async throws -> LibraryWorkout {
+        var fields = plan.intervalsFields()
+        fields["folder_id"] = folderId
+        let data = try await send("POST", "/athlete/\(athleteId)/workouts",
+                                  json: try JSONSerialization.data(withJSONObject: fields))
+        return try JSONDecoder().decode(LibraryWorkout.self, from: data)
+    }
+
+    /// Rewrites a library workout.
+    func updateLibraryWorkout(id: Int, _ plan: WorkoutPlan) async throws -> LibraryWorkout {
+        let data = try await send("PUT", "/athlete/\(athleteId)/workouts/\(id)",
+                                  json: try JSONSerialization.data(withJSONObject: plan.intervalsFields()))
+        return try JSONDecoder().decode(LibraryWorkout.self, from: data)
     }
 
     // MARK: - Upload (v1)

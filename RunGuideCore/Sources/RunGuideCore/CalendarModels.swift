@@ -142,6 +142,16 @@ public struct DayPlan: Equatable, Sendable, Identifiable {
 
     public func isDone(_ event: CalendarEvent) -> Bool { completedEventIds.contains(event.id) }
 
+    /// The activity paired with this session, if it's on this day.
+    public func activity(pairedWith event: CalendarEvent) -> ActivitySummary? {
+        activities.first { $0.pairedEventId?.value == String(event.id) }
+    }
+
+    /// Planned sessions on this day not yet paired with an activity.
+    public var unpairedSessions: [CalendarEvent] {
+        sessions.filter { s in !activities.contains { $0.pairedEventId?.value == String(s.id) } }
+    }
+
     /// Activities that don't belong to a planned session (extras, or paired elsewhere).
     public var unplannedActivities: [ActivitySummary] {
         let sessionIds = Set(sessions.map { String($0.id) })

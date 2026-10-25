@@ -9,6 +9,7 @@ struct RunGuideApp: App {
     @StateObject private var strava = StravaAccount()
     @StateObject private var library = ActivityLibrary()
     @StateObject private var calendar = CalendarStore()
+    @StateObject private var workouts = WorkoutLibrary()
 
     init() {
         Brand.applyAppearance()
@@ -24,6 +25,7 @@ struct RunGuideApp: App {
                 .environmentObject(strava)
                 .environmentObject(library)
                 .environmentObject(calendar)
+                .environmentObject(workouts)
                 .onOpenURL { url in
                     if StravaAccount.isCallback(url) {
                         Task { await strava.handleCallback(url) }

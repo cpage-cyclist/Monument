@@ -20,6 +20,8 @@ final class CalendarStore: ObservableObject {
     @Published private(set) var fitnessHistory: [WellnessDay] = []
     @Published private(set) var loading = false
     @Published var lastError: String?
+    /// Bumped when something outside the Calendar (the workout builder) changes Intervals' calendar.
+    @Published private(set) var revision = 0
 
     private let cache: DiskCache
     private let clientProvider: () -> IntervalsClient
@@ -166,6 +168,26 @@ final class CalendarStore: ObservableObject {
         await edit(month) { try await $0.addNote(on: day, title: title, text: text) }
     }
 
+    /// Pairs an activity with a planned session, or unpairs it when `event` is nil.
+    func pair(_ activity: ActivitySummary, with event: CalendarEvent?, in month: MonthGrid) async {
+        await edit(month) { client in
+            let updated = try await client.setPairing(activityId: activity.id.value, eventId: event?.id)
+            let now = updated.pairedEventId.flatMap { Int($0.value) }
+            if now != event?.id { throw PairingError.notAccepted(pairing: event != nil) }
+        }
+    }
+
+    enum PairingError: LocalizedError {
+        case notAccepted(pairing: Bool)
+        var errorDescription: String? {
+            switch self {
+            case .notAccepted(let pairing):
+                pairing ? "Intervals didn't accept the pairing. Pair it on the Intervals website for now."
+                        : "Intervals didn't accept the unpairing. Unpair it on the Intervals website for now."
+            }
+        }
+    }
+
     private func edit(_ month: MonthGrid, _ change: (IntervalsClient) async throws -> Void) async {
         do {
             try await change(clientProvider())
@@ -178,6 +200,13 @@ final class CalendarStore: ObservableObject {
         await load(month, force: true)
         await loadAhead(through: aheadEnd, force: true)
         await refreshToday(force: true)
+    }
+
+    /// Something else changed the calendar: forget what's loaded so screens fetch it again.
+    func calendarChanged() {
+        windows = [:]
+        aheadFetched = nil
+        revision += 1
     }
 
     private func isStale(_ key: String) -> Bool {
