@@ -299,3 +299,63 @@ public struct ChartStack: Sendable {
 public extension ActivitySummary {
     var isRun: Bool { (type ?? "").lowercased().contains("run") }
 }
+
+// MARK: - Zoom
+
+/// The visible stretch of a chart's time axis: pinch to zoom around a point, move to pan, and
+/// never past the activity's ends or tighter than `minSpan` seconds.
+public enum ChartZoom {
+    public static let minSpan = 30.0
+
+    /// `scale` < 1 zooms in (a pinch out), > 1 zooms out. The time under `anchor` stays put.
+    public static func zoom(_ window: ClosedRange<Double>, by scale: Double, around anchor: Double,
+                            within full: ClosedRange<Double>) -> ClosedRange<Double> {
+        let fullSpan = full.upperBound - full.lowerBound
+        let span = window.upperBound - window.lowerBound
+        let newSpan = min(max(span * scale, min(minSpan, fullSpan)), fullSpan)
+        let f = span > 0 ? (anchor - window.lowerBound) / span : 0.5
+        let lo = anchor - f * newSpan
+        return clamp(lo...(lo + newSpan), within: full)
+    }
+
+    /// Moves the window by `delta` seconds, stopping at the ends.
+    public static func pan(_ window: ClosedRange<Double>, by delta: Double,
+                           within full: ClosedRange<Double>) -> ClosedRange<Double> {
+        clamp((window.lowerBound + delta)...(window.upperBound + delta), within: full)
+    }
+
+    /// A range widened by `fraction` of its span each side (for zooming to a selection), clamped.
+    public static func padded(_ range: ClosedRange<Double>, by fraction: Double = 0.06,
+                              within full: ClosedRange<Double>) -> ClosedRange<Double> {
+        let span = max(range.upperBound - range.lowerBound, minSpan)
+        let mid = (range.lowerBound + range.upperBound) / 2
+        let half = span * (1 + 2 * fraction) / 2
+        return clamp((mid - half)...(mid + half), within: full)
+    }
+
+    /// Whether a window is the whole activity (so there's nothing to reset).
+    public static func isFull(_ window: ClosedRange<Double>, _ full: ClosedRange<Double>) -> Bool {
+        window.lowerBound <= full.lowerBound + 0.5 && window.upperBound >= full.upperBound - 0.5
+    }
+
+    static func clamp(_ w: ClosedRange<Double>, within full: ClosedRange<Double>) -> ClosedRange<Double> {
+        let span = min(w.upperBound - w.lowerBound, full.upperBound - full.lowerBound)
+        var lo = w.lowerBound
+        if lo < full.lowerBound { lo = full.lowerBound }
+        if lo + span > full.upperBound { lo = full.upperBound - span }
+        return lo...(lo + span)
+    }
+}
+
+extension ChartStack.Panel {
+    /// Points for a visible window at full resolution: just the samples in view (and one either
+    /// side, so lines run to the edges), downsampled to `maxPoints`.
+    public func points(in window: ClosedRange<Double>, timeline: Timeline, maxPoints: Int = 600) -> [ChartPoint] {
+        let x = timeline.x
+        guard !x.isEmpty, values.count == x.count else { return points }
+        let lo = max((x.firstIndex { $0 >= window.lowerBound } ?? 0) - 1, 0)
+        let hi = min((x.lastIndex { $0 <= window.upperBound } ?? x.count - 1) + 1, x.count - 1)
+        guard hi > lo else { return [] }
+        return ChartSeries.downsample(x: Array(x[lo...hi]), y: Array(values[lo...hi]), maxPoints: maxPoints)
+    }
+}

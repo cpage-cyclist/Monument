@@ -70,21 +70,20 @@ enum Brand {
 
     // MARK: Data colours
 
-    /// Series colours for charts, picked from the brand (forest's green, the medal gold) plus
-    /// reserves that sit with it. Validated as a set on the white chart surface: every pair stays
-    /// distinct with full colour vision, and red/green colour-blind readers get them apart with the
-    /// labelled chips and readout. Charts always draw on white, in light and dark mode alike.
+    /// Series colours for charts, all from the brand itself: forest, sage, the hairline and the
+    /// three medal metals. They're deliberately muted, so shape does part of the work: W′bal and
+    /// altitude are shaded areas, speed/pace is dashed, power, HR and cadence are solid lines, and
+    /// every series is named in the chips and readout. Charts always draw on white.
     enum Data {
         static let surface = Color.white
         /// Axis labels and grid on the white surface.
-        static let ink = Color(red: 0.10, green: 0.12, blue: 0.11)
-        static let power = Color(hex: 0x237A52)
-        static let wbal = Color(hex: 0xB8860B)
-        static let heartRate = Color(hex: 0xC0392B)
-        static let cadence = Color(hex: 0x6A3FA0)
-        static let speed = Color(hex: 0x3A86D8)
-        /// Context, not identity: a quiet warm grey fill.
-        static let altitude = Color(hex: 0xB7B0A4)
+        static let ink = Color(hex: 0x1A1F1C)
+        static let power = Color(hex: 0x00321F)       // forest
+        static let wbal = Color(hex: 0x7F9990)        // sage, as an area
+        static let heartRate = Color(hex: 0xAA954B)   // gold
+        static let cadence = Color(hex: 0xA96034)     // bronze
+        static let speed = Color(hex: 0xA0978A)       // silver, dashed
+        static let altitude = Color(hex: 0x121212)    // hairline, as a faint area
     }
 
     // MARK: Medals (gold / silver / bronze for top efforts)

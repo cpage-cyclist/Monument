@@ -90,4 +90,45 @@ final class ChartDataTests: XCTestCase {
         XCTAssertEqual(ChartKind.pace.value(atNormalized: 1, in: 240...360), 240)
         XCTAssertEqual(ChartKind.heartRate.normalized(150, in: 150...150), 0.5)
     }
+
+    func testZoomKeepsTheAnchorAndStaysInside() {
+        let full = 0.0...3600
+        let z = ChartZoom.zoom(full, by: 0.5, around: 900, within: full)
+        XCTAssertEqual(z.upperBound - z.lowerBound, 1800, accuracy: 1e-9)
+        // 900 s was a quarter of the way across, and still is.
+        XCTAssertEqual((900 - z.lowerBound) / 1800, 0.25, accuracy: 1e-9)
+        // Can't zoom out past the whole ride, or in tighter than the minimum.
+        XCTAssertEqual(ChartZoom.zoom(z, by: 10, around: 900, within: full), full)
+        let tight = ChartZoom.zoom(full, by: 0.0001, around: 3590, within: full)
+        XCTAssertEqual(tight.upperBound - tight.lowerBound, ChartZoom.minSpan, accuracy: 1e-9)
+        XCTAssertLessThanOrEqual(tight.upperBound, 3600)
+    }
+
+    func testPanStopsAtTheEnds() {
+        let full = 0.0...3600
+        XCTAssertEqual(ChartZoom.pan(0...600, by: -100, within: full), 0...600)
+        XCTAssertEqual(ChartZoom.pan(3000...3600, by: 200, within: full), 3000...3600)
+        XCTAssertEqual(ChartZoom.pan(1000...1600, by: 200, within: full), 1200...1800)
+    }
+
+    func testZoomToSelectionPads() {
+        let w = ChartZoom.padded(1000...1100, by: 0.1, within: 0...3600)
+        XCTAssertEqual(w.lowerBound, 990, accuracy: 1e-9)
+        XCTAssertEqual(w.upperBound, 1110, accuracy: 1e-9)
+        XCTAssertTrue(ChartZoom.isFull(0...3600, 0...3600))
+        XCTAssertFalse(ChartZoom.isFull(w, 0...3600))
+    }
+
+    func testWindowPointsAreFullResolution() {
+        let n = 3601
+        let streams = ActivityStreams(time: (0..<n).map(Double.init), series: [.watts: (0..<n).map { Double($0 % 400) }])
+        let stack = ChartStack(streams: streams, isRun: false, smoothing: .off, maxPoints: 100)
+        let panel = stack.panels[0]
+        XCTAssertLessThanOrEqual(panel.points.count, 100)
+        let zoomed = panel.points(in: 1000...1060, timeline: stack.timeline, maxPoints: 600)
+        // Every sample in a one-minute window, plus one either side.
+        XCTAssertEqual(zoomed.count, 63)
+        XCTAssertEqual(zoomed.first?.x, 999)
+        XCTAssertEqual(zoomed.last?.x, 1061)
+    }
 }

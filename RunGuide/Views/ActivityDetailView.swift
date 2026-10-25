@@ -77,6 +77,8 @@ struct ActivityDetailView: View {
     }
 
     @State private var tab: Tab = .selection
+    /// Zoomed-in stretch of the chart; nil is the whole activity.
+    @State private var window: ClosedRange<Double>?
     @AppStorage("overlaysRide") private var rideOverlays = "power,wbal,heartRate"
     @AppStorage("overlaysRun") private var runOverlays = "pace,heartRate,altitude"
 
@@ -153,6 +155,7 @@ struct ActivityDetailView: View {
         }
         .task { await load() }
         .onChange(of: smoothingRaw) { _, _ in Task { await rebuild() } }
+        .onChange(of: summary.id) { _, _ in window = nil }
         .onChange(of: wbalSourceRaw) { _, _ in Task { await rebuild() } }
         .onChange(of: selection) { _, new in
             updateBreakdown()
@@ -229,12 +232,30 @@ struct ActivityDetailView: View {
                         }
                     }
                 } else {
-                    Text(selection == nil ? "Drag to scrub · hold to select · tap to reset"
+                    Text(selection == nil ? "Drag to scrub · hold to select · pinch to zoom"
                                          : (analysis.map(selectionTitle) ?? "Selection"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 0)
+                if scrubIndex == nil {
+                    if let h = highlightRange(stack.timeline), selection != nil {
+                        Button {
+                            withAnimation(.snappy) {
+                                window = ChartZoom.padded(h, within: 0...max(stack.timeline.duration, 1))
+                            }
+                        } label: {
+                            Label("Zoom", systemImage: "plus.magnifyingglass").font(.brand(.caption, weight: .medium))
+                        }
+                        .accessibilityLabel("Zoom to selection")
+                    }
+                    if window != nil {
+                        Button { withAnimation(.snappy) { window = nil } } label: {
+                            Label("Reset", systemImage: "arrow.up.left.and.arrow.down.right").font(.brand(.caption, weight: .medium))
+                        }
+                        .accessibilityLabel("Show the whole activity")
+                    }
+                }
             }
             .lineLimit(1)
             .minimumScaleFactor(0.7)
@@ -247,6 +268,7 @@ struct ActivityDetailView: View {
             } else {
                 OverlayChart(stack: stack,
                              kinds: kinds,
+                             window: $window,
                              wbal: kinds.contains(.wbal) ? analysis?.wbal.map { WbalMarks($0, timeline: stack.timeline) } : nil,
                              comparison: kinds.contains(.wbal) ? analysis?.comparison : nil,
                              scrubX: $scrubX,
@@ -523,6 +545,9 @@ struct ActivityDetailView: View {
 struct OverlayChart: View {
     let stack: ChartStack
     let kinds: [ChartKind]
+    /// The visible stretch of time; nil shows the whole activity. Pinch, pan and the zoom buttons
+    /// change it.
+    @Binding var window: ClosedRange<Double>?
     var wbal: WbalMarks? = nil
     /// Intervals' W'bal drawn dashed when comparing.
     var comparison: [ChartPoint]? = nil
@@ -536,20 +561,25 @@ struct OverlayChart: View {
     @State private var selecting = false
     @State private var selectStartX: Double?
     @State private var holdFeedback = 0
+    /// The window and the pinch's first touch point when a pinch began.
+    @State private var pinchStart: (window: ClosedRange<Double>, anchor: Double, x: CGFloat)?
 
-    private var domain: ClosedRange<Double> { 0...max(stack.timeline.duration, 1) }
+    private var full: ClosedRange<Double> { 0...max(stack.timeline.duration, 1) }
+    private var domain: ClosedRange<Double> { window ?? full }
 
-    /// Each visible series mapped to 0–1, with the domain it was mapped from.
+    /// Each visible series mapped to 0–1, with the domain it was mapped from. Zoomed in, the
+    /// points are redrawn at full resolution for the window and the scale fits what's in view.
     private var series: [OverlayPlot.Series] {
         kinds.compactMap { kind in
-            guard let panel = stack.panels.first(where: { $0.kind == kind }) else { return nil }
-            let extra = kind == .wbal ? (comparison ?? []) : []
-            let d = kind.yDomain(for: panel.points + extra)
+            guard let p = stack.panels.first(where: { $0.kind == kind }) else { return nil }
+            let pts = window.map { p.points(in: $0, timeline: stack.timeline) } ?? p.points
+            let compare = kind == .wbal ? (comparison ?? []).filter { domain.contains($0.x) } : []
+            let d = kind.yDomain(for: pts + compare)
             func map(_ pts: [ChartPoint]) -> [ChartPoint] {
                 pts.map { ChartPoint(x: $0.x, y: kind.normalized($0.y, in: d)) }
             }
-            return OverlayPlot.Series(kind: kind, domain: d, points: map(panel.points),
-                                      comparison: kind == .wbal ? comparison.map(map) : nil)
+            return OverlayPlot.Series(kind: kind, domain: d, points: map(pts),
+                                      comparison: kind == .wbal && comparison != nil ? map(compare) : nil)
         }
     }
 
@@ -558,7 +588,7 @@ struct OverlayChart: View {
         OverlayPlot(series: all,
                     wbal: wbal.map { marks in
                         guard let d = all.first(where: { $0.kind == .wbal })?.domain else { return marks }
-                        return marks.normalized { ChartKind.wbal.normalized($0, in: d) }
+                        return marks.within(domain).normalized { ChartKind.wbal.normalized($0, in: d) }
                     },
                     domain: domain)
             .equatable()
@@ -577,8 +607,10 @@ struct OverlayChart: View {
 
     private var overlay: some View {
         ZStack(alignment: .topLeading) {
-            if let highlight, plotFrame.width > 0 {
-                let a = position(of: highlight.lowerBound), b = position(of: highlight.upperBound)
+            if let highlight, plotFrame.width > 0,
+               highlight.upperBound > domain.lowerBound, highlight.lowerBound < domain.upperBound {
+                let a = max(position(of: highlight.lowerBound), plotFrame.minX)
+                let b = min(position(of: highlight.upperBound), plotFrame.maxX)
                 Rectangle()
                     .fill(Color.accentColor.opacity(0.18))
                     .frame(width: max(b - a, 1), height: plotFrame.height)
@@ -594,8 +626,31 @@ struct OverlayChart: View {
                 .contentShape(Rectangle())
                 .simultaneousGesture(scrubGesture)
                 .simultaneousGesture(selectGesture)
-                .simultaneousGesture(TapGesture().onEnded { onTap() })
+                .simultaneousGesture(pinchGesture)
+                .simultaneousGesture(
+                    TapGesture(count: 2).onEnded { withAnimation(.snappy) { window = nil } }
+                        .exclusively(before: TapGesture().onEnded { onTap() })
+                )
         }
+    }
+
+    /// Pinch to zoom around the fingers; moving the pinch pans.
+    private var pinchGesture: some Gesture {
+        MagnifyGesture(minimumScaleDelta: 0.01)
+            .onChanged { value in
+                if pinchStart == nil {
+                    let anchor = time(at: value.startLocation) ?? (domain.lowerBound + domain.upperBound) / 2
+                    pinchStart = (domain, anchor, value.startLocation.x)
+                    scrubX = nil
+                }
+                guard let start = pinchStart, plotFrame.width > 0 else { return }
+                var w = ChartZoom.zoom(start.window, by: 1 / max(value.magnification, 0.05),
+                                       around: start.anchor, within: full)
+                let secondsPerPoint = (w.upperBound - w.lowerBound) / Double(plotFrame.width)
+                w = ChartZoom.pan(w, by: Double(start.x - value.location.x) * secondsPerPoint, within: full)
+                window = ChartZoom.isFull(w, full) ? nil : w
+            }
+            .onEnded { _ in pinchStart = nil }
     }
 
     private var span: Double { max(domain.upperBound - domain.lowerBound, 1) }
@@ -614,7 +669,7 @@ struct OverlayChart: View {
     private var scrubGesture: some Gesture {
         DragGesture(minimumDistance: 4)
             .onChanged { value in
-                guard !selecting else { return }
+                guard !selecting, pinchStart == nil else { return }
                 scrubX = time(at: value.location)
             }
             .onEnded { _ in
@@ -684,6 +739,17 @@ struct OverlayPlot: View, Equatable {
     /// Axis labels belong to the first series shown.
     private var primary: Series? { series.first }
 
+    /// Shape carries identity alongside colour: speed/pace dashed, outlines on the areas.
+    static func stroke(_ kind: ChartKind) -> StrokeStyle {
+        switch kind {
+        case .power: StrokeStyle(lineWidth: 0.9)
+        case .speed, .pace: StrokeStyle(lineWidth: 1.4, dash: [4, 3])
+        case .altitude: StrokeStyle(lineWidth: 0.8)
+        case .wbal: StrokeStyle(lineWidth: 1.2)
+        default: StrokeStyle(lineWidth: 1.4)
+        }
+    }
+
     var body: some View {
         Chart {
             ForEach(series, id: \.kind) { s in
@@ -692,14 +758,12 @@ struct OverlayPlot: View, Equatable {
                     if s.kind == .altitude || s.kind == .wbal {
                         AreaMark(x: .value("Time", p.x), y: .value("Value", p.y),
                                  series: .value("Series", s.kind.rawValue + "-area"), stacking: .unstacked)
-                            .foregroundStyle(colour.opacity(s.kind == .altitude ? 0.45 : 0.18))
+                            .foregroundStyle(colour.opacity(s.kind == .altitude ? 0.10 : 0.30))
                     }
-                    if s.kind != .altitude {
-                        LineMark(x: .value("Time", p.x), y: .value("Value", p.y),
-                                 series: .value("Series", s.kind.rawValue))
-                            .foregroundStyle(colour)
-                            .lineStyle(StrokeStyle(lineWidth: s.kind == .power ? 1.1 : 1.6))
-                    }
+                    LineMark(x: .value("Time", p.x), y: .value("Value", p.y),
+                             series: .value("Series", s.kind.rawValue))
+                        .foregroundStyle(colour)
+                        .lineStyle(OverlayPlot.stroke(s.kind))
                 }
                 if let comparison = s.comparison {
                     ForEach(comparison, id: \.x) { p in
@@ -893,6 +957,11 @@ struct WbalMarks: Equatable {
     private init(low: Point, efforts: [Mark]) {
         self.low = low
         self.efforts = efforts
+    }
+
+    /// Only the marks inside a zoomed window.
+    func within(_ domain: ClosedRange<Double>) -> WbalMarks {
+        WbalMarks(low: low, efforts: efforts.filter { domain.contains($0.x) })
     }
 
     /// The same marks with heights mapped onto the overlay chart's 0–1 scale.
