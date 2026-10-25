@@ -584,8 +584,20 @@ struct OverlayChart: View {
     }
 
     var body: some View {
+        VStack(spacing: 6) {
+            plot
+            if let window {
+                OverviewStrip(stack: stack, kind: kinds.first ?? .power, window: window, full: full) { w in
+                    self.window = ChartZoom.isFull(w, full) ? nil : w
+                }
+                .frame(height: 26)
+            }
+        }
+    }
+
+    private var plot: some View {
         let all = series
-        OverlayPlot(series: all,
+        return OverlayPlot(series: all,
                     wbal: wbal.map { marks in
                         guard let d = all.first(where: { $0.kind == .wbal })?.domain else { return marks }
                         return marks.within(domain).normalized { ChartKind.wbal.normalized($0, in: d) }
@@ -634,7 +646,7 @@ struct OverlayChart: View {
         }
     }
 
-    /// Pinch to zoom around the fingers; moving the pinch pans.
+    /// Pinch to zoom around where the pinch started. Panning is on the overview strip.
     private var pinchGesture: some Gesture {
         MagnifyGesture(minimumScaleDelta: 0.01)
             .onChanged { value in
@@ -643,11 +655,9 @@ struct OverlayChart: View {
                     pinchStart = (domain, anchor, value.startLocation.x)
                     scrubX = nil
                 }
-                guard let start = pinchStart, plotFrame.width > 0 else { return }
-                var w = ChartZoom.zoom(start.window, by: 1 / max(value.magnification, 0.05),
+                guard let start = pinchStart else { return }
+                let w = ChartZoom.zoom(start.window, by: 1 / max(value.magnification, 0.05),
                                        around: start.anchor, within: full)
-                let secondsPerPoint = (w.upperBound - w.lowerBound) / Double(plotFrame.width)
-                w = ChartZoom.pan(w, by: Double(start.x - value.location.x) * secondsPerPoint, within: full)
                 window = ChartZoom.isFull(w, full) ? nil : w
             }
             .onEnded { _ in pinchStart = nil }
@@ -709,6 +719,61 @@ struct OverlayChart: View {
         case .cadence: return Brand.Data.cadence
         case .speed, .pace: return Brand.Data.speed
         case .altitude: return Brand.Data.altitude
+        }
+    }
+}
+
+/// The whole activity in miniature under a zoomed chart, with the visible window boxed. Drag the
+/// box to pan; tap anywhere to centre the window there.
+struct OverviewStrip: View {
+    let stack: ChartStack
+    let kind: ChartKind
+    let window: ClosedRange<Double>
+    let full: ClosedRange<Double>
+    let onChange: (ClosedRange<Double>) -> Void
+
+    @State private var dragStart: ClosedRange<Double>?
+
+    var body: some View {
+        GeometryReader { geo in
+            let w = geo.size.width, h = geo.size.height
+            let span = max(full.upperBound - full.lowerBound, 1)
+            let x: (Double) -> CGFloat = { CGFloat(($0 - full.lowerBound) / span) * w }
+            let pts = stack.panels.first { $0.kind == kind }?.points ?? []
+            let d = kind.yDomain(for: pts)
+            ZStack(alignment: .topLeading) {
+                Path { p in
+                    guard let first = pts.first else { return }
+                    p.move(to: CGPoint(x: x(first.x), y: h))
+                    for pt in pts { p.addLine(to: CGPoint(x: x(pt.x), y: h * (1 - kind.normalized(pt.y, in: d)))) }
+                    p.addLine(to: CGPoint(x: x(pts.last!.x), y: h))
+                    p.closeSubpath()
+                }
+                .fill(OverlayChart.color(kind).opacity(0.25))
+                Rectangle()
+                    .fill(Brand.forest.opacity(0.12))
+                    .overlay { Rectangle().strokeBorder(Brand.forest, lineWidth: 1.5) }
+                    .frame(width: max(x(window.upperBound) - x(window.lowerBound), 6), height: h)
+                    .offset(x: x(window.lowerBound))
+            }
+            .background(Brand.Data.surface)
+            .overlay { Rectangle().strokeBorder(Brand.hairline.opacity(0.5), lineWidth: 0.5) }
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { v in
+                        if dragStart == nil {
+                            // A touch outside the box first centres the window on it.
+                            let t = full.lowerBound + Double(v.startLocation.x / w) * span
+                            dragStart = window.contains(t) ? window
+                                : ChartZoom.pan(window, by: t - (window.lowerBound + window.upperBound) / 2, within: full)
+                        }
+                        guard let start = dragStart else { return }
+                        onChange(ChartZoom.pan(start, by: Double(v.translation.width / w) * span, within: full))
+                    }
+                    .onEnded { _ in dragStart = nil }
+            )
+            .accessibilityLabel("Overview: drag to move the zoomed view")
         }
     }
 }
