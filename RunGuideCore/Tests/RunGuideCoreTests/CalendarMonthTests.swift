@@ -114,4 +114,24 @@ final class CalendarMonthTests: XCTestCase {
         XCTAssertEqual(planned, ["2026-10-26": 190])
         XCTAssertEqual(FitnessProjection.completedLoads(activities), ["2026-10-25": 58])
     }
+
+    func testPairingOnADay() throws {
+        let events = try JSONDecoder().decode([CalendarEvent].self, from: Data("""
+        [
+          {"id": 1, "start_date_local": "2026-10-25T00:00:00", "category": "WORKOUT", "name": "Threshold"},
+          {"id": 2, "start_date_local": "2026-10-25T00:00:00", "category": "WORKOUT", "name": "Easy"}
+        ]
+        """.utf8))
+        let activities = try JSONDecoder().decode([ActivitySummary].self, from: Data("""
+        [
+          {"id": "i1", "start_date_local": "2026-10-25T08:00:00", "paired_event_id": 1},
+          {"id": "i2", "start_date_local": "2026-10-25T17:00:00"}
+        ]
+        """.utf8))
+        let plan = DayPlan.build(days: ["2026-10-25"], events: events, activities: activities)[0]
+        XCTAssertEqual(plan.activity(pairedWith: events[0])?.id.value, "i1")
+        XCTAssertNil(plan.activity(pairedWith: events[1]))
+        XCTAssertEqual(plan.unpairedSessions.map(\.id), [2])
+        XCTAssertEqual(plan.unplannedActivities.map(\.id.value), ["i2"])
+    }
 }

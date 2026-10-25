@@ -72,6 +72,16 @@ final class WorkoutLibrary: ObservableObject {
         var parsed: Bool { (time ?? 0) > 0 }
     }
 
+    /// Adds a library workout to a day as it stands, fetching its full text first if the listing
+    /// left it out.
+    func schedule(_ w: LibraryWorkout, on day: String, calendar: CalendarStore) async throws {
+        let client = clientProvider()
+        var source = w
+        if (w.description ?? "").isEmpty { source = try await client.libraryWorkout(id: w.id) }
+        _ = try await client.scheduleLibraryWorkout(source, on: day)
+        calendar.calendarChanged()
+    }
+
     /// Saves everywhere chosen. Returns the time and load Intervals worked out for it.
     func save(_ plan: WorkoutPlan, from origin: Origin, choice: SaveChoice, calendar: CalendarStore) async throws -> Saved {
         let client = clientProvider()

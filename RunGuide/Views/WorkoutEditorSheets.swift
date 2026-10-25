@@ -445,31 +445,47 @@ struct SaveWorkoutSheet: View {
 
 // MARK: - Library
 
-/// The Intervals workout library by folder. Tap a workout to edit or schedule it. Opened for a
-/// calendar day, tapping one sets it up to be added to that day.
+/// The Intervals workout library by folder. Tap a workout to edit it. Opened for a calendar day,
+/// a tap adds it to that day straight away (long-press to edit it first).
 struct WorkoutLibraryView: View {
     var scheduleDay: String? = nil
     @EnvironmentObject private var library: WorkoutLibrary
+    @EnvironmentObject private var calendar: CalendarStore
     @EnvironmentObject private var settings: AppSettings
     @Environment(\.dismiss) private var dismiss
     @State private var opening: WorkoutLibrary.Origin?
+    @State private var adding: Int?
+    @State private var addError: String?
 
     var body: some View {
         NavigationStack {
             List {
                 if let scheduleDay {
                     Section {
-                        Label("Pick a workout to add to \(DayTitle.text(scheduleDay, today: IntervalsDates.day(Date())))",
+                        Label("Tap a workout to add it to \(DayTitle.text(scheduleDay, today: IntervalsDates.day(Date()))). Long-press to edit it first.",
                               systemImage: "calendar.badge.plus")
                             .font(.brand(.subheadline, weight: .medium))
+                        if let addError {
+                            Label(addError, systemImage: "exclamationmark.triangle").font(.footnote)
+                        }
                     }
                 }
                 ForEach(library.folders) { folder in
                     if !folder.workouts.isEmpty {
                         Section(folder.name ?? "Folder") {
                             ForEach(folder.workouts) { w in
-                                Button { opening = .library(w) } label: { row(w) }
-                                    .buttonStyle(.plain)
+                                Button {
+                                    if let scheduleDay { Task { await add(w, to: scheduleDay) } } else { opening = .library(w) }
+                                } label: { row(w) }
+                                .buttonStyle(.plain)
+                                .disabled(adding != nil)
+                                .contextMenu {
+                                    if scheduleDay != nil {
+                                        Button { opening = .library(w) } label: {
+                                            Label("Edit before adding", systemImage: "slider.horizontal.3")
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -510,9 +526,27 @@ struct WorkoutLibraryView: View {
                 Text(line(w)).font(.brand(.subheadline).monospacedDigit()).foregroundStyle(.secondary)
             }
             Spacer()
-            Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
+            if adding == w.id {
+                ProgressView()
+            } else {
+                Image(systemName: scheduleDay == nil ? "chevron.right" : "plus.circle")
+                    .font(scheduleDay == nil ? .caption.weight(.semibold) : .body)
+                    .foregroundStyle(scheduleDay == nil ? AnyShapeStyle(.tertiary) : AnyShapeStyle(Brand.accent))
+            }
         }
         .contentShape(Rectangle())
+    }
+
+    /// Adds a library workout to the day as it is, then goes back to the Calendar.
+    private func add(_ w: LibraryWorkout, to day: String) async {
+        adding = w.id
+        defer { adding = nil }
+        do {
+            try await library.schedule(w, on: day, calendar: calendar)
+            dismiss()
+        } catch {
+            addError = error.localizedDescription
+        }
     }
 
     private func line(_ w: LibraryWorkout) -> String {

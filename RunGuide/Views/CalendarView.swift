@@ -4,15 +4,18 @@ import RunGuideCore
 
 /// A month at a time: fitness, fatigue and form across the month (projected ahead from planned
 /// load), the month grid with each day's sessions as dots and weekly load, and the chosen day's
-/// sessions underneath. Swipe sideways or use the arrows to change month. Sessions can be moved
-/// or deleted, and notes added.
+/// sessions underneath. Swipe sideways or use the arrows to change month. Each planned session has
+/// Edit, Move and Delete; Move (or dragging a session onto the grid) moves it to the day tapped.
+/// Completed sessions show their activity and can be unpaired, or an extra activity paired.
 struct CalendarView: View {
     @EnvironmentObject private var calendar: CalendarStore
     @EnvironmentObject private var settings: AppSettings
 
     @State private var month = MonthGrid(containing: Date())
     @State private var selectedDay = IntervalsDates.day(Date())
+    /// The session being moved: the grid is waiting for a day to be tapped.
     @State private var moving: CalendarEvent?
+    @State private var pickingDate: CalendarEvent?
     @State private var deleting: CalendarEvent?
     @State private var noteDay: String?
     @State private var noteTitle = ""
@@ -41,7 +44,16 @@ struct CalendarView: View {
                                  today: today,
                                  selectedDay: $selectedDay)
 
-                Card { MonthGridView(month: month, plans: plans, today: today, selectedDay: $selectedDay) }
+                if let moving {
+                    moveBanner(moving)
+                }
+
+                Card {
+                    MonthGridView(month: month, plans: plans, today: today, selectedDay: selectedDay,
+                                  moveMode: moving != nil,
+                                  onTap: tapDay,
+                                  onDrop: dropEvent)
+                }
 
                 if let plan = plans.first(where: { $0.day == selectedDay }) {
                     VStack(alignment: .leading, spacing: 8) {
@@ -71,7 +83,7 @@ struct CalendarView: View {
                         }
                         Card {
                             VStack(alignment: .leading, spacing: 12) {
-                                DayContent(plan: plan, today: today, moving: $moving, deleting: $deleting, building: $building)
+                                DayContent(plan: plan, today: today, movingId: moving?.id, actions: dayActions)
                             }
                         }
                     }
@@ -106,9 +118,9 @@ struct CalendarView: View {
             .fullScreenCover(item: $building) { WorkoutBuilderView(origin: $0) }
             .sheet(item: $library) { WorkoutLibraryView(scheduleDay: $0.day) }
             .onChange(of: calendar.revision) { _, _ in Task { await refresh() } }
-            .sheet(item: $moving) { event in
+            .sheet(item: $pickingDate) { event in
                 MoveSheet(event: event, days: week(containing: event.day), today: today) { day in
-                    Task { await calendar.move(event, to: day, in: month) }
+                    move(event, to: day)
                 }
             }
             .confirmationDialog("Delete \(deleting?.name ?? "this")?",
@@ -142,6 +154,61 @@ struct CalendarView: View {
 
     private var plans: [DayPlan] {
         DayPlan.build(days: month.days, events: data?.events ?? [], activities: data?.activities ?? [])
+    }
+
+    private var dayActions: DayContent.Actions {
+        .init(edit: { building = .event($0) },
+              move: { event in withAnimation { moving = moving?.id == event.id ? nil : event } },
+              delete: { deleting = $0 },
+              pair: { activity, event in Task { await calendar.pair(activity, with: event, in: month) } })
+    }
+
+    // MARK: - Moving
+
+    private func tapDay(_ day: String) {
+        if let event = moving {
+            move(event, to: day)
+        } else {
+            selectedDay = day
+        }
+    }
+
+    /// A session dragged onto a day in the grid.
+    private func dropEvent(_ id: Int, on day: String) -> Bool {
+        guard let event = data?.events.first(where: { $0.id == id }) else { return false }
+        move(event, to: day)
+        return true
+    }
+
+    private func move(_ event: CalendarEvent, to day: String) {
+        withAnimation {
+            moving = nil
+            selectedDay = day
+        }
+        guard day != event.day else { return }
+        Task { await calendar.move(event, to: day, in: month) }
+    }
+
+    private func moveBanner(_ event: CalendarEvent) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "arrow.left.arrow.right")
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Moving \(event.name ?? "session")").font(.brand(.subheadline, weight: .bold))
+                Text("Tap a day, or swipe to another month").font(.brand(.caption)).opacity(0.8)
+            }
+            Spacer(minLength: 0)
+            Button("Pick date") { pickingDate = event }
+                .font(.brand(.footnote, weight: .medium))
+            Button { withAnimation { moving = nil } } label: {
+                Image(systemName: "xmark").font(.system(size: 14, weight: .semibold)).frame(width: 30, height: 30)
+            }
+            .accessibilityLabel("Cancel move")
+        }
+        .foregroundStyle(.white)
+        .tint(.white)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(Brand.forest, in: RoundedRectangle(cornerRadius: 12))
     }
 
     private func refresh() async {
@@ -206,7 +273,12 @@ struct MonthGridView: View {
     let month: MonthGrid
     let plans: [DayPlan]
     let today: String
-    @Binding var selectedDay: String
+    let selectedDay: String
+    /// A session is being moved: every day is a target.
+    var moveMode = false
+    let onTap: (String) -> Void
+    /// A session (by id) dropped on a day. Returns whether it was taken.
+    let onDrop: (Int, String) -> Bool
 
     private static let weekdays = ["M", "T", "W", "T", "F", "S", "S"]
     private static let loadWidth: CGFloat = 40
@@ -227,10 +299,14 @@ struct MonthGridView: View {
                 HStack(spacing: 0) {
                     ForEach(week, id: \.self) { day in
                         DayCell(day: day, plan: byDay[day], inMonth: month.contains(day), today: today,
-                                selected: day == selectedDay)
+                                selected: day == selectedDay && !moveMode, target: moveMode)
                             .frame(maxWidth: .infinity)
                             .contentShape(Rectangle())
-                            .onTapGesture { selectedDay = day }
+                            .onTapGesture { onTap(day) }
+                            .dropDestination(for: String.self) { items, _ in
+                                guard let id = items.first.flatMap(Int.init) else { return false }
+                                return onDrop(id, day)
+                            }
                     }
                     weekLoad(week.compactMap { byDay[$0] })
                         .frame(width: Self.loadWidth, alignment: .trailing)
@@ -263,6 +339,7 @@ private struct DayCell: View {
     let inMonth: Bool
     let today: String
     let selected: Bool
+    var target = false
 
     var body: some View {
         VStack(spacing: 4) {
@@ -273,6 +350,8 @@ private struct DayCell: View {
                 .background {
                     if selected {
                         Circle().fill(Brand.forest)
+                    } else if target {
+                        Circle().strokeBorder(Brand.forest.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [3, 2]))
                     } else if day == today {
                         Circle().strokeBorder(Brand.forest, lineWidth: 1.5)
                     }
@@ -501,14 +580,23 @@ struct FitnessStripCard: View {
 
 // MARK: - Day
 
-/// A day's planned sessions, activities and notes. Tap a planned workout to edit it; its context
-/// menu also moves or deletes it. Activities open their detail.
+/// A day's planned sessions, activities and notes, each with its controls in view: Edit, Move and
+/// Delete on planned sessions; the paired activity (with Unpair) under a completed one; Pair on
+/// sessions and activities that could go together. Sessions can be dragged onto a day in the grid.
 struct DayContent: View {
     let plan: DayPlan
     let today: String
-    @Binding var moving: CalendarEvent?
-    @Binding var deleting: CalendarEvent?
-    @Binding var building: WorkoutLibrary.Origin?
+    /// The session currently being moved, if any.
+    let movingId: Int?
+    let actions: Actions
+
+    struct Actions {
+        var edit: (CalendarEvent) -> Void
+        var move: (CalendarEvent) -> Void
+        var delete: (CalendarEvent) -> Void
+        /// Pair an activity with a session, or unpair it (nil).
+        var pair: (ActivitySummary, CalendarEvent?) -> Void
+    }
 
     var body: some View {
         if plan.sessions.isEmpty && plan.activities.isEmpty && plan.notes.isEmpty {
@@ -518,44 +606,126 @@ struct DayContent: View {
         }
 
         ForEach(plan.sessions) { event in
-            sessionRow(event, done: plan.isDone(event), past: plan.day < today)
-                .contentShape(Rectangle())
-                .contentShape(Rectangle())
-                .onTapGesture { if event.isWorkout { building = .event(event) } }
-                .contextMenu {
-                    if event.isWorkout {
-                        Button { building = .event(event) } label: { Label("Edit workout", systemImage: "slider.horizontal.3") }
-                    }
-                    Button { moving = event } label: { Label("Move to another day", systemImage: "calendar") }
-                    Button(role: .destructive) { deleting = event } label: { Label("Delete", systemImage: "trash") }
-                }
+            session(event)
+            if event.id != plan.sessions.last?.id || !extras.isEmpty || !plan.notes.isEmpty { Hairline() }
         }
 
-        ForEach(plan.activities) { activity in
-            NavigationLink(value: activity) {
-                HStack {
-                    ActivityRow(activity: activity)
-                    Image(systemName: "chevron.right")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.tertiary)
+        ForEach(extras) { activity in
+            VStack(alignment: .leading, spacing: 8) {
+                activityLink(activity)
+                if !plan.unpairedSessions.isEmpty {
+                    HStack(spacing: 8) {
+                        pairMenu(title: "Pair with session", items: plan.unpairedSessions.map { ($0.name ?? "Session", $0) }) {
+                            actions.pair(activity, $0)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.leading, 34)
                 }
             }
-            .buttonStyle(.plain)
         }
 
         ForEach(plan.notes) { note in
-            VStack(alignment: .leading, spacing: 2) {
-                Label(note.name ?? "Note", systemImage: "note.text")
-                    .font(.subheadline.weight(.medium))
-                if let text = note.description, !text.isEmpty {
-                    Text(text).font(.caption).foregroundStyle(.secondary).lineLimit(3)
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Label(note.name ?? "Note", systemImage: "note.text")
+                        .font(.subheadline.weight(.medium))
+                    if let text = note.description, !text.isEmpty {
+                        Text(text).font(.caption).foregroundStyle(.secondary).lineLimit(3)
+                    }
                 }
-            }
-            .contentShape(Rectangle())
-            .contextMenu {
-                Button(role: .destructive) { deleting = note } label: { Label("Delete", systemImage: "trash") }
+                Spacer(minLength: 0)
+                Button { actions.delete(note) } label: {
+                    Image(systemName: "trash").font(.footnote).frame(width: 30, height: 30)
+                }
+                .tint(.secondary)
+                .accessibilityLabel("Delete note")
             }
         }
+    }
+
+    /// Activities that aren't paired with any of today's sessions.
+    private var extras: [ActivitySummary] { plan.unplannedActivities }
+
+    private func session(_ event: CalendarEvent) -> some View {
+        let paired = plan.activity(pairedWith: event)
+        let done = paired != nil || plan.isDone(event)
+        let isMoving = movingId == event.id
+        return VStack(alignment: .leading, spacing: 10) {
+            sessionRow(event, done: done, past: plan.day < today)
+                .contentShape(Rectangle())
+                .onTapGesture { if event.isWorkout { actions.edit(event) } }
+                .draggable(String(event.id)) {
+                    Label(event.name ?? "Session", systemImage: "calendar")
+                        .padding(8)
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+                }
+
+            if let paired {
+                activityLink(paired).padding(.leading, 34)
+            }
+
+            HStack(spacing: 8) {
+                if event.isWorkout {
+                    chip("Edit", "slider.horizontal.3") { actions.edit(event) }
+                }
+                chip(isMoving ? "Moving…" : "Move", "arrow.left.arrow.right", prominent: isMoving) { actions.move(event) }
+                if let paired {
+                    chip("Unpair", "link") { actions.pair(paired, nil) }
+                } else if !extras.isEmpty {
+                    pairMenu(title: "Pair", items: extras.map { ($0.name ?? $0.type ?? "Activity", $0) }) {
+                        actions.pair($0, event)
+                    }
+                }
+                Spacer(minLength: 0)
+                Button { actions.delete(event) } label: {
+                    Image(systemName: "trash").font(.footnote).frame(width: 30, height: 30)
+                }
+                .tint(Brand.Medal.bronze.flat)
+                .accessibilityLabel("Delete \(event.name ?? "session")")
+            }
+            .padding(.leading, 34)
+        }
+    }
+
+    @ViewBuilder
+    private func chip(_ title: String, _ icon: String, prominent: Bool = false,
+                      action: @escaping () -> Void) -> some View {
+        let button = Button(action: action) {
+            Label(title, systemImage: icon).font(.brand(.footnote, weight: .medium))
+        }
+        .controlSize(.small)
+        .tint(Brand.accent)
+        if prominent {
+            button.buttonStyle(.borderedProminent)
+        } else {
+            button.buttonStyle(.bordered)
+        }
+    }
+
+    private func pairMenu<T>(title: String, items: [(String, T)], pick: @escaping (T) -> Void) -> some View {
+        Menu {
+            ForEach(Array(items.enumerated()), id: \.offset) { _, item in
+                Button(item.0) { pick(item.1) }
+            }
+        } label: {
+            Label(title, systemImage: "link.badge.plus").font(.brand(.footnote, weight: .medium))
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.small)
+        .tint(Brand.accent)
+    }
+
+    private func activityLink(_ activity: ActivitySummary) -> some View {
+        NavigationLink(value: activity) {
+            HStack {
+                ActivityRow(activity: activity)
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .buttonStyle(.plain)
     }
 
     private func sessionRow(_ event: CalendarEvent, done: Bool, past: Bool) -> some View {
@@ -563,6 +733,7 @@ struct DayContent: View {
             Image(systemName: done ? "checkmark.circle.fill" : (past ? "xmark.circle" : "circle"))
                 .foregroundStyle(done ? Brand.forest : (past ? Brand.Medal.bronze.flat : Color.secondary))
                 .accessibilityLabel(done ? "Done" : (past ? "Missed" : "Planned"))
+                .frame(width: 22)
             VStack(alignment: .leading, spacing: 2) {
                 Text(event.name ?? "Session")
                     .font(.body.weight(.medium))
@@ -571,6 +742,7 @@ struct DayContent: View {
                     .font(.subheadline.monospacedDigit())
                     .foregroundStyle(.secondary)
             }
+            Spacer(minLength: 0)
         }
     }
 }
