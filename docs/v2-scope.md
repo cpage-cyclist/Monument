@@ -70,7 +70,9 @@ it is and becomes the "Start" action for planned runs.
 
 Also to come: a further pass on the activity view, and a full visual polish pass across the app,
 including bringing the workout builder's step and text editors into the Monument style used on
-Today.
+Today. Ideas to consider for more Akira: page titles in slanted Akira like the logotype; one hero
+number per screen (form on Today, NP or load on activities, week load on the Calendar, FTP W/kg on
+Rider); Record's live countdown and watts; "NEW BEST" / "2ND ALL TIME" with best-effort medals.
 
 ## API notes
 

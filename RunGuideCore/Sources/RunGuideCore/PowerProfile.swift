@@ -11,18 +11,26 @@ public struct PowerCurve: Decodable, Sendable, Equatable {
     public let values: [Double?]
     public let startDateLocal: String?
     public let endDateLocal: String?
+    /// Which curve this is when several were asked for ("42d", "1y", "all"…).
+    public let id: String?
+    /// The activity each best effort came from, if Intervals sends it.
+    public let activityIDs: [String?]
 
     enum CodingKeys: String, CodingKey {
-        case secs, values, watts
+        case secs, values, watts, id
         case startDateLocal = "start_date_local"
         case endDateLocal = "end_date_local"
+        case activityID = "activity_id"
     }
 
-    public init(secs: [Int], values: [Double?], startDateLocal: String? = nil, endDateLocal: String? = nil) {
+    public init(secs: [Int], values: [Double?], startDateLocal: String? = nil, endDateLocal: String? = nil,
+                id: String? = nil, activityIDs: [String?] = []) {
         self.secs = secs
         self.values = values
         self.startDateLocal = startDateLocal
         self.endDateLocal = endDateLocal
+        self.id = id
+        self.activityIDs = activityIDs
     }
 
     public init(from decoder: Decoder) throws {
@@ -32,6 +40,27 @@ public struct PowerCurve: Decodable, Sendable, Equatable {
             ?? c.decodeIfPresent([Double?].self, forKey: .watts) ?? []
         startDateLocal = try c.decodeIfPresent(String.self, forKey: .startDateLocal)
         endDateLocal = try c.decodeIfPresent(String.self, forKey: .endDateLocal)
+        id = try? c.decodeIfPresent(String.self, forKey: .id)
+        if let ids = try? c.decodeIfPresent([FlexibleID?].self, forKey: .activityID) {
+            activityIDs = ids.map { $0?.value }
+        } else {
+            activityIDs = []
+        }
+    }
+
+    /// Decodes every curve in the endpoint's `{"list": [...]}` (or a bare array).
+    public static func decodeAll(_ data: Data) throws -> [PowerCurve] {
+        struct Wrapper: Decodable { let list: [PowerCurve]? }
+        if let wrapped = try? JSONDecoder().decode(Wrapper.self, from: data), let list = wrapped.list {
+            return list
+        }
+        return try JSONDecoder().decode([PowerCurve].self, from: data)
+    }
+
+    /// The activity behind the best effort at exactly `seconds`, if known.
+    public func activity(at seconds: Int) -> String? {
+        guard let i = secs.firstIndex(of: seconds), activityIDs.indices.contains(i) else { return nil }
+        return activityIDs[i]
     }
 
     /// Decodes the endpoint's `{"list": [...]}` (or a bare array) and returns the first curve.

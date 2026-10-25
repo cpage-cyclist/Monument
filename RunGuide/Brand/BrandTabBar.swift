@@ -7,7 +7,7 @@ final class LaunchState: ObservableObject {
 }
 
 enum AppTab: CaseIterable, Hashable {
-    case today, calendar, activities, record
+    case today, calendar, activities, record, rider
 
     var title: String {
         switch self {
@@ -15,6 +15,7 @@ enum AppTab: CaseIterable, Hashable {
         case .calendar: "Calendar"
         case .activities: "Activities"
         case .record: "Record"
+        case .rider: "Rider"
         }
     }
 
@@ -24,6 +25,7 @@ enum AppTab: CaseIterable, Hashable {
         case .calendar: "calendar"
         case .activities: "chart.xyaxis.line"
         case .record: "record.circle"
+        case .rider: "person.crop.square"
         }
     }
 }
@@ -57,5 +59,17 @@ struct BrandTabBar: View {
         }
         .padding(.top, 8)
         .background(Brand.forest.ignoresSafeArea(edges: .bottom))
+    }
+}
+
+/// Lets a page switch tabs (the Rider launch pad).
+private struct SwitchTabKey: EnvironmentKey {
+    static let defaultValue: (AppTab) -> Void = { _ in }
+}
+
+extension EnvironmentValues {
+    var switchTab: (AppTab) -> Void {
+        get { self[SwitchTabKey.self] }
+        set { self[SwitchTabKey.self] = newValue }
     }
 }
