@@ -68,6 +68,24 @@ enum Brand {
         }
     }
 
+    // MARK: Data colours
+
+    /// Series colours for charts, all from the brand itself: forest, sage, the hairline and the
+    /// three medal metals. They're deliberately muted, so shape does part of the work: W′bal and
+    /// altitude are shaded areas, speed/pace is dashed, power, HR and cadence are solid lines, and
+    /// every series is named in the chips and readout. Charts always draw on white.
+    enum Data {
+        static let surface = Color.white
+        /// Axis labels and grid on the white surface.
+        static let ink = Color(hex: 0x1A1F1C)
+        static let power = Color(hex: 0x00321F)       // forest
+        static let wbal = Color(hex: 0x7F9990)        // sage, as an area
+        static let heartRate = Color(hex: 0xAA954B)   // gold
+        static let cadence = Color(hex: 0xA96034)     // bronze
+        static let speed = Color(hex: 0xA0978A)       // silver, dashed
+        static let altitude = Color(hex: 0x121212)    // hairline, as a faint area
+    }
+
     // MARK: Medals (gold / silver / bronze for top efforts)
 
     enum Medal: Int, CaseIterable {
@@ -166,6 +184,12 @@ extension Brand {
 }
 
 extension Color {
+    /// 0xRRGGBB.
+    init(hex: UInt32) {
+        self.init(red: Double((hex >> 16) & 0xFF) / 255, green: Double((hex >> 8) & 0xFF) / 255,
+                  blue: Double(hex & 0xFF) / 255)
+    }
+
     /// A colour that switches with light and dark mode.
     init(light: UIColor, dark: UIColor) {
         self.init(UIColor { $0.userInterfaceStyle == .dark ? dark : light })

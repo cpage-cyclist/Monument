@@ -110,6 +110,17 @@ Fixed choices for Monument (formerly Run Guide). Change one only on purpose, and
   text, Akira (demo, personal use) only for the wordmark artwork and hero numbers.
 - The ridge header stacks the five monuments' profiles at 15% light green on white (10% white on
   forest in dark mode), squashed to 40% height; the page takes the colour of all five overlapping.
+- **Data colours** (`Brand.Data`) come from the brand itself: power forest #00321F, W′bal sage
+  #7F9990, heart rate gold #AA954B, cadence bronze #A96034, speed/pace silver #A0978A, altitude
+  hairline #121212. They're muted on purpose, so **shape carries identity too**: W′bal and altitude
+  are shaded areas (altitude faint), speed/pace is dashed, power/HR/cadence are solid lines, and
+  every series is named in the chips and readout. (Silver and sage alone are too close to tell
+  apart; the area/dash split is what separates them.) Charts sit on a **white surface in light and
+  dark mode**.
+- The **activity view never scrolls**: key figures, overlay chips, one chart filling the space,
+  and a fixed bottom panel whose tabs page rather than scroll. **Pinch to zoom**, zoom to a
+  selection from the readout, double-tap or Reset for the whole ride; a zoomed chart shows an
+  overview strip to pan along.
 - **Medals** mark peak efforts that rank 1st, 2nd or 3rd over the last year (slanted gold/silver/
   bronze bar) or all time (inverted: solid metal badge with the bar cut out). All time outranks
   year. Ranks come from Intervals' `power-curves` with `curves=1y,all&subMaxEfforts=2`.
