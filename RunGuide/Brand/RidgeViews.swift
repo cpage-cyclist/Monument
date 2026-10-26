@@ -262,9 +262,3 @@ final class PullUpLoader: ObservableObject {
         }
     }
 }
-
-/// Where the footer's bottom sits in the scroll view (for pull-up).
-struct FooterBottomKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
-}

@@ -4,6 +4,9 @@ import SwiftUI
 /// rise into place as it flips.
 final class LaunchState: ObservableObject {
     @Published var revealed = false
+    /// How far the first page travels as it scrolls up into place at launch: a full screen, so
+    /// the title and content come up from below the bottom edge.
+    @Published var rise: CGFloat = 900
 }
 
 enum AppTab: CaseIterable, Hashable {

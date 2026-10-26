@@ -70,7 +70,7 @@ struct RootView: View {
             .environment(\.switchTab) { tab = $0 }
 
             if showSplash {
-                LaunchSplash(launch: launch) { showSplash = false }
+                LaunchSplash(launch: launch, title: AppTab.today.title) { showSplash = false }
             }
         }
     }

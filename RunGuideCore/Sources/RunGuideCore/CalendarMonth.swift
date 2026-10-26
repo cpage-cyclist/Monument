@@ -167,3 +167,36 @@ extension MonthGrid {
     /// The Monday-to-Sunday week holding `day`, from this grid.
     public func week(containing day: String) -> [String]? { weeks.first { $0.contains(day) } }
 }
+
+/// How a Monday-to-Sunday week moves fitness: from the evening before it starts to its last day
+/// with numbers (projected from planned load for days still ahead).
+public struct WeekFitness: Equatable, Sendable {
+    public let startFitness: Double
+    public let endFitness: Double
+    /// Form at the end day.
+    public let endForm: Double?
+    public let endDay: String
+    /// The end day is still ahead, so its numbers are projected.
+    public let projected: Bool
+
+    public var change: Double { endFitness - startFitness }
+
+    /// `history` is Intervals' fitness by day; `projection` overrides it for days it covers, as on
+    /// the Calendar chart. Nil when there's nothing before or within the week to compare.
+    public init?(week: [String], history: [WellnessDay], projection: [WellnessDay], today: String) {
+        guard let first = week.first, let last = week.last else { return nil }
+        var byDay: [String: WellnessDay] = [:]
+        for d in history where d.ctl != nil { byDay[d.id] = d }
+        let projectedIds = Set(projection.filter { $0.ctl != nil }.map(\.id))
+        for d in projection where d.ctl != nil { byDay[d.id] = d }
+
+        guard let start = byDay.values.filter({ $0.id < first }).max(by: { $0.id < $1.id }),
+              let end = byDay.values.filter({ $0.id >= first && $0.id <= last }).max(by: { $0.id < $1.id }),
+              let s = start.ctl, let e = end.ctl else { return nil }
+        startFitness = s
+        endFitness = e
+        endForm = end.form
+        endDay = end.id
+        projected = projectedIds.contains(end.id) && end.id > today
+    }
+}

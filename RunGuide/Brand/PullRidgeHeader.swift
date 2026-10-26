@@ -6,18 +6,12 @@ enum BrandScroll {
     static let space = "brandScroll"
 }
 
-/// How far the header's top has moved in the scroll view (positive = pulled down, negative = scrolled up).
-struct HeaderOffsetKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
-}
-
 /// The ridge header: wordmark over the monuments. Pull the page down and the ridges fan apart
 /// (without stretching); past the threshold it triggers a refresh, and the layers stay parted
 /// until the refresh finishes.
 ///
 /// Place it first inside a ScrollView that has `.coordinateSpace(name: BrandScroll.space)` and
-/// ignores the top safe area. Read the offset with `.onPreferenceChange(HeaderOffsetKey.self)`.
+/// ignores the top safe area (`BrandScrollPage` does this and tracks the scroll position).
 struct PullRidgeHeader<Accessory: View>: View {
     let topInset: CGFloat
     /// The page's name in Akira; nil shows the MONUMENT wordmark.
@@ -54,7 +48,6 @@ struct PullRidgeHeader<Accessory: View>: View {
             .frame(width: geo.size.width, height: rest + pull)
             .offset(y: -pull)
             .animation(.spring(response: 0.6, dampingFraction: 0.85), value: refreshing)
-            .preference(key: HeaderOffsetKey.self, value: minY)
         }
         .frame(height: rest)
     }

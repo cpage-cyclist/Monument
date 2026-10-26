@@ -167,3 +167,35 @@ final class CalendarMonthTests: XCTestCase {
         XCTAssertEqual(t.activities, 2)
     }
 }
+
+final class WeekFitnessTests: XCTestCase {
+    private let week = IntervalsDates.days(from: "2026-10-26", through: "2026-11-01")
+
+    func testRunsFromTheDayBeforeToTheProjectedSunday() throws {
+        let history = [WellnessDay(id: "2026-10-24", ctl: 80, atl: 90),
+                       WellnessDay(id: "2026-10-25", ctl: 82, atl: 110),
+                       WellnessDay(id: "2026-10-26", ctl: 85, atl: 117)]
+        let projection = [WellnessDay(id: "2026-10-26", ctl: 85, atl: 117),
+                          WellnessDay(id: "2026-11-01", ctl: 89, atl: 120)]
+        let f = try XCTUnwrap(WeekFitness(week: week, history: history, projection: projection, today: "2026-10-26"))
+        XCTAssertEqual(f.startFitness, 82)
+        XCTAssertEqual(f.endFitness, 89)
+        XCTAssertEqual(f.change, 7)
+        XCTAssertEqual(f.endForm, -31)
+        XCTAssertEqual(f.endDay, "2026-11-01")
+        XCTAssertTrue(f.projected)
+    }
+
+    func testAPastWeekIsNotProjected() throws {
+        let history = [WellnessDay(id: "2026-10-25", ctl: 82, atl: 110),
+                       WellnessDay(id: "2026-11-01", ctl: 84, atl: 100)]
+        let f = try XCTUnwrap(WeekFitness(week: week, history: history, projection: [], today: "2026-11-05"))
+        XCTAssertEqual(f.change, 2)
+        XCTAssertFalse(f.projected)
+    }
+
+    func testNothingBeforeTheWeekGivesNil() {
+        let history = [WellnessDay(id: "2026-10-27", ctl: 82, atl: 110)]
+        XCTAssertNil(WeekFitness(week: week, history: history, projection: [], today: "2026-10-27"))
+    }
+}

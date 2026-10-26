@@ -36,6 +36,7 @@ struct BrandScrollPage<Title: View, Accessory: View, Content: View>: View {
 
     var body: some View {
         GeometryReader { outer in
+            let visibleBottom = outer.size.height + outer.safeAreaInsets.top
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     PullRidgeHeader(topInset: outer.safeAreaInsets.top, title: pageTitle,
@@ -49,33 +50,40 @@ struct BrandScrollPage<Title: View, Accessory: View, Content: View>: View {
                     .padding(.horizontal, 16)
                     .padding(.bottom, 24)
                     .padding(.top, 14)
-                    // Rises in with the ridges at launch.
-                    .offset(y: launch.revealed ? 0 : 420)
+                    // Rises in with the ridges at launch, scrolling up at the same pace as the title.
+                    .offset(y: launch.revealed ? 0 : launch.rise)
 
                     if showsFooter {
                         Spacer(minLength: 0)
                         RidgeFooter(pull: overscroll, loading: loader.loading)
-                            .background {
-                                GeometryReader { g in
-                                    Color.clear.preference(key: FooterBottomKey.self,
-                                                           value: g.frame(in: .named(BrandScroll.space)).maxY)
-                                }
-                            }
                     }
                 }
                 // Short pages still put the footer at the foot of the screen.
-                .frame(minHeight: outer.size.height + outer.safeAreaInsets.top, alignment: .top)
+                .frame(minHeight: visibleBottom, alignment: .top)
+                // Forest carries on below the footer, so bouncing past the end never shows the page
+                // colour beneath the tab-bar green.
+                .background(alignment: .bottom) {
+                    if showsFooter {
+                        Brand.forest.frame(height: 1200).offset(y: 1200)
+                    }
+                }
+                // One reader on the whole column (always on screen) drives both the header and the
+                // footer, so the collapsed ridge bar keeps tracking once the header has scrolled away.
+                .background {
+                    GeometryReader { g in
+                        let frame = g.frame(in: .named(BrandScroll.space))
+                        Color.clear.preference(key: ScrollFrameKey.self,
+                                               value: ScrollFrame(top: frame.minY, bottom: frame.maxY))
+                    }
+                }
             }
             .coordinateSpace(name: BrandScroll.space)
             .ignoresSafeArea(edges: .top)
-            .onPreferenceChange(HeaderOffsetKey.self) { offset in
-                headerOffset = offset
-                puller.update(offset: offset) { await onRefresh() }
-            }
-            .onPreferenceChange(FooterBottomKey.self) { bottom in
-                // The footer's bottom rising above the visible bottom edge is the pull-up.
-                let visibleBottom = outer.size.height + outer.safeAreaInsets.top
-                overscroll = max(0, visibleBottom - bottom)
+            .onPreferenceChange(ScrollFrameKey.self) { frame in
+                headerOffset = frame.top
+                puller.update(offset: frame.top) { await onRefresh() }
+                // The column's bottom rising above the visible bottom edge is the pull-up.
+                overscroll = showsFooter ? max(0, visibleBottom - frame.bottom) : 0
                 loader.update(overscroll: overscroll, action: onLoadMore)
             }
             .overlay(alignment: .top) {
@@ -86,6 +94,17 @@ struct BrandScrollPage<Title: View, Accessory: View, Content: View>: View {
         .background(Brand.page)
         .toolbar(.hidden, for: .navigationBar)
     }
+}
+
+/// Where the page's column sits in its scroll view: top (positive when pulled down) and bottom.
+struct ScrollFrame: Equatable {
+    var top: CGFloat
+    var bottom: CGFloat
+}
+
+struct ScrollFrameKey: PreferenceKey {
+    static var defaultValue = ScrollFrame(top: 0, bottom: 0)
+    static func reduce(value: inout ScrollFrame, nextValue: () -> ScrollFrame) { value = nextValue() }
 }
 
 /// Large bold heading in Plex, for sheets and pushed screens without a ridge header.

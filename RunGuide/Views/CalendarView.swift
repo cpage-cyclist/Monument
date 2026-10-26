@@ -38,7 +38,15 @@ struct CalendarView: View {
             } accessory: {
                 HeaderButton(systemImage: "books.vertical", label: "Workout library") { library = LibraryRequest(day: nil) }
             } content: {
-                WeekHeroCard(week: selectedWeek, totals: selectedWeekTotals)
+                WeekHeroCard(week: selectedWeek,
+                             plans: selectedWeekPlans,
+                             totals: selectedWeekTotals,
+                             fitness: WeekFitness(week: selectedWeek,
+                                                  history: calendar.fitnessHistory,
+                                                  projection: calendar.projection(through: selectedWeek.last ?? today),
+                                                  today: today),
+                             today: today,
+                             selectedDay: $selectedDay)
 
                 FitnessStripCard(days: month.days,
                                  history: calendar.fitnessHistory,
@@ -216,10 +224,12 @@ struct CalendarView: View {
     /// The Monday-to-Sunday week holding the chosen day.
     private var selectedWeek: [String] { month.week(containing: selectedDay) ?? [selectedDay] }
 
-    private var selectedWeekTotals: WeekTotals {
+    private var selectedWeekPlans: [DayPlan] {
         let set = Set(selectedWeek)
-        return WeekTotals(plans.filter { set.contains($0.day) })
+        return plans.filter { set.contains($0.day) }
     }
+
+    private var selectedWeekTotals: WeekTotals { WeekTotals(selectedWeekPlans) }
 
     private func refresh() async {
         async let m: Void = calendar.load(month, force: true)
@@ -820,17 +830,27 @@ struct MoveSheet: View {
 }
 
 
-/// The chosen week's load as the Calendar's hero: done in Akira, planned and sessions beside it,
-/// and a done-against-planned bar.
+/// The chosen week as the Calendar's hero: load done in Akira with planned and sessions beside it,
+/// a done-against-planned bar, a Monday-to-Sunday strip of each day's load (tap a day to pick it),
+/// and the week's time, distance, climbing and how it moves fitness.
 struct WeekHeroCard: View {
     let week: [String]
+    let plans: [DayPlan]
     let totals: WeekTotals
+    let fitness: WeekFitness?
+    let today: String
+    @Binding var selectedDay: String
 
     private var range: String {
-        guard let a = week.first.flatMap({ IntervalsDates.parseLocal($0 + "T12:00:00") }),
-              let b = week.last.flatMap({ IntervalsDates.parseLocal($0 + "T12:00:00") }) else { return "Week" }
+        guard let a = date(week.first), let b = date(week.last) else { return "Week" }
         return "Week · " + a.formatted(.dateTime.day().month(.abbreviated)) + " – " + b.formatted(.dateTime.day().month(.abbreviated))
     }
+
+    private func date(_ day: String?) -> Date? {
+        day.flatMap { IntervalsDates.parseLocal($0 + "T12:00:00") }
+    }
+
+    private var toGo: Double { max(totals.plannedLoad - totals.doneLoad, 0) }
 
     var body: some View {
         Card {
@@ -845,7 +865,8 @@ struct WeekHeroCard: View {
                             .padding(.leading, 4)
                             .lineLimit(1)
                             .minimumScaleFactor(0.6)
-                        Text("Load done").font(.brand(.footnote)).foregroundStyle(.secondary)
+                        Text(toGo > 0 ? "Load done · \(Int(toGo.rounded())) to go" : "Load done")
+                            .font(.brand(.footnote)).foregroundStyle(.secondary)
                     }
                     Spacer(minLength: 8)
                     VStack(alignment: .trailing, spacing: 8) {
@@ -863,8 +884,109 @@ struct WeekHeroCard: View {
                     }
                     .frame(height: 5)
                 }
+
+                dayStrip
+
+                Hairline()
+                HStack(alignment: .top) {
+                    stat("Time", totals.seconds > 0 ? Format.clock(totals.seconds) : "–")
+                    stat("Distance", totals.metres > 0 ? String(format: "%.0f km", totals.metres / 1000) : "–")
+                    stat("Climbing", totals.climbing > 0 ? String(format: "%.0f m", totals.climbing) : "–")
+                    fitnessStat
+                }
             }
         }
+    }
+
+    // MARK: Day strip
+
+    /// Each day's planned load as an outlined column with what's done filled in forest from the
+    /// bottom (bronze above the plan when a day ran over). Today's letter is bold, the chosen day
+    /// is underlined.
+    private var dayStrip: some View {
+        let byDay = Dictionary(uniqueKeysWithValues: plans.map { ($0.day, $0) })
+        let peak = max(week.map { d in max(byDay[d]?.plannedLoad ?? 0, byDay[d]?.completedLoad ?? 0) }.max() ?? 0, 1)
+        let barHeight: CGFloat = 40
+        return HStack(alignment: .bottom, spacing: 6) {
+            ForEach(week, id: \.self) { day in
+                let plan = byDay[day]
+                let planned = plan?.plannedLoad ?? 0
+                let done = plan?.completedLoad ?? 0
+                Button {
+                    withAnimation { selectedDay = day }
+                } label: {
+                    VStack(spacing: 5) {
+                        ZStack(alignment: .bottom) {
+                            Color.clear
+                            if planned > 0 {
+                                Rectangle()
+                                    .strokeBorder(Brand.hairline.opacity(0.45), lineWidth: 1)
+                                    .frame(height: barHeight * planned / peak)
+                            }
+                            if done > 0 {
+                                VStack(spacing: 0) {
+                                    if done > planned, planned > 0 {
+                                        Rectangle().fill(Brand.Data.fatigue)
+                                            .frame(height: barHeight * (done - planned) / peak)
+                                    }
+                                    Rectangle().fill(Brand.forest)
+                                        .frame(height: barHeight * min(done, planned > 0 ? planned : done) / peak)
+                                }
+                            }
+                        }
+                        .frame(height: barHeight)
+                        Text(letter(day))
+                            .font(.brand(.caption2, weight: day == today ? .bold : .regular))
+                            .foregroundStyle(day == today ? Color.primary : Color.secondary)
+                        Rectangle()
+                            .fill(day == selectedDay ? Brand.wordmark : Color.clear)
+                            .frame(width: 12, height: 2)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(accessibility(day, planned: planned, done: done))
+            }
+        }
+    }
+
+    private func letter(_ day: String) -> String {
+        date(day).map { String($0.formatted(.dateTime.weekday(.narrow))) } ?? ""
+    }
+
+    private func accessibility(_ day: String, planned: Double, done: Double) -> String {
+        let name = date(day)?.formatted(.dateTime.weekday(.wide)) ?? day
+        return "\(name): \(Int(done.rounded())) done of \(Int(planned.rounded())) planned"
+    }
+
+    // MARK: Figures
+
+    private var fitnessStat: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("Fitness").font(.brand(.caption2)).foregroundStyle(.secondary)
+            if let fitness {
+                let change = Int(fitness.change.rounded())
+                Text(change > 0 ? "+\(change)" : "\(change)")
+                    .font(.num(.subheadline, weight: .semibold))
+                Text("→ \(Int(fitness.endFitness.rounded()))" + (fitness.projected ? " proj." : ""))
+                    .font(.brand(.caption2))
+                    .foregroundStyle(.secondary)
+            } else {
+                Text("–").font(.num(.subheadline, weight: .semibold))
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+    }
+
+    private func stat(_ label: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label).font(.brand(.caption2)).foregroundStyle(.secondary)
+            Text(value).font(.num(.subheadline, weight: .semibold))
+                .lineLimit(1).minimumScaleFactor(0.7)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
     }
 
