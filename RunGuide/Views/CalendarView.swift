@@ -38,6 +38,8 @@ struct CalendarView: View {
             } accessory: {
                 HeaderButton(systemImage: "books.vertical", label: "Workout library") { library = LibraryRequest(day: nil) }
             } content: {
+                WeekHeroCard(week: selectedWeek, totals: selectedWeekTotals)
+
                 FitnessStripCard(days: month.days,
                                  history: calendar.fitnessHistory,
                                  projected: calendar.projection(through: month.last),
@@ -209,6 +211,14 @@ struct CalendarView: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
         .background(Brand.forest, in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    /// The Monday-to-Sunday week holding the chosen day.
+    private var selectedWeek: [String] { month.week(containing: selectedDay) ?? [selectedDay] }
+
+    private var selectedWeekTotals: WeekTotals {
+        let set = Set(selectedWeek)
+        return WeekTotals(plans.filter { set.contains($0.day) })
     }
 
     private func refresh() async {
@@ -453,12 +463,12 @@ struct FitnessStripCard: View {
     private var selected: Point? { points.first { $0.id == selectedDay } }
 
     var body: some View {
-        Card {
+        Card(data: true) {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 14) {
-                    key("Fitness", Brand.forest, selected?.day.ctl)
-                    key("Fatigue", .white, selected?.day.atl)
-                    key("Form", Brand.forest, selected?.day.form, signed: true)
+                    key("Fitness", Brand.Data.fitness, selected?.day.ctl)
+                    key("Fatigue", Brand.Data.fatigue, selected?.day.atl)
+                    key("Form", Brand.Data.form, selected?.day.form, signed: true)
                     Spacer(minLength: 0)
                     if selected?.projected == true {
                         Text("Projected").font(.brand(.caption, weight: .medium)).foregroundStyle(.secondary)
@@ -503,15 +513,15 @@ struct FitnessStripCard: View {
         return Chart {
             ForEach(known) { p in
                 LineMark(x: .value("Day", p.date), y: .value("Load", p.day.ctl ?? 0), series: .value("Series", "Fitness"))
-                    .foregroundStyle(Brand.forest).lineStyle(StrokeStyle(lineWidth: 2.5))
+                    .foregroundStyle(Brand.Data.fitness).lineStyle(StrokeStyle(lineWidth: 2.5))
                 LineMark(x: .value("Day", p.date), y: .value("Load", p.day.atl ?? 0), series: .value("Series", "Fatigue"))
-                    .foregroundStyle(.white).lineStyle(StrokeStyle(lineWidth: 1.5))
+                    .foregroundStyle(Brand.Data.fatigue).lineStyle(StrokeStyle(lineWidth: 1.5))
             }
             ForEach(ahead) { p in
                 LineMark(x: .value("Day", p.date), y: .value("Load", p.day.ctl ?? 0), series: .value("Series", "Fitness ahead"))
-                    .foregroundStyle(Brand.forest).lineStyle(StrokeStyle(lineWidth: 2, dash: [4, 3]))
+                    .foregroundStyle(Brand.Data.fitness).lineStyle(StrokeStyle(lineWidth: 2, dash: [4, 3]))
                 LineMark(x: .value("Day", p.date), y: .value("Load", p.day.atl ?? 0), series: .value("Series", "Fatigue ahead"))
-                    .foregroundStyle(.white).lineStyle(Self.dashed)
+                    .foregroundStyle(Brand.Data.fatigue).lineStyle(Self.dashed)
             }
             markers
         }
@@ -527,15 +537,15 @@ struct FitnessStripCard: View {
         let (known, ahead) = segments
         return Chart {
             RectangleMark(yStart: .value("Form", -30), yEnd: .value("Form", -10))
-                .foregroundStyle(Color.white.opacity(0.4))
-            RuleMark(y: .value("Form", 0)).foregroundStyle(Brand.forest.opacity(0.6))
+                .foregroundStyle(Brand.sage.opacity(0.18))
+            RuleMark(y: .value("Form", 0)).foregroundStyle(Brand.Data.ink.opacity(0.4))
             ForEach(known) { p in
                 LineMark(x: .value("Day", p.date), y: .value("Form", p.day.form ?? 0), series: .value("Series", "Form"))
-                    .foregroundStyle(Brand.forest).lineStyle(StrokeStyle(lineWidth: 1.5))
+                    .foregroundStyle(Brand.Data.form).lineStyle(StrokeStyle(lineWidth: 1.8))
             }
             ForEach(ahead) { p in
                 LineMark(x: .value("Day", p.date), y: .value("Form", p.day.form ?? 0), series: .value("Series", "Form ahead"))
-                    .foregroundStyle(Brand.forest).lineStyle(Self.dashed)
+                    .foregroundStyle(Brand.Data.form).lineStyle(Self.dashed)
             }
             markers
         }
@@ -806,5 +816,62 @@ struct MoveSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
+    }
+}
+
+
+/// The chosen week's load as the Calendar's hero: done in Akira, planned and sessions beside it,
+/// and a done-against-planned bar.
+struct WeekHeroCard: View {
+    let week: [String]
+    let totals: WeekTotals
+
+    private var range: String {
+        guard let a = week.first.flatMap({ IntervalsDates.parseLocal($0 + "T12:00:00") }),
+              let b = week.last.flatMap({ IntervalsDates.parseLocal($0 + "T12:00:00") }) else { return "Week" }
+        return "Week · " + a.formatted(.dateTime.day().month(.abbreviated)) + " – " + b.formatted(.dateTime.day().month(.abbreviated))
+    }
+
+    var body: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 12) {
+                CardLabel(text: range)
+                HStack(alignment: .center, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("\(Int(totals.doneLoad.rounded()))")
+                            .font(.hero(46))
+                            .akiraSlant()
+                            .foregroundStyle(Brand.wordmark)
+                            .padding(.leading, 4)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
+                        Text("Load done").font(.brand(.footnote)).foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 8)
+                    VStack(alignment: .trailing, spacing: 8) {
+                        figure("Planned", "\(Int(totals.plannedLoad.rounded()))")
+                        figure("Sessions", "\(totals.doneSessions)/\(totals.plannedSessions)")
+                    }
+                }
+                if totals.plannedLoad > 0 {
+                    GeometryReader { geo in
+                        HStack(spacing: 0) {
+                            Rectangle().fill(Brand.forest)
+                                .frame(width: geo.size.width * min(totals.doneLoad / max(totals.plannedLoad, totals.doneLoad), 1))
+                            Rectangle().fill(totals.doneLoad > totals.plannedLoad ? Brand.Data.fatigue : Brand.hairline.opacity(0.15))
+                        }
+                    }
+                    .frame(height: 5)
+                }
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private func figure(_ label: String, _ value: String) -> some View {
+        VStack(alignment: .trailing, spacing: 1) {
+            Text(label).font(.brand(.caption2)).foregroundStyle(.secondary)
+            Text(value).font(.num(.headline, weight: .semibold))
+        }
     }
 }

@@ -104,7 +104,12 @@ struct ActivityDetailView: View {
     var body: some View {
         GeometryReader { geo in
             VStack(alignment: .leading, spacing: 10) {
-                KeyFigures(summary: current)
+                Text(current.name ?? current.type ?? "Activity")
+                    .font(.brand(.headline, weight: .semibold))
+                    .lineLimit(2)
+                    .truncationMode(.tail)
+                    .padding(.top, 6)
+                ActivityHero(summary: current)
 
                 if let analysis {
                     overlayChart(analysis.stack)
@@ -124,9 +129,8 @@ struct ActivityDetailView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
         }
-        .navigationTitle(current.name ?? "Activity")
-        .navigationBarTitleDisplayMode(.inline)
         .brandPageBackground()
+        .ridgeNavHeader(ActivityHero.shortTitle(current))
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
@@ -1184,6 +1188,70 @@ struct PeaksRow: View {
 }
 
 // MARK: - Summary
+
+/// The activity's hero, boxed: NP in Akira for rides with power (else load), with time, distance
+/// and load (or pace) beside it. The rest is in the Summary tab.
+struct ActivityHero: View {
+    let summary: ActivitySummary
+
+    /// The pushed screen's Akira line: sport and date, e.g. "Ride · 24 Oct".
+    static func shortTitle(_ s: ActivitySummary) -> String {
+        let t = (s.type ?? "").lowercased()
+        let sport = t.contains("ride") ? "Ride" : t.contains("run") ? "Run"
+            : (t.contains("walk") || t.contains("hike")) ? "Walk" : t.contains("swim") ? "Swim" : "Activity"
+        guard let d = s.startDate else { return sport }
+        return sport + " · " + d.formatted(.dateTime.day().month(.abbreviated))
+    }
+
+    private var hero: (label: String, value: String, unit: String) {
+        if let np = summary.normalizedPower, np > 0, !summary.isRun {
+            return ("Normalised power", "\(Int(np.rounded()))", "W")
+        }
+        return ("Load", summary.trainingLoad.map { "\(Int($0.rounded()))" } ?? "–", "")
+    }
+
+    private var side: [(String, String)] {
+        let s = summary
+        var out: [(String, String)] = []
+        if let t = s.movingTime, t > 0 { out.append(("Time", Format.clock(t))) }
+        if let d = s.distance, d > 0 { out.append(("Distance", String(format: "%.1f km", d / 1000))) }
+        if s.isRun, let d = s.distance, let t = s.movingTime, d > 0 {
+            out.append(("Pace", Format.pace(t / (d / 1000)) + "/km"))
+        }
+        if hero.label != "Load", let l = s.trainingLoad { out.append(("Load", "\(Int(l.rounded()))")) }
+        return out
+    }
+
+    var body: some View {
+        Card {
+            HStack(alignment: .bottom) {
+                VStack(alignment: .leading, spacing: 6) {
+                    CardLabel(text: hero.label)
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text(hero.value)
+                            .font(.hero(40))
+                            .akiraSlant()
+                            .foregroundStyle(Brand.wordmark)
+                            .padding(.leading, 4)
+                        if !hero.unit.isEmpty {
+                            Text(hero.unit).font(.brand(.subheadline, weight: .semibold))
+                        }
+                    }
+                }
+                Spacer(minLength: 8)
+                Grid(alignment: .trailing, horizontalSpacing: 10, verticalSpacing: 2) {
+                    ForEach(side, id: \.0) { label, value in
+                        GridRow {
+                            Text(label).font(.brand(.caption)).foregroundStyle(.secondary)
+                            Text(value).font(.num(.subheadline, weight: .semibold))
+                        }
+                    }
+                }
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
 
 /// The few figures worth seeing at once, above the chart; the rest are in the Summary tab.
 struct KeyFigures: View {

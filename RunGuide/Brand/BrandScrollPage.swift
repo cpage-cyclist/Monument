@@ -137,3 +137,25 @@ extension View {
         self.scrollContentBackground(.hidden).background(Brand.page)
     }
 }
+
+
+extension View {
+    /// A pushed screen's header: the ridges behind a see-through navigation bar, the system back
+    /// chevron, and a short title in Akira (a sport and date, never a user-written name).
+    func ridgeNavHeader(_ title: String) -> some View {
+        self
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbarRole(.editor)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    AkiraTitle(text: title, size: 18)
+                }
+            }
+            .background(alignment: .top) {
+                RidgeBackdrop(spread: Brand.Header.restSpread)
+                    .frame(height: 56)
+                    .ignoresSafeArea(edges: .top)
+            }
+    }
+}

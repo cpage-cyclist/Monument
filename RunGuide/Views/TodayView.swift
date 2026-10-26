@@ -152,13 +152,36 @@ struct TodayView: View {
 }
 
 struct Card<Content: View>: View {
-    @ViewBuilder let content: Content
+    /// White for cards that carry coloured data (charts, coloured figures); else the page shows through.
+    let data: Bool
+    let content: Content
+
+    init(data: Bool = false, @ViewBuilder content: () -> Content) {
+        self.data = data
+        self.content = content()
+    }
 
     var body: some View {
         content
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(14)
+            .background(data ? Brand.Data.surface : Color.clear)
             .overlay { Rectangle().strokeBorder(Brand.hairline, lineWidth: 1) }
+            // A white card reads in light-mode ink whatever the app's mode.
+            .environment(\.colorScheme, data ? .light : colorScheme)
+    }
+
+    @Environment(\.colorScheme) private var colorScheme
+}
+
+/// A small uppercase label at the top of a card.
+struct CardLabel: View {
+    let text: String
+    var body: some View {
+        Text(text.uppercased())
+            .font(.brand(.caption2, weight: .semibold))
+            .tracking(1.2)
+            .foregroundStyle(.secondary)
     }
 }
 
@@ -166,25 +189,50 @@ struct Card<Content: View>: View {
 struct FitnessCard: View {
     let day: WellnessDay?
 
-    var body: some View {
-        Card {
-            HStack {
-                figure("Fitness", day?.ctl.map { "\(Int($0.rounded()))" })
-                figure("Fatigue", day?.atl.map { "\(Int($0.rounded()))" })
-                figure("Form", day?.form.map { f in
-                    let v = Int(f.rounded())
-                    return v > 0 ? "+\(v)" : "\(v)"
-                })
-            }
-        }
+    private static func signed(_ v: Double?) -> String {
+        guard let v else { return "–" }
+        let i = Int(v.rounded())
+        return i > 0 ? "+\(i)" : (i < 0 ? "−\(-i)" : "0")
     }
 
-    private func figure(_ label: String, _ value: String?) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(label).font(.brand(.caption)).foregroundStyle(.secondary)
-            Text(value ?? "–").font(.num(.title, weight: .semibold))
+    var body: some View {
+        Card(data: true) {
+            VStack(alignment: .leading, spacing: 12) {
+                CardLabel(text: "Form · fitness · fatigue")
+                HStack(alignment: .bottom) {
+                    // The hero: form, in its chart colour.
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(Self.signed(day?.form))
+                            .font(.hero(50))
+                            .akiraSlant()
+                            .foregroundStyle(Brand.Data.form)
+                            .padding(.leading, 4)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
+                        Text(day?.formZone.map { "Form · " + $0.rawValue.lowercased() } ?? "Form")
+                            .font(.brand(.footnote))
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 12)
+                    VStack(alignment: .leading, spacing: 9) {
+                        key("Fitness", Brand.Data.fitness, day?.ctl.map { "\(Int($0.rounded()))" })
+                        key("Fatigue", Brand.Data.fatigue, day?.atl.map { "\(Int($0.rounded()))" })
+                        key("Form", Brand.Data.form, Self.signed(day?.form))
+                    }
+                    .frame(width: 140)
+                }
+            }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+    }
+
+    private func key(_ label: String, _ colour: Color, _ value: String?) -> some View {
+        HStack(spacing: 8) {
+            Rectangle().fill(colour).frame(width: 16, height: 2)
+            Text(label).font(.brand(.footnote)).foregroundStyle(.secondary)
+            Spacer(minLength: 4)
+            Text(value ?? "–").font(.num(.title3, weight: .semibold)).foregroundStyle(colour)
+        }
     }
 }
 

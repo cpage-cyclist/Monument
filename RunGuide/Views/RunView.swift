@@ -30,49 +30,59 @@ struct RunView: View {
 
     private var engine: SessionEngine { run.engine }
 
+    /// The live screen: what's happening now at the top, the step's countdown as the Akira hero,
+    /// sensors and figures in boxes, and the controls on the ridge footer.
     private var live: some View {
-        VStack(spacing: 18) {
-            if let guide = run.guide {
-                RouteBanner(guide: guide)
-                    .padding(.top)
-                    .id(run.tick)
-            }
-
-            Group {
-                if engine.isFree {
-                    Label("\(run.sport.title) · lap \(engine.laps.count + 1)", systemImage: run.sport.icon)
-                } else {
-                    Text("\(run.sport.title) · step \(min(engine.stepIndex + 1, engine.workout.steps.count)) of \(engine.workout.steps.count)")
+        VStack(spacing: 14) {
+            HStack {
+                Label {
+                    Text(engine.isFree
+                         ? "\(run.sport.title) · lap \(engine.laps.count + 1)"
+                         : "\(run.sport.title) · step \(min(engine.stepIndex + 1, engine.workout.steps.count)) of \(engine.workout.steps.count)")
+                } icon: {
+                    Image(systemName: run.sport.icon)
                 }
+                .font(.brand(.caption, weight: .semibold))
+                .textCase(.uppercase)
+                .tracking(1)
+                Spacer()
+                Text(Format.clock(engine.totalTime)).font(.num(.subheadline, weight: .medium))
             }
-            .font(.brand(.footnote))
-            .foregroundStyle(.secondary)
-            .padding(.top, run.guide == nil ? 16 : 0)
+            .padding(.top, 8)
+
+            if let guide = run.guide {
+                RouteBanner(guide: guide).id(run.tick)
+            }
 
             if let step = engine.currentStep {
-                if !engine.isFree {
-                    Text(step.label)
-                        .font(.brand(.title, weight: .bold))
-                        .multilineTextAlignment(.center)
+                Card {
+                    VStack(alignment: .leading, spacing: 8) {
+                        if !engine.isFree {
+                            Text(step.label).font(.brand(.title2, weight: .semibold)).lineLimit(2)
+                        }
+                        if let target = step.target {
+                            Text(target).font(.num(.subheadline)).foregroundStyle(.secondary)
+                        }
+                        Text(remainingText(step))
+                            .font(.hero(84))
+                            .akiraSlant()
+                            .foregroundStyle(Brand.wordmark)
+                            .padding(.leading, 8)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.5)
+                            .padding(.top, 6)
+                        if case .open = step.end {} else {
+                            GeometryReader { geo in
+                                ZStack(alignment: .leading) {
+                                    Rectangle().fill(Brand.forest.opacity(0.18))
+                                    Rectangle().fill(Brand.forest).frame(width: geo.size.width * engine.stepProgress)
+                                }
+                            }
+                            .frame(height: 5)
+                            .padding(.top, 4)
+                        }
+                    }
                 }
-                if let target = step.target {
-                    Text(target).font(.brand(.title3)).foregroundStyle(.secondary)
-                }
-
-                Text(remainingText(step))
-                    .font(.system(size: 76, weight: .bold, design: .rounded))
-                    .monospacedDigit()
-                    .minimumScaleFactor(0.5)
-                    .lineLimit(1)
-
-                ProgressView(value: engine.stepProgress)
-                    .padding(.horizontal)
-            }
-
-            if let next = engine.nextStep {
-                Text("Next: \(next.label) · \(Format.amount(next.end))")
-                    .font(.brand(.callout))
-                    .foregroundStyle(.secondary)
             }
 
             if run.hasPowerSensors {
@@ -80,42 +90,67 @@ struct RunView: View {
                            cadence: run.currentCadence, hasPower: run.power != nil)
             }
 
-            HStack {
-                stat("Distance", Format.km(engine.totalDistance))
-                stat("Time", Format.clock(engine.totalTime))
-                if run.sport.usesPace {
-                    stat("Pace", Format.pace(run.currentPace))
-                } else {
-                    stat("km/h", run.currentSpeed.map { String(format: "%.1f", $0) } ?? "––")
-                }
-                if run.heartRate.hasPairedStrap {
-                    stat("HR", run.heartRate.currentBPM.map(String.init) ?? "––")
+            Card {
+                HStack(alignment: .top) {
+                    stat("Distance", Format.km(engine.totalDistance))
+                    if run.sport.usesPace {
+                        stat("Pace", Format.pace(run.currentPace))
+                    } else {
+                        stat("km/h", run.currentSpeed.map { String(format: "%.1f", $0) } ?? "––")
+                    }
+                    if run.heartRate.hasPairedStrap {
+                        stat("HR", run.heartRate.currentBPM.map(String.init) ?? "––")
+                    }
+                    stat("Step", Format.clock(engine.stepTime))
                 }
             }
-            .padding(.top, 8)
+
+            if let next = engine.nextStep {
+                Text("Next: \(next.label) · \(Format.amount(next.end))")
+                    .font(.brand(.callout))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
 
             if run.paused {
-                Text("PAUSED").font(.brand(.headline)).foregroundStyle(.orange)
+                Text("Paused").font(.hero(18)).akiraSlant().foregroundStyle(Brand.Data.fatigue)
             }
 
-            Spacer()
-
-            HStack(spacing: 12) {
-                Button(run.paused ? "Resume" : "Pause") { run.togglePause() }
-                    .buttonStyle(.bordered)
-                Button("Lap") { run.lap() }
-                    .buttonStyle(.borderedProminent)
-                Button("End", role: .destructive) { confirmEnd = true }
-                    .buttonStyle(.bordered)
-            }
-            .font(.brand(.title3, weight: .bold))
-            .controlSize(.large)
-            .padding(.bottom)
+            Spacer(minLength: 0)
         }
-        .padding(.horizontal)
+        .padding(.horizontal, 16)
+        .safeAreaInset(edge: .bottom, spacing: 0) { controls }
+        .background(Brand.page.ignoresSafeArea())
         .confirmationDialog("End the session now?", isPresented: $confirmEnd, titleVisibility: .visible) {
             Button("End session", role: .destructive) { run.end() }
             Button("Keep going", role: .cancel) {}
+        }
+    }
+
+    /// Pause, Lap and End on the forest band at the foot of the ridges.
+    private var controls: some View {
+        VStack(spacing: 0) {
+            GeometryReader { geo in
+                RidgeStack(spread: Brand.Header.restSpread, width: geo.size.width * Brand.Header.bleed,
+                           fills: RidgeFooter.fills)
+                    .frame(width: geo.size.width, height: geo.size.height, alignment: .bottom)
+            }
+            .clipped()
+            .frame(height: 90)
+            HStack(spacing: 10) {
+                Button(run.paused ? "Resume" : "Pause") { run.togglePause() }
+                    .buttonStyle(FooterButton(kind: .outline))
+                Button("Lap") { run.lap() }
+                    .buttonStyle(FooterButton(kind: .solid))
+                    .frame(maxWidth: .infinity)
+                    .layoutPriority(1)
+                Button("End") { confirmEnd = true }
+                    .buttonStyle(FooterButton(kind: .end))
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 4)
+            .padding(.bottom, 12)
+            .background(Brand.forest.ignoresSafeArea(edges: .bottom))
         }
     }
 
@@ -131,11 +166,11 @@ struct RunView: View {
     }
 
     private func stat(_ title: String, _ value: String) -> some View {
-        VStack(spacing: 2) {
-            Text(value).font(.num(.title3, weight: .semibold))
+        VStack(alignment: .leading, spacing: 2) {
             Text(title).font(.brand(.caption)).foregroundStyle(.secondary)
+            Text(value).font(.num(.title3, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.7)
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -313,33 +348,89 @@ struct PowerPanel: View {
     }
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 18) {
-            if hasPower {
-                VStack(spacing: 2) {
-                    Text(watts.map(String.init) ?? "––")
-                        .font(.system(size: 54, weight: .bold, design: .rounded))
-                        .monospacedDigit()
-                        .foregroundStyle(colour)
-                    Text(target.map { "W · target " + Format.watts($0) } ?? "W (3 s)")
-                        .font(.brand(.caption))
-                        .foregroundStyle(.secondary)
+        Card(data: true) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .lastTextBaseline) {
+                    if hasPower {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Power · 3 s").font(.brand(.caption)).foregroundStyle(.secondary)
+                            Text(watts.map(String.init) ?? "––")
+                                .font(.num(size: 58))
+                                .foregroundStyle(colour)
+                        }
+                    }
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("Cadence").font(.brand(.caption)).foregroundStyle(.secondary)
+                        Text(cadence.map(String.init) ?? "––")
+                            .font(.num(size: hasPower ? 30 : 58))
+                            .foregroundStyle(Brand.Data.cadence)
+                    }
                 }
-            }
-            VStack(spacing: 2) {
-                Text(cadence.map(String.init) ?? "––")
-                    .font(.system(size: hasPower ? 30 : 54, weight: .bold, design: .rounded))
-                    .monospacedDigit()
-                Text("rpm").font(.brand(.caption)).foregroundStyle(.secondary)
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 8)
-        .background {
-            if let band {
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(colour.opacity(band == .inside ? 0.12 : 0.18))
+                if hasPower, let target {
+                    TargetBar(watts: watts, target: target, colour: colour)
+                }
             }
         }
         .accessibilityElement(children: .combine)
+    }
+}
+
+
+/// Where the current watts sit against the step's target band, on a 0 to 2× target scale.
+private struct TargetBar: View {
+    let watts: Int?
+    let target: ClosedRange<Double>
+    let colour: Color
+
+    var body: some View {
+        let top = max(target.upperBound * 1.6, 1)
+        VStack(spacing: 4) {
+            GeometryReader { geo in
+                let x: (Double) -> CGFloat = { CGFloat(min(max($0 / top, 0), 1)) * geo.size.width }
+                ZStack(alignment: .leading) {
+                    Rectangle().fill(Brand.Data.ink.opacity(0.06))
+                    Rectangle().fill(Brand.forest.opacity(0.22))
+                        .frame(width: max(x(target.upperBound) - x(target.lowerBound), 2))
+                        .offset(x: x(target.lowerBound))
+                    if let watts {
+                        Rectangle().fill(colour).frame(width: 3)
+                            .offset(x: x(Double(watts)) - 1.5)
+                    }
+                }
+            }
+            .frame(height: 14)
+            HStack {
+                Text("0")
+                Spacer()
+                Text("target " + Format.watts(target))
+                Spacer()
+                Text("\(Int(top))")
+            }
+            .font(.num(.caption2))
+            .foregroundStyle(.secondary)
+        }
+    }
+}
+
+/// The live screen's buttons on the forest band.
+struct FooterButton: ButtonStyle {
+    enum Kind { case solid, outline, end }
+    let kind: Kind
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.brand(.title3, weight: .semibold))
+            .frame(maxWidth: kind == .solid ? .infinity : nil)
+            .frame(minWidth: 96, minHeight: 56)
+            .padding(.horizontal, 6)
+            .foregroundStyle(kind == .solid ? Brand.forest : (kind == .end ? Color(hex: 0xE0A276) : .white))
+            .background(kind == .solid ? Color.white : Color.clear)
+            .overlay {
+                if kind != .solid {
+                    Rectangle().strokeBorder(kind == .end ? Color(hex: 0xC98552) : Color.white.opacity(0.7), lineWidth: 1.5)
+                }
+            }
+            .opacity(configuration.isPressed ? 0.7 : 1)
     }
 }
