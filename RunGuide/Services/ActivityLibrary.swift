@@ -67,6 +67,38 @@ final class ActivityLibrary: ObservableObject {
         }
     }
 
+    /// Older activities beyond the list's window, loaded on demand (pull up on Activities).
+    @Published private(set) var older: [ActivitySummary] = []
+    @Published private(set) var olderExhausted = false
+
+    /// Everything loaded: the cached window plus any older pages.
+    var allActivities: [ActivitySummary] {
+        let seen = Set(activities.map(\.id.value))
+        return activities + older.filter { !seen.contains($0.id.value) }
+    }
+
+    /// Loads the 60 days before the last window loaded (pull up on Activities). Two empty windows
+    /// in a row are taken as the start of the history.
+    func loadOlder() async {
+        guard !olderExhausted else { return }
+        let cal = Calendar.current
+        let newest = olderCursor ?? cal.date(byAdding: .day, value: -Self.listDays, to: Date()) ?? Date()
+        let oldest = cal.date(byAdding: .day, value: -Self.listDays, to: newest) ?? newest
+        do {
+            let data = try await clientProvider().activitiesData(oldest: oldest, newest: newest)
+            let list = try JSONDecoder().decode([ActivitySummary].self, from: data)
+            older += list.sorted { ($0.startDate ?? .distantPast) > ($1.startDate ?? .distantPast) }
+            olderCursor = cal.date(byAdding: .second, value: -1, to: oldest)
+            emptyPages = list.isEmpty ? emptyPages + 1 : 0
+            if emptyPages >= 2 { olderExhausted = true }
+        } catch {
+            lastError = error.localizedDescription
+        }
+    }
+
+    private var olderCursor: Date?
+    private var emptyPages = 0
+
     // MARK: - One activity
 
     /// The cached detail straight away (nil if there isn't one).

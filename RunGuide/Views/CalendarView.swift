@@ -33,7 +33,7 @@ struct CalendarView: View {
 
     var body: some View {
         NavigationStack {
-            BrandScrollPage(onRefresh: refresh) {
+            BrandScrollPage("Calendar", onRefresh: refresh) {
                 monthTitle
             } accessory: {
                 HeaderButton(systemImage: "books.vertical", label: "Workout library") { library = LibraryRequest(day: nil) }
@@ -91,7 +91,7 @@ struct CalendarView: View {
 
                 if let error = calendar.lastError {
                     Label(error, systemImage: "exclamationmark.triangle")
-                        .font(.footnote)
+                        .font(.brand(.footnote))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -242,7 +242,6 @@ struct CalendarView: View {
     /// "Calendar", then the month with arrows (and back to today).
     private var monthTitle: some View {
         VStack(alignment: .leading, spacing: 4) {
-            PageTitle(text: "Calendar")
             HStack(spacing: 0) {
                 Text(month.firstOfMonth.formatted(.dateTime.month(.wide).year()))
                     .font(.brand(.title3, weight: .medium))
@@ -320,10 +319,10 @@ struct MonthGridView: View {
         let planned = days.map(\.plannedLoad).reduce(0, +)
         return VStack(alignment: .trailing, spacing: 1) {
             Text(done > 0 ? "\(Int(done.rounded()))" : "–")
-                .font(.brand(.footnote, weight: .bold).monospacedDigit())
+                .font(.num(.footnote, weight: .bold))
             if planned > 0 {
                 Text("\(Int(planned.rounded()))")
-                    .font(.brand(.caption2).monospacedDigit())
+                    .font(.num(.caption2))
                     .foregroundStyle(.secondary)
             }
         }
@@ -344,7 +343,7 @@ private struct DayCell: View {
     var body: some View {
         VStack(spacing: 4) {
             Text(String(Int(day.suffix(2)) ?? 0))
-                .font(.brand(.subheadline, weight: day == today || selected ? .bold : .regular).monospacedDigit())
+                .font(.num(.subheadline, weight: day == today || selected ? .semibold : .regular))
                 .foregroundStyle(selected ? Color.white : (inMonth ? Color.primary : Color.secondary.opacity(0.6)))
                 .frame(width: 30, height: 30)
                 .background {
@@ -470,7 +469,7 @@ struct FitnessStripCard: View {
 
                 if points.count < 2 {
                     Text("No fitness numbers for this month.")
-                        .font(.footnote)
+                        .font(.brand(.footnote))
                         .foregroundStyle(.secondary)
                 } else {
                     loadChart
@@ -489,10 +488,10 @@ struct FitnessStripCard: View {
     private func key(_ label: String, _ color: Color, _ value: Double?, signed: Bool = false) -> some View {
         HStack(spacing: 4) {
             Circle().fill(color).frame(width: 7, height: 7)
-            Text(label).font(.caption).foregroundStyle(.secondary)
+            Text(label).font(.brand(.caption)).foregroundStyle(.secondary)
             if let value {
                 let v = Int(value.rounded())
-                Text(signed && v > 0 ? "+\(v)" : "\(v)").font(.caption.monospacedDigit().weight(.semibold))
+                Text(signed && v > 0 ? "+\(v)" : "\(v)").font(.num(.caption, weight: .semibold))
             }
         }
     }
@@ -601,7 +600,7 @@ struct DayContent: View {
     var body: some View {
         if plan.sessions.isEmpty && plan.activities.isEmpty && plan.notes.isEmpty {
             Text(plan.day < today ? "Rest" : "Nothing planned")
-                .font(.subheadline)
+                .font(.brand(.subheadline))
                 .foregroundStyle(.tertiary)
         }
 
@@ -629,14 +628,14 @@ struct DayContent: View {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 2) {
                     Label(note.name ?? "Note", systemImage: "note.text")
-                        .font(.subheadline.weight(.medium))
+                        .font(.brand(.subheadline, weight: .medium))
                     if let text = note.description, !text.isEmpty {
-                        Text(text).font(.caption).foregroundStyle(.secondary).lineLimit(3)
+                        Text(text).font(.brand(.caption)).foregroundStyle(.secondary).lineLimit(3)
                     }
                 }
                 Spacer(minLength: 0)
                 Button { actions.delete(note) } label: {
-                    Image(systemName: "trash").font(.footnote).frame(width: 30, height: 30)
+                    Image(systemName: "trash").font(.brand(.footnote)).frame(width: 30, height: 30)
                 }
                 .tint(.secondary)
                 .accessibilityLabel("Delete note")
@@ -679,7 +678,7 @@ struct DayContent: View {
                 }
                 Spacer(minLength: 0)
                 Button { actions.delete(event) } label: {
-                    Image(systemName: "trash").font(.footnote).frame(width: 30, height: 30)
+                    Image(systemName: "trash").font(.brand(.footnote)).frame(width: 30, height: 30)
                 }
                 .tint(Brand.Medal.bronze.flat)
                 .accessibilityLabel("Delete \(event.name ?? "session")")
@@ -721,7 +720,7 @@ struct DayContent: View {
             HStack {
                 ActivityRow(activity: activity)
                 Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
+                    .font(.brand(.caption, weight: .semibold))
                     .foregroundStyle(.tertiary)
             }
         }
@@ -736,10 +735,10 @@ struct DayContent: View {
                 .frame(width: 22)
             VStack(alignment: .leading, spacing: 2) {
                 Text(event.name ?? "Session")
-                    .font(.body.weight(.medium))
+                    .font(.brand(.body, weight: .medium))
                     .foregroundStyle(done ? .secondary : .primary)
                 Text(DayTitle.sessionLine(event))
-                    .font(.subheadline.monospacedDigit())
+                    .font(.num(.subheadline))
                     .foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)

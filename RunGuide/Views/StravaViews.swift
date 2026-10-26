@@ -21,12 +21,12 @@ struct StravaSettingsSection: View {
                 Toggle("Upload runs to Strava", isOn: $settings.uploadToStrava)
                 if settings.uploadToStrava && !strava.hasUploadAccess {
                     Text("Tap Reconnect and leave \"Upload your activities\" ticked to allow uploads.")
-                        .font(.footnote)
+                        .font(.brand(.footnote))
                         .foregroundStyle(.orange)
                 }
                 if !strava.hasPrivateAccess {
                     Text("Private routes aren't included. Reconnect and leave private access ticked.")
-                        .font(.footnote)
+                        .font(.brand(.footnote))
                         .foregroundStyle(.orange)
                 }
                 Button("Reconnect") { Task { await strava.connect(using: webAuth) } }
@@ -44,7 +44,7 @@ struct StravaSettingsSection: View {
             }
 
             if let error = strava.lastError {
-                Text(error).font(.footnote).foregroundStyle(.red)
+                Text(error).font(.brand(.footnote)).foregroundStyle(.red)
             }
         } header: {
             Text("Strava")
@@ -78,7 +78,7 @@ struct StravaRoutesView: View {
                 Section {
                     Toggle("Running routes only", isOn: $showRunsOnly)
                     if let errorText {
-                        Text(errorText).font(.footnote).foregroundStyle(.red)
+                        Text(errorText).font(.brand(.footnote)).foregroundStyle(.red)
                     }
                     if loading && list.isEmpty {
                         HStack { Text("Loading your routes…"); Spacer(); ProgressView() }
@@ -99,7 +99,7 @@ struct StravaRoutesView: View {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(route.name).foregroundStyle(.primary)
                                     Text(Format.km(route.distance) + (route.isPrivate == true ? " · private" : ""))
-                                        .font(.caption)
+                                        .font(.brand(.caption))
                                         .foregroundStyle(.secondary)
                                 }
                                 Spacer()

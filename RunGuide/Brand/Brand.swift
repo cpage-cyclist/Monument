@@ -84,6 +84,10 @@ enum Brand {
         static let cadence = Color(hex: 0xA96034)     // bronze
         static let speed = Color(hex: 0xA0978A)       // silver, dashed
         static let altitude = Color(hex: 0x121212)    // hairline, as a faint area
+        // Fitness, fatigue and form, on the Calendar chart and Today alike.
+        static let fitness = Color(hex: 0x00321F)     // forest
+        static let fatigue = Color(hex: 0xA96034)     // bronze
+        static let form = Color(hex: 0xAA954B)        // gold
     }
 
     // MARK: Medals (gold / silver / bronze for top efforts)
@@ -111,15 +115,20 @@ enum Brand {
 
     // MARK: Type
 
-    /// Helvetica Neue does all the text; Akira only appears as the wordmark artwork and hero numbers.
+    /// IBM Plex Sans for text, IBM Plex Mono for figures, Akira for page titles and one hero
+    /// number per screen.
     enum Face {
-        static let regular = "HelveticaNeue"
-        static let medium = "HelveticaNeue-Medium"
-        static let bold = "HelveticaNeue-Bold"
+        static let regular = "IBMPlexSans"
+        static let medium = "IBMPlexSans-Medm"
+        static let semibold = "IBMPlexSans-SmBld"
+        static let bold = "IBMPlexSans-Bold"
+        static let monoRegular = "IBMPlexMono"
+        static let monoMedium = "IBMPlexMono-Medm"
+        static let monoSemibold = "IBMPlexMono-SmBld"
         static let akira = "AkiraExpanded-SuperBold"
     }
 
-    /// Sets Helvetica Neue in the UIKit chrome SwiftUI doesn't reach (navigation and tab bars).
+    /// Sets Plex in the UIKit chrome SwiftUI doesn't reach (navigation bars, segmented controls).
     static func applyAppearance() {
         let nav = UINavigationBarAppearance()
         nav.configureWithDefaultBackground()
@@ -137,13 +146,27 @@ enum Brand {
             UITabBarItem.appearance().setTitleTextAttributes([.font: tab], for: .normal)
             UITabBarItem.appearance().setTitleTextAttributes([.font: tab], for: .selected)
         }
+        if let seg = UIFont(name: Face.medium, size: 13), let segOn = UIFont(name: Face.semibold, size: 13) {
+            UISegmentedControl.appearance().setTitleTextAttributes([.font: seg], for: .normal)
+            UISegmentedControl.appearance().setTitleTextAttributes([.font: segOn], for: .selected)
+        }
     }
 }
 
 extension Font {
-    /// Helvetica Neue at a text style's size, scaling with Dynamic Type.
+    /// Plex Sans at a text style's size, scaling with Dynamic Type.
     static func brand(_ style: Font.TextStyle, weight: Brand.Weight = .regular) -> Font {
         .custom(weight.face, size: Brand.size(for: style), relativeTo: style)
+    }
+
+    /// Plex Mono for figures, so columns of numbers line up.
+    static func num(_ style: Font.TextStyle, weight: Brand.Weight = .regular) -> Font {
+        .custom(weight.monoFace, size: Brand.size(for: style), relativeTo: style)
+    }
+
+    /// Plex Mono at an exact size (large live figures).
+    static func num(size: CGFloat, weight: Brand.Weight = .semibold) -> Font {
+        .custom(weight.monoFace, size: size)
     }
 
     /// Akira for one hero number per screen.
@@ -154,12 +177,21 @@ extension Font {
 
 extension Brand {
     enum Weight {
-        case regular, medium, bold
+        case regular, medium, semibold, bold
         var face: String {
             switch self {
             case .regular: Face.regular
             case .medium: Face.medium
+            case .semibold: Face.semibold
             case .bold: Face.bold
+            }
+        }
+        /// Mono has no bold in the bundle; bold figures use semibold.
+        var monoFace: String {
+            switch self {
+            case .regular: Face.monoRegular
+            case .medium: Face.monoMedium
+            case .semibold, .bold: Face.monoSemibold
             }
         }
     }

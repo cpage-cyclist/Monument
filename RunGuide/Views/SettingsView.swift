@@ -89,7 +89,7 @@ struct SettingsView: View {
                     Label(name, systemImage: "heart.fill").foregroundStyle(.red)
                     Spacer()
                     if let bpm = heartRate.currentBPM {
-                        Text("\(bpm) bpm").monospacedDigit()
+                        Text("\(bpm) bpm").font(.num(.body))
                     } else {
                         Text(heartRate.state == .connecting ? "Connecting…" : "Not connected")
                             .foregroundStyle(.secondary)

@@ -124,7 +124,7 @@ struct WorkoutBuilderView: View {
                 let segments = plan.segments(context)
                 if segments.isEmpty {
                     Text("Add steps to see the workout's shape.")
-                        .font(.footnote).foregroundStyle(.secondary)
+                        .font(.brand(.footnote)).foregroundStyle(.secondary)
                 } else {
                     StructureChart(segments: segments, selected: selectedStep) { id in
                         selectedStep = id
@@ -202,8 +202,8 @@ struct WorkoutBuilderView: View {
 
     private func figure(_ label: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 1) {
-            Text(label).font(.caption).foregroundStyle(.secondary)
-            Text(value).font(.brand(.headline, weight: .bold).monospacedDigit())
+            Text(label).font(.brand(.caption)).foregroundStyle(.secondary)
+            Text(value).font(.num(.headline, weight: .bold))
         }
     }
 
@@ -212,7 +212,7 @@ struct WorkoutBuilderView: View {
     private var textEditor: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Intervals workout text. Steps start with \"- \"; a line ending in 3x repeats the steps under it until a blank line; m is minutes, mtr is metres.")
-                .font(.footnote)
+                .font(.brand(.footnote))
                 .foregroundStyle(.secondary)
                 .padding(.horizontal)
             TextEditor(text: $draft)
@@ -324,7 +324,7 @@ private struct BlockHeader: View {
                 .font(.brand(.subheadline, weight: .bold))
             Stepper(value: $block.repeats, in: 1...50) {
                 Text(block.repeats > 1 ? "\(block.repeats)×" : "Once")
-                    .font(.brand(.subheadline, weight: .medium).monospacedDigit())
+                    .font(.num(.subheadline, weight: .medium))
             }
             .fixedSize()
             Menu {
@@ -356,11 +356,11 @@ private struct StepRow: View {
                 Text(step.cue.isEmpty ? StepText.length(step.length) : step.cue)
                     .font(.brand(.body, weight: .medium))
                 Text(StepText.detail(step, includeLength: !step.cue.isEmpty))
-                    .font(.brand(.subheadline).monospacedDigit())
+                    .font(.num(.subheadline))
                     .foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
-            Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
+            Image(systemName: "chevron.right").font(.brand(.caption, weight: .semibold)).foregroundStyle(.tertiary)
         }
         .contentShape(Rectangle())
     }

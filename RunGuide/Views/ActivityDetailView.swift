@@ -113,7 +113,7 @@ struct ActivityDetailView: View {
                         .frame(height: max(geo.size.height * 0.36, 210))
                 } else if let errorText {
                     Label(errorText, systemImage: "exclamationmark.triangle")
-                        .font(.footnote)
+                        .font(.brand(.footnote))
                         .foregroundStyle(.secondary)
                     Spacer()
                 } else {
@@ -223,18 +223,18 @@ struct ActivityDetailView: View {
             // What's under the finger, or what's selected.
             HStack(spacing: 10) {
                 if let i = scrubIndex {
-                    Text(Format.clock(stack.timeline.x[i])).font(.caption.monospacedDigit().weight(.semibold))
+                    Text(Format.clock(stack.timeline.x[i])).font(.num(.caption, weight: .semibold))
                     ForEach(kinds) { k in
                         if let panel = stack.panels.first(where: { $0.kind == k }) {
                             Text(k.format(panel.value(at: i)) + " " + k.unit)
-                                .font(.caption.monospacedDigit().weight(.semibold))
+                                .font(.num(.caption, weight: .semibold))
                                 .foregroundStyle(OverlayChart.color(k))
                         }
                     }
                 } else {
                     Text(selection == nil ? "Drag to scrub · hold to select · pinch to zoom"
                                          : (analysis.map(selectionTitle) ?? "Selection"))
-                        .font(.caption)
+                        .font(.brand(.caption))
                         .foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 0)
@@ -262,7 +262,7 @@ struct ActivityDetailView: View {
 
             if stack.panels.isEmpty {
                 Text("No chartable data was recorded for this activity.")
-                    .font(.footnote)
+                    .font(.brand(.footnote))
                     .foregroundStyle(.secondary)
                 Spacer()
             } else {
@@ -319,7 +319,7 @@ struct ActivityDetailView: View {
                     FigureCell(item: item)
                 }
             } else {
-                Text("Not enough data in this selection.").font(.footnote).foregroundStyle(.secondary)
+                Text("Not enough data in this selection.").font(.brand(.footnote)).foregroundStyle(.secondary)
                 Spacer()
             }
         }
@@ -341,7 +341,7 @@ struct ActivityDetailView: View {
                 }
             }
         } else {
-            Text("No laps recorded.").font(.footnote).foregroundStyle(.secondary)
+            Text("No laps recorded.").font(.brand(.footnote)).foregroundStyle(.secondary)
         }
     }
 
@@ -353,7 +353,7 @@ struct ActivityDetailView: View {
         }
         return Group {
             if tiles.isEmpty {
-                Text("No power peaks for this activity.").font(.footnote).foregroundStyle(.secondary)
+                Text("No power peaks for this activity.").font(.brand(.footnote)).foregroundStyle(.secondary)
             } else {
                 FitPager(items: tiles, columns: 4, rowHeight: 56) { tile in
                     switch tile {
@@ -847,7 +847,7 @@ struct OverlayPlot: View, Equatable {
                         .foregroundStyle(OverlayChart.color(.wbal))
                         .annotation(position: .bottom, spacing: 1) {
                             Text("−" + String(format: "%.1f", e.spent))
-                                .font(.system(size: 9, weight: .semibold).monospacedDigit())
+                                .font(.num(size: 9))
                                 .foregroundStyle(.secondary)
                         }
                 }
@@ -899,11 +899,11 @@ struct BreakdownPanel: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Text(title).font(.title3.weight(.semibold)).lineLimit(1)
+                Text(title).font(.brand(.title3, weight: .semibold)).lineLimit(1)
                 Spacer()
                 if canClear {
                     Button("Whole activity", action: onClear)
-                        .font(.subheadline)
+                        .font(.brand(.subheadline))
                 }
             }
 
@@ -921,9 +921,9 @@ struct BreakdownPanel: View {
                             HStack {
                                 Text(pair.0).foregroundStyle(.secondary)
                                 Spacer()
-                                Text(pair.1).monospacedDigit()
+                                Text(pair.1).font(.num(.body))
                             }
-                            .font(.subheadline)
+                            .font(.brand(.subheadline))
                         }
                     }
                 }
@@ -938,7 +938,7 @@ struct BreakdownPanel: View {
                             Text("Max")
                             Text("")
                         }
-                        .font(.caption)
+                        .font(.brand(.caption))
                         .foregroundStyle(.secondary)
                         ForEach(rows, id: \.label) { row in
                             GridRow {
@@ -946,15 +946,15 @@ struct BreakdownPanel: View {
                                 Text(row.min)
                                 Text(row.avg).fontWeight(.semibold)
                                 Text(row.max)
-                                Text(row.unit).font(.caption).foregroundStyle(.secondary).gridColumnAlignment(.leading)
+                                Text(row.unit).font(.brand(.caption)).foregroundStyle(.secondary).gridColumnAlignment(.leading)
                             }
-                            .font(.subheadline.monospacedDigit())
+                            .font(.num(.subheadline))
                         }
                     }
                 }
             } else {
                 Text("Not enough data in this selection.")
-                    .font(.footnote)
+                    .font(.brand(.footnote))
                     .foregroundStyle(.secondary)
             }
         }
@@ -964,8 +964,8 @@ struct BreakdownPanel: View {
 
     private func bigFigure(_ label: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(label).font(.caption).foregroundStyle(.secondary)
-            Text(value).font(.title2.monospacedDigit())
+            Text(label).font(.brand(.caption)).foregroundStyle(.secondary)
+            Text(value).font(.num(.title2))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -1052,15 +1052,15 @@ struct EffortsRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("W' efforts").font(.headline)
+            Text("W' efforts").font(.brand(.headline))
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(Array(efforts.enumerated()), id: \.offset) { i, e in
                         Button { onTap(i) } label: {
                             VStack(spacing: 2) {
-                                Text(duration(e)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-                                Text(String(format: "%.1f", e.spentKJ)).font(.headline.monospacedDigit())
-                                Text("to " + String(format: "%.1f", e.lowKJ)).font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
+                                Text(duration(e)).font(.num(.caption)).foregroundStyle(.secondary)
+                                Text(String(format: "%.1f", e.spentKJ)).font(.num(.headline))
+                                Text("to " + String(format: "%.1f", e.lowKJ)).font(.num(.caption2)).foregroundStyle(.secondary)
                             }
                             .frame(minWidth: 58)
                             .padding(.vertical, 8)
@@ -1073,7 +1073,7 @@ struct EffortsRow: View {
                 }
             }
             Text("kJ spent from W' in each effort, and the W'bal it dropped to.")
-                .font(.caption2)
+                .font(.brand(.caption2))
                 .foregroundStyle(.secondary)
         }
     }
@@ -1108,14 +1108,14 @@ struct WbalSourceBar: View {
             if choice != .monument { line(intervalsText, dashed: choice == .both) }
             if choice != .intervals { line(monumentText, dashed: false) }
         }
-        .font(.caption)
+        .font(.brand(.caption))
         .foregroundStyle(.secondary)
     }
 
     private func line(_ text: String, dashed: Bool) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
             if dashed {
-                Text("- -").font(.caption.monospaced())
+                Text("- -").font(.num(.caption))
             }
             Text(text).fixedSize(horizontal: false, vertical: true)
         }
@@ -1155,17 +1155,17 @@ struct PeaksRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Peak power").font(.headline)
+            Text("Peak power").font(.brand(.headline))
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(peaks) { p in
                         Button { onTap(p.seconds) } label: {
                             VStack(spacing: 2) {
                                 HStack(spacing: 4) {
-                                    Text(p.label).font(.caption).foregroundStyle(.secondary)
+                                    Text(p.label).font(.brand(.caption)).foregroundStyle(.secondary)
                                     if let medal = medals[p.seconds] { MedalBadge(medal: medal) }
                                 }
-                                Text("\(Int(p.watts.rounded()))").font(.headline.monospacedDigit())
+                                Text("\(Int(p.watts.rounded()))").font(.num(.headline))
                             }
                             .accessibilityElement(children: .combine)
                             .accessibilityHint(medals[p.seconds]?.description ?? "")
@@ -1194,7 +1194,7 @@ struct KeyFigures: View {
             ForEach(figures, id: \.0) { label, value in
                 VStack(alignment: .leading, spacing: 1) {
                     Text(label).font(.brand(.caption2)).foregroundStyle(.secondary)
-                    Text(value).font(.brand(.headline, weight: .bold).monospacedDigit())
+                    Text(value).font(.num(.headline, weight: .bold))
                         .lineLimit(1).minimumScaleFactor(0.7)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -1226,15 +1226,15 @@ struct SummaryGrid: View {
         VStack(alignment: .leading, spacing: 10) {
             if let date = summary.startDate {
                 Text(date.formatted(.dateTime.weekday(.wide).day().month(.wide).hour().minute()))
-                    .font(.subheadline)
+                    .font(.brand(.subheadline))
                     .foregroundStyle(.secondary)
             }
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), alignment: .leading), count: 3),
                       alignment: .leading, spacing: 12) {
                 ForEach(stats, id: \.label) { stat in
                     VStack(alignment: .leading, spacing: 1) {
-                        Text(stat.label).font(.caption).foregroundStyle(.secondary)
-                        Text(stat.value).font(.headline.monospacedDigit())
+                        Text(stat.label).font(.brand(.caption)).foregroundStyle(.secondary)
+                        Text(stat.value).font(.num(.headline))
                     }
                 }
             }
@@ -1291,7 +1291,7 @@ struct LapsTable: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text("Laps & intervals")
-                .font(.headline)
+                .font(.brand(.headline))
                 .padding(.bottom, 6)
             HStack {
                 Text("").frame(width: 70, alignment: .leading)
@@ -1300,7 +1300,7 @@ struct LapsTable: View {
                 Text(isRun ? "Dist" : "NP").frame(maxWidth: .infinity, alignment: .trailing)
                 Text("HR").frame(maxWidth: .infinity, alignment: .trailing)
             }
-            .font(.caption)
+            .font(.brand(.caption))
             .foregroundStyle(.secondary)
             .padding(.vertical, 4)
 
@@ -1314,7 +1314,7 @@ struct LapsTable: View {
                 Divider()
             }
             Text("Tap a row for its breakdown.")
-                .font(.caption2)
+                .font(.brand(.caption2))
                 .foregroundStyle(.secondary)
                 .padding(.top, 6)
         }
@@ -1340,7 +1340,7 @@ struct LapsTable: View {
             Text(lap.averageHeartRate.map { "\(Int($0.rounded()))" } ?? "–")
                 .frame(maxWidth: .infinity, alignment: .trailing)
         }
-        .font(.subheadline.monospacedDigit())
+        .font(.num(.subheadline))
         .padding(.vertical, 8)
         .contentShape(Rectangle())
         .background(selected == i ? Color.accentColor.opacity(0.12) : .clear)
@@ -1367,7 +1367,7 @@ struct FigureCell: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 1) {
             Text(item.label).font(.brand(.caption2)).foregroundStyle(.secondary).lineLimit(1)
-            Text(item.value).font(.brand(.subheadline, weight: .bold).monospacedDigit())
+            Text(item.value).font(.num(.subheadline, weight: .bold))
                 .lineLimit(1).minimumScaleFactor(0.7)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1464,7 +1464,7 @@ struct FitPager<Item: Identifiable, Cell: View>: View {
                         .disabled(current == 0)
                         .accessibilityLabel("Previous page")
                         Spacer()
-                        Text("\(current + 1) of \(pages)").font(.brand(.caption).monospacedDigit()).foregroundStyle(.secondary)
+                        Text("\(current + 1) of \(pages)").font(.num(.caption)).foregroundStyle(.secondary)
                         Spacer()
                         Button { withAnimation { page = min(current + 1, pages - 1) } } label: {
                             Image(systemName: "chevron.right").frame(width: 36, height: 24)
@@ -1526,7 +1526,7 @@ struct LapRow: View {
             Text(lap.averageHeartRate.map { "\(Int($0.rounded()))" } ?? "–")
                 .frame(maxWidth: .infinity, alignment: .trailing)
         }
-        .font(.brand(.subheadline).monospacedDigit())
+        .font(.num(.subheadline))
         .frame(maxHeight: .infinity)
         .padding(.horizontal, 4)
         .background(selected ? Brand.forest.opacity(0.14) : .clear)
@@ -1563,7 +1563,7 @@ struct TileButton: View {
                     Text(top).font(.brand(.caption2, weight: .medium)).foregroundStyle(.secondary).lineLimit(1)
                     if let medal { MedalBadge(medal: medal) }
                 }
-                Text(value).font(.brand(.headline, weight: .bold).monospacedDigit()).lineLimit(1).minimumScaleFactor(0.7)
+                Text(value).font(.num(.headline, weight: .bold)).lineLimit(1).minimumScaleFactor(0.7)
                 Text(bottom).font(.brand(.caption2)).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.7)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)

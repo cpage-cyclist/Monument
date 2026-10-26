@@ -25,9 +25,16 @@ targets:
         CFBundleDisplayName: Monument
         UILaunchScreen:
           UIColorName: LaunchBackground
-        # Akira (demo, personal use) for the hero numbers; the wordmark itself is SVG artwork.
+        # Akira (demo, personal use) for titles and hero numbers; IBM Plex Sans and Mono (OFL) for text.
         UIAppFonts:
           - AkiraExpanded-SuperBold.otf
+          - IBMPlexSans-Regular.ttf
+          - IBMPlexSans-Medium.ttf
+          - IBMPlexSans-SemiBold.ttf
+          - IBMPlexSans-Bold.ttf
+          - IBMPlexMono-Regular.ttf
+          - IBMPlexMono-Medium.ttf
+          - IBMPlexMono-SemiBold.ttf
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
         UISupportedInterfaceOrientations:

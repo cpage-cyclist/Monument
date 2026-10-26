@@ -30,9 +30,9 @@ struct QuickLogView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack(alignment: .firstTextBaseline) {
                             Text("\(Int(rpe))")
-                                .font(.system(size: 44, weight: .bold).monospacedDigit())
+                                .font(.num(size: 44))
                             Text(Self.rpeWord(Int(rpe)))
-                                .font(.title3)
+                                .font(.brand(.title3))
                                 .foregroundStyle(.secondary)
                         }
                         Slider(value: $rpe, in: 1...10, step: 1)
@@ -51,7 +51,7 @@ struct QuickLogView: View {
                                 feel = (feel == value) ? nil : value
                             } label: {
                                 Text(SummaryGrid.feelLabel(value))
-                                    .font(.subheadline.weight(feel == value ? .semibold : .regular))
+                                    .font(.brand(.subheadline, weight: feel == value ? .semibold : .regular))
                                     .lineLimit(1)
                                     .minimumScaleFactor(0.8)
                                     .frame(maxWidth: .infinity)
@@ -120,7 +120,7 @@ struct QuickLogView: View {
                 if let errorText {
                     Section {
                         Label(errorText, systemImage: "exclamationmark.triangle")
-                            .font(.footnote)
+                            .font(.brand(.footnote))
                             .foregroundStyle(.red)
                     }
                 }
@@ -209,14 +209,14 @@ struct LogPromptCard: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "square.and.pencil")
-                .font(.title3)
+                .font(.brand(.title3))
                 .foregroundStyle(Color.accentColor)
             VStack(alignment: .leading, spacing: 2) {
                 Text("How did \(activity.name ?? "it") feel?")
-                    .font(.subheadline.weight(.semibold))
+                    .font(.brand(.subheadline, weight: .semibold))
                     .lineLimit(1)
                 Text("Add RPE and feel")
-                    .font(.caption)
+                    .font(.brand(.caption))
                     .foregroundStyle(.secondary)
             }
             Spacer()
@@ -225,7 +225,7 @@ struct LogPromptCard: View {
                 .controlSize(.small)
             Button(action: onDismiss) {
                 Image(systemName: "xmark")
-                    .font(.caption.weight(.semibold))
+                    .font(.brand(.caption, weight: .semibold))
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)

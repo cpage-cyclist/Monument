@@ -34,8 +34,8 @@ struct RecordView: View {
 
     var body: some View {
         NavigationStack {
-            BrandScrollPage(onRefresh: load) {
-                PageTitle(text: "Record")
+            BrandScrollPage("Record", onRefresh: load) {
+                EmptyView()
             } accessory: {
                 HeaderButton(systemImage: "gearshape", label: "Settings") { showSettings = true }
             } content: {
@@ -138,12 +138,12 @@ struct RecordView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     if !settings.hasCredentials {
                         Text("Add your Intervals details in Settings to see planned sessions.")
-                            .font(.footnote).foregroundStyle(.secondary)
+                            .font(.brand(.footnote)).foregroundStyle(.secondary)
                     } else if let errorText {
-                        Label(errorText, systemImage: "exclamationmark.triangle").font(.footnote)
+                        Label(errorText, systemImage: "exclamationmark.triangle").font(.brand(.footnote))
                     } else if sessions.isEmpty {
                         Text(loading ? "Loading…" : "No planned \(sport.title.lowercased())s on this day.")
-                            .font(.subheadline).foregroundStyle(.tertiary)
+                            .font(.brand(.subheadline)).foregroundStyle(.tertiary)
                     }
                     ForEach(sessions) { event in
                         Button {
@@ -158,7 +158,7 @@ struct RecordView: View {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(event.name ?? "Session").font(.brand(.body, weight: .medium))
                                     Text(DayTitle.sessionLine(event))
-                                        .font(.brand(.subheadline).monospacedDigit())
+                                        .font(.num(.subheadline))
                                         .foregroundStyle(.secondary)
                                 }
                                 Spacer(minLength: 0)
@@ -183,7 +183,7 @@ struct RecordView: View {
                         } label: {
                             HStack {
                                 RouteRow(saved: saved)
-                                Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
+                                Image(systemName: "chevron.right").font(.brand(.caption, weight: .semibold)).foregroundStyle(.tertiary)
                             }
                             .contentShape(Rectangle())
                         }
@@ -204,7 +204,7 @@ struct RecordView: View {
                     }
                     .buttonStyle(.plain)
                     if let error = routes.lastError {
-                        Label(error, systemImage: "exclamationmark.triangle").font(.footnote)
+                        Label(error, systemImage: "exclamationmark.triangle").font(.brand(.footnote))
                     }
                 }
             }
@@ -217,7 +217,7 @@ struct RecordView: View {
             Text(title).font(.brand(.body, weight: .medium))
             Spacer()
             if let detail { Text(detail).foregroundStyle(.secondary) }
-            Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
+            Image(systemName: "chevron.right").font(.brand(.caption, weight: .semibold)).foregroundStyle(.tertiary)
         }
         .contentShape(Rectangle())
     }
@@ -321,13 +321,13 @@ struct PasteSessionView: View {
         Form {
             Section {
                 TextEditor(text: $text)
-                    .font(.system(.footnote, design: .monospaced))
+                    .font(.num(.footnote))
                     .frame(minHeight: 180)
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)
             } footer: {
                 Text("Intervals workout text, e.g.\n- 10m ramp 50-75%\n\n3x\n- 8m 95-100%\n- 4m 55%\n\nm is minutes; metres are mtr.")
-                    .font(.caption2.monospaced())
+                    .font(.num(.caption2))
             }
             Button("Use this session") {
                 let plan = WorkoutPlan(text: text, name: "Pasted session", sport: sport.title)

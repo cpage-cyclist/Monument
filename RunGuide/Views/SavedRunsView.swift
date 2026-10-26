@@ -20,7 +20,7 @@ struct SavedRunsView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(run.name)
                             Text("\(run.date.formatted(date: .abbreviated, time: .shortened)) · \(Format.km(run.distance)) · \(Format.clock(run.timerTime))")
-                                .font(.caption)
+                                .font(.brand(.caption))
                                 .foregroundStyle(.secondary)
                         }
                         Spacer()
@@ -87,7 +87,7 @@ struct SavedRunDetailView: View {
                         .disabled(intervalsBusy || !settings.hasCredentials)
                     }
                     if let intervalsError {
-                        Text(intervalsError).font(.footnote).foregroundStyle(.red)
+                        Text(intervalsError).font(.brand(.footnote)).foregroundStyle(.red)
                     }
                 } header: {
                     Text("Intervals.icu")
@@ -123,7 +123,7 @@ struct SavedRunDetailView: View {
                         .disabled(stravaBusy || !strava.hasUploadAccess)
                     }
                     if let stravaError {
-                        Text(stravaError).font(.footnote).foregroundStyle(.red)
+                        Text(stravaError).font(.brand(.footnote)).foregroundStyle(.red)
                     }
                 } header: {
                     Text("Strava")

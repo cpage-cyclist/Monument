@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import RunGuideCore
 
 /// The five monument ridges stacked with the opacity recipe.
@@ -8,6 +9,8 @@ struct RidgeStack: View {
     var spread: CGFloat
     /// Drawing width – wider than the screen, so spreading never shows an edge.
     var width: CGFloat
+    /// Per-layer colour and opacity, back to front. Nil uses the header recipe (one tint, 15%).
+    var fills: [(Color, Double)]? = nil
     @Environment(\.colorScheme) private var scheme
 
     /// Solid fill under each ridge, so a lifted layer never shows a gap.
@@ -27,10 +30,10 @@ struct RidgeStack: View {
                     Rectangle()
                         .frame(width: width, height: base)
                 }
-                .foregroundStyle(tint.color)
+                .foregroundStyle(fills?[index].0 ?? tint.color)
                 // Flatten each layer before fading it, so its own base doesn't double up.
                 .compositingGroup()
-                .opacity(tint.opacity)
+                .opacity(fills?[index].1 ?? tint.opacity)
                 .offset(y: base + Brand.Header.stackDrop + Brand.ridgeLift[index] * vertical * spread)
             }
         }
@@ -76,13 +79,15 @@ struct Lockup: View {
     /// 0 = lockup MONUMENT (with the extended M and T); 1 = standalone wordmark.
     var crossfade: CGFloat = 0
     var medal: Brand.Medal = .gold
+    /// MONUMENT's colour: the wordmark colour normally, white on the forest footer.
+    var monumentColor: Color = Brand.wordmark
 
     private var scale: CGFloat { width / 3000 }
 
     var body: some View {
         ZStack(alignment: .topLeading) {
             part("LockupMonument")
-                .foregroundStyle(Brand.wordmark)
+                .foregroundStyle(monumentColor)
                 .opacity(1 - crossfade)
             Wordmark()
                 .frame(width: width)
@@ -182,4 +187,84 @@ struct SlantBar: Shape {
         p.closeSubpath()
         return p
     }
+}
+
+
+/// A page title in Akira, slanted like the logotype, in place of the wordmark.
+struct AkiraTitle: View {
+    let text: String
+    var size: CGFloat = 26
+
+    var body: some View {
+        Text(text.uppercased())
+            .font(.hero(size, relativeTo: .title2))
+            .akiraSlant()
+            .foregroundStyle(Brand.wordmark)
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
+            .accessibilityAddTraits(.isHeader)
+    }
+}
+
+/// The foot of a page: the ridges darkening into forest to meet the tab bar, with the
+/// MONUMENT ALMANAC lockup. Pulling up past the end spreads the ridges, like the header.
+struct RidgeFooter: View {
+    /// How far the page has been pulled up past its end.
+    var pull: CGFloat = 0
+    var loading = false
+
+    static let height: CGFloat = 190
+    static let band: CGFloat = 62
+    /// Back to front: forest, darkening to solid.
+    static let fills: [(Color, Double)] = [(Brand.forest, 0.12), (Brand.forest, 0.2), (Brand.forest, 0.32),
+                                           (Brand.forest, 0.55), (Brand.forest, 1)]
+
+    var body: some View {
+        let spread = loading ? -0.6 : Brand.Header.restSpread - min(pull, 120) / 120 * 1.2
+        VStack(spacing: 0) {
+            GeometryReader { geo in
+                RidgeStack(spread: spread, width: geo.size.width * Brand.Header.bleed, fills: Self.fills)
+                    .frame(width: geo.size.width, height: geo.size.height, alignment: .bottom)
+            }
+            .clipped()
+            ZStack {
+                Brand.forest
+                if loading {
+                    ProgressView().tint(.white)
+                } else {
+                    Lockup(width: 196, monumentColor: .white)
+                }
+            }
+            .frame(height: Self.band)
+        }
+        .frame(height: Self.height)
+        .animation(.spring(response: 0.5, dampingFraction: 0.85), value: loading)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Monument Almanac")
+    }
+}
+
+/// Fires once each time the page is pulled up past its end, then re-arms when it settles.
+final class PullUpLoader: ObservableObject {
+    @Published private(set) var loading = false
+    private var armed = true
+    static let threshold: CGFloat = 70
+
+    func update(overscroll: CGFloat, action: (() async -> Void)?) {
+        if overscroll < 8 { armed = true }
+        guard let action, overscroll > Self.threshold, armed, !loading else { return }
+        armed = false
+        loading = true
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        Task { @MainActor in
+            await action()
+            self.loading = false
+        }
+    }
+}
+
+/// Where the footer's bottom sits in the scroll view (for pull-up).
+struct FooterBottomKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
 }

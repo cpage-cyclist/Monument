@@ -51,12 +51,12 @@ struct PreviewView: View {
                             Text(step.label)
                             Spacer()
                             VStack(alignment: .trailing) {
-                                Text(Format.amount(step.end)).monospacedDigit()
+                                Text(Format.amount(step.end)).font(.num(.body))
                                 if let target = step.target {
-                                    Text(target).font(.caption).foregroundStyle(.secondary)
+                                    Text(target).font(.brand(.caption)).foregroundStyle(.secondary)
                                 }
                                 if let w = step.watts {
-                                    Text(Format.watts(w)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                                    Text(Format.watts(w)).font(.num(.caption)).foregroundStyle(.secondary)
                                 }
                             }
                         }
@@ -71,7 +71,7 @@ struct PreviewView: View {
                 running = true
             } label: {
                 Text("Start")
-                    .font(.title2.bold())
+                    .font(.brand(.title2, weight: .bold))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
             }

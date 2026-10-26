@@ -180,7 +180,7 @@ struct StepEditor: View {
                         }
                     } else {
                         Text("Ride or run it by feel; the cue says what to do.")
-                            .font(.footnote).foregroundStyle(.secondary)
+                            .font(.brand(.footnote)).foregroundStyle(.secondary)
                     }
                 }
 
@@ -199,7 +199,7 @@ struct StepEditor: View {
 
                 Section("Intervals text") {
                     Text("- " + result.text)
-                        .font(.system(.callout, design: .monospaced))
+                        .font(.num(.callout))
                         .textSelection(.enabled)
                 }
             }
@@ -400,7 +400,7 @@ struct SaveWorkoutSheet: View {
                         Text("Intervals works out the time and load, and syncs planned sessions to your head unit.")
                     }
                     if let error {
-                        Section { Label(error, systemImage: "exclamationmark.triangle").font(.footnote) }
+                        Section { Label(error, systemImage: "exclamationmark.triangle").font(.brand(.footnote)) }
                     }
                 }
             }
@@ -466,7 +466,7 @@ struct WorkoutLibraryView: View {
                               systemImage: "calendar.badge.plus")
                             .font(.brand(.subheadline, weight: .medium))
                         if let addError {
-                            Label(addError, systemImage: "exclamationmark.triangle").font(.footnote)
+                            Label(addError, systemImage: "exclamationmark.triangle").font(.brand(.footnote))
                         }
                     }
                 }
@@ -491,7 +491,7 @@ struct WorkoutLibraryView: View {
                     }
                 }
                 if let error = library.lastError {
-                    Label(error, systemImage: "exclamationmark.triangle").font(.footnote)
+                    Label(error, systemImage: "exclamationmark.triangle").font(.brand(.footnote))
                 }
             }
             .brandPageBackground()
@@ -523,7 +523,7 @@ struct WorkoutLibraryView: View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text(w.name ?? "Workout").font(.brand(.body, weight: .medium))
-                Text(line(w)).font(.brand(.subheadline).monospacedDigit()).foregroundStyle(.secondary)
+                Text(line(w)).font(.num(.subheadline)).foregroundStyle(.secondary)
             }
             Spacer()
             if adding == w.id {

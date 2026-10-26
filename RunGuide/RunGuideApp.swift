@@ -75,11 +75,22 @@ struct RootView: View {
         }
     }
 
+    /// Each page stays alive; switching tabs slides the new one in from the side it sits on in the
+    /// tab bar, and the old one out the other way.
     private func page<Content: View>(_ which: AppTab, @ViewBuilder _ content: () -> Content) -> some View {
         let shown = tab == which
+        let order = AppTab.allCases
+        let here = order.firstIndex(of: which) ?? 0
+        let selected = order.firstIndex(of: tab) ?? 0
+        let side: CGFloat = here < selected ? -1 : 1
         return content()
+            .offset(x: shown ? 0 : side * slide)
             .opacity(shown ? 1 : 0)
             .allowsHitTesting(shown)
             .accessibilityHidden(!shown)
+            .animation(.snappy(duration: 0.32), value: tab)
     }
+
+    /// How far a page travels when it slides in or out.
+    private let slide: CGFloat = 90
 }

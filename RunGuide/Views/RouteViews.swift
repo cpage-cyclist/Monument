@@ -44,7 +44,7 @@ struct RouteMapView: View {
             if let start = route.points.first {
                 Annotation("Start", coordinate: start.coordinate) {
                     Image(systemName: "flag.fill")
-                        .font(.caption)
+                        .font(.brand(.caption))
                         .foregroundStyle(.white)
                         .padding(6)
                         .background(Circle().fill(.black))
@@ -53,7 +53,7 @@ struct RouteMapView: View {
             ForEach(Array(route.turns.enumerated()), id: \.offset) { index, turn in
                 Annotation("", coordinate: turn.point.coordinate) {
                     Text("\(index + 1)")
-                        .font(.caption2.bold())
+                        .font(.brand(.caption2, weight: .bold))
                         .foregroundStyle(.white)
                         .frame(width: 20, height: 20)
                         .background(Circle().fill(turn.direction.colour))
@@ -70,7 +70,7 @@ struct RouteRow: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(saved.name)
             Text("\(Format.km(saved.length)) · \(saved.turnCount) cues\(saved.isLoop ? " · loop" : "")")
-                .font(.caption)
+                .font(.brand(.caption))
                 .foregroundStyle(.secondary)
         }
     }
@@ -104,14 +104,14 @@ struct RouteDetailView: View {
                     ForEach(Array(route.turns.enumerated()), id: \.offset) { index, turn in
                         HStack {
                             Text("\(index + 1)")
-                                .font(.caption.bold())
+                                .font(.brand(.caption, weight: .bold))
                                 .foregroundStyle(.white)
                                 .frame(width: 22, height: 22)
                                 .background(Circle().fill(turn.direction.colour))
                             Image(systemName: turn.direction.symbol)
                             Text(turn.label)
                             Spacer()
-                            Text(Format.km(turn.at)).monospacedDigit().foregroundStyle(.secondary)
+                            Text(Format.km(turn.at)).font(.num(.body)).foregroundStyle(.secondary)
                         }
                     }
                 }
@@ -147,7 +147,7 @@ struct RoutePickerSection: View {
                     Toggle("Repeat laps", isOn: $loop)
                 }
                 Text("\(Format.km(route.length)) · \(route.turns.count) cues. Turn cues cut in over session cues.")
-                    .font(.caption)
+                    .font(.brand(.caption))
                     .foregroundStyle(.secondary)
             }
         } header: {
@@ -172,21 +172,21 @@ struct RouteBanner: View {
                 Image(systemName: "location.magnifyingglass")
                 Text("Finding the route…")
             } else if let next = guide.nextTurn {
-                Image(systemName: next.turn.direction.symbol).font(.title2.bold())
+                Image(systemName: next.turn.direction.symbol).font(.brand(.title2, weight: .bold))
                 Text(next.turn.label).bold()
                 Spacer()
-                Text(Format.remainingDistance(next.distance)).monospacedDigit()
+                Text(Format.remainingDistance(next.distance)).font(.num(.body))
             } else {
                 Image(systemName: "arrow.up")
                 Text("Follow the route")
             }
             if guide.looping {
                 Spacer(minLength: 0)
-                Text("Lap \(guide.lap)").font(.caption.bold()).padding(.horizontal, 6)
+                Text("Lap \(guide.lap)").font(.brand(.caption, weight: .bold)).padding(.horizontal, 6)
                     .background(Capsule().fill(.quaternary))
             }
         }
-        .font(.headline)
+        .font(.brand(.headline))
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 12).fill(guide.offRoute ? Color.red.opacity(0.25) : Color.secondary.opacity(0.12)))

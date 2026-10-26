@@ -1,22 +1,34 @@
 import SwiftUI
 
-/// A top-level page in the Monument style: ridge header (pull to refresh, collapsing ridge strip
-/// on scroll), a title row, then the content, all on the sage page colour.
+/// A top-level page in the Monument style: ridge header with the page's name in Akira (pull to
+/// refresh, collapsing ridge strip on scroll), an optional row under it, the content, and the ridge
+/// footer meeting the tab bar (pull up to load more, where the page has more to load).
 struct BrandScrollPage<Title: View, Accessory: View, Content: View>: View {
+    private let pageTitle: String
     private let onRefresh: () async -> Void
+    private let onLoadMore: (() async -> Void)?
+    private let showsFooter: Bool
     private let title: Title
     private let accessory: Accessory
     private let content: Content
 
     @StateObject private var puller = PullToRefresh()
+    @StateObject private var loader = PullUpLoader()
     @State private var headerOffset: CGFloat = 0
+    @State private var overscroll: CGFloat = 0
     @EnvironmentObject private var launch: LaunchState
 
-    init(onRefresh: @escaping () async -> Void,
+    init(_ pageTitle: String,
+         onRefresh: @escaping () async -> Void,
+         onLoadMore: (() async -> Void)? = nil,
+         showsFooter: Bool = true,
          @ViewBuilder title: () -> Title,
          @ViewBuilder accessory: () -> Accessory,
          @ViewBuilder content: () -> Content) {
+        self.pageTitle = pageTitle
         self.onRefresh = onRefresh
+        self.onLoadMore = onLoadMore
+        self.showsFooter = showsFooter
         self.title = title()
         self.accessory = accessory()
         self.content = content()
@@ -26,7 +38,8 @@ struct BrandScrollPage<Title: View, Accessory: View, Content: View>: View {
         GeometryReader { outer in
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    PullRidgeHeader(topInset: outer.safeAreaInsets.top, refreshing: puller.refreshing) {
+                    PullRidgeHeader(topInset: outer.safeAreaInsets.top, title: pageTitle,
+                                    refreshing: puller.refreshing) {
                         accessory
                     }
                     VStack(alignment: .leading, spacing: 16) {
@@ -34,11 +47,24 @@ struct BrandScrollPage<Title: View, Accessory: View, Content: View>: View {
                         content
                     }
                     .padding(.horizontal, 16)
-                    .padding(.bottom, 16)
-                    .padding(.top, 2)
+                    .padding(.bottom, 24)
+                    .padding(.top, 14)
                     // Rises in with the ridges at launch.
                     .offset(y: launch.revealed ? 0 : 420)
+
+                    if showsFooter {
+                        Spacer(minLength: 0)
+                        RidgeFooter(pull: overscroll, loading: loader.loading)
+                            .background {
+                                GeometryReader { g in
+                                    Color.clear.preference(key: FooterBottomKey.self,
+                                                           value: g.frame(in: .named(BrandScroll.space)).maxY)
+                                }
+                            }
+                    }
                 }
+                // Short pages still put the footer at the foot of the screen.
+                .frame(minHeight: outer.size.height + outer.safeAreaInsets.top, alignment: .top)
             }
             .coordinateSpace(name: BrandScroll.space)
             .ignoresSafeArea(edges: .top)
@@ -46,8 +72,14 @@ struct BrandScrollPage<Title: View, Accessory: View, Content: View>: View {
                 headerOffset = offset
                 puller.update(offset: offset) { await onRefresh() }
             }
+            .onPreferenceChange(FooterBottomKey.self) { bottom in
+                // The footer's bottom rising above the visible bottom edge is the pull-up.
+                let visibleBottom = outer.size.height + outer.safeAreaInsets.top
+                overscroll = max(0, visibleBottom - bottom)
+                loader.update(overscroll: overscroll, action: onLoadMore)
+            }
             .overlay(alignment: .top) {
-                CollapsedRidgeBar(topInset: outer.safeAreaInsets.top, offset: headerOffset)
+                CollapsedRidgeBar(topInset: outer.safeAreaInsets.top, offset: headerOffset, title: pageTitle)
                     .ignoresSafeArea(edges: .top)
             }
         }
@@ -56,7 +88,7 @@ struct BrandScrollPage<Title: View, Accessory: View, Content: View>: View {
     }
 }
 
-/// Large bold page title in Helvetica Neue.
+/// Large bold heading in Plex, for sheets and pushed screens without a ridge header.
 struct PageTitle: View {
     let text: String
     var body: some View {

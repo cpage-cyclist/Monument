@@ -20,8 +20,9 @@ struct ActivitiesView: View {
 
     var body: some View {
         NavigationStack {
-            BrandScrollPage(onRefresh: { await library.refresh(force: true) }) {
-                PageTitle(text: "Activities")
+            BrandScrollPage("Activities", onRefresh: { await library.refresh(force: true) },
+                            onLoadMore: { await library.loadOlder() }) {
+                EmptyView()
             } accessory: {
                 HeaderButton(systemImage: "gearshape", label: "Settings") { showSettings = true }
             } content: {
@@ -30,7 +31,7 @@ struct ActivitiesView: View {
                         Button("Add your Intervals athlete ID and API key") { showSettings = true }
                             .buttonStyle(.borderedProminent)
                         Text("Monument reads your activities from Intervals.icu.")
-                            .font(.footnote)
+                            .font(.brand(.footnote))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -47,7 +48,7 @@ struct ActivitiesView: View {
 
                 if let error = library.lastError {
                     Label(error, systemImage: "exclamationmark.triangle")
-                        .font(.footnote)
+                        .font(.brand(.footnote))
                         .foregroundStyle(.secondary)
                 }
 
@@ -62,7 +63,7 @@ struct ActivitiesView: View {
                                         HStack {
                                             ActivityRow(activity: activity)
                                             Image(systemName: "chevron.right")
-                                                .font(.caption.weight(.semibold))
+                                                .font(.brand(.caption, weight: .semibold))
                                                 .foregroundStyle(.tertiary)
                                         }
                                         .contentShape(Rectangle())
@@ -83,7 +84,7 @@ struct ActivitiesView: View {
 
                 if hiddenStravaCount > 0 {
                     Text("\(hiddenStravaCount) recorded in the Strava app aren't shown: Strava doesn't let Intervals share them. Activities synced straight to Intervals (Wahoo, Run Guide) appear here.")
-                        .font(.footnote)
+                        .font(.brand(.footnote))
                         .foregroundStyle(.secondary)
                 }
 
@@ -121,11 +122,11 @@ struct ActivitiesView: View {
     }
 
     private var visible: [ActivitySummary] {
-        library.activities.filter { !$0.isStravaPlaceholder }
+        library.allActivities.filter { !$0.isStravaPlaceholder }
     }
 
     private var hiddenStravaCount: Int {
-        library.activities.count - visible.count
+        library.allActivities.count - visible.count
     }
 
     private struct DayGroup {
@@ -167,7 +168,7 @@ struct ActivityRow: View {
             VStack(alignment: .leading, spacing: 3) {
                 HStack {
                     Text(activity.name ?? activity.type ?? "Activity")
-                        .font(.body.weight(.medium))
+                        .font(.brand(.body, weight: .medium))
                         .lineLimit(1)
                     if !activity.isLogged {
                         Circle().fill(.orange).frame(width: 7, height: 7)
@@ -175,14 +176,14 @@ struct ActivityRow: View {
                     }
                 }
                 Text(ActivityRow.line(for: activity))
-                    .font(.subheadline.monospacedDigit())
+                    .font(.num(.subheadline))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
             Spacer(minLength: 0)
             if let load = activity.trainingLoad {
                 Text("\(Int(load.rounded()))")
-                    .font(.subheadline.monospacedDigit().weight(.semibold))
+                    .font(.num(.subheadline, weight: .semibold))
                     .foregroundStyle(.secondary)
                     .accessibilityLabel("Load \(Int(load.rounded()))")
             }

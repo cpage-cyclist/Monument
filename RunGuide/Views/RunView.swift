@@ -45,18 +45,18 @@ struct RunView: View {
                     Text("\(run.sport.title) · step \(min(engine.stepIndex + 1, engine.workout.steps.count)) of \(engine.workout.steps.count)")
                 }
             }
-            .font(.footnote)
+            .font(.brand(.footnote))
             .foregroundStyle(.secondary)
             .padding(.top, run.guide == nil ? 16 : 0)
 
             if let step = engine.currentStep {
                 if !engine.isFree {
                     Text(step.label)
-                        .font(.title.bold())
+                        .font(.brand(.title, weight: .bold))
                         .multilineTextAlignment(.center)
                 }
                 if let target = step.target {
-                    Text(target).font(.title3).foregroundStyle(.secondary)
+                    Text(target).font(.brand(.title3)).foregroundStyle(.secondary)
                 }
 
                 Text(remainingText(step))
@@ -71,7 +71,7 @@ struct RunView: View {
 
             if let next = engine.nextStep {
                 Text("Next: \(next.label) · \(Format.amount(next.end))")
-                    .font(.callout)
+                    .font(.brand(.callout))
                     .foregroundStyle(.secondary)
             }
 
@@ -95,7 +95,7 @@ struct RunView: View {
             .padding(.top, 8)
 
             if run.paused {
-                Text("PAUSED").font(.headline).foregroundStyle(.orange)
+                Text("PAUSED").font(.brand(.headline)).foregroundStyle(.orange)
             }
 
             Spacer()
@@ -108,7 +108,7 @@ struct RunView: View {
                 Button("End", role: .destructive) { confirmEnd = true }
                     .buttonStyle(.bordered)
             }
-            .font(.title3.bold())
+            .font(.brand(.title3, weight: .bold))
             .controlSize(.large)
             .padding(.bottom)
         }
@@ -132,8 +132,8 @@ struct RunView: View {
 
     private func stat(_ title: String, _ value: String) -> some View {
         VStack(spacing: 2) {
-            Text(value).font(.title3.bold()).monospacedDigit()
-            Text(title).font(.caption).foregroundStyle(.secondary)
+            Text(value).font(.num(.title3, weight: .semibold))
+            Text(title).font(.brand(.caption)).foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
     }
@@ -173,7 +173,7 @@ struct SummaryView: View {
                                     .monospacedDigit()
                                 Text(run.sport.usesPace ? "\(Format.pace(lap.pace))/km"
                                                         : lap.pace.map { String(format: "%.1f km/h", 3600 / $0) } ?? "–")
-                                    .font(.caption)
+                                    .font(.brand(.caption))
                                     .foregroundStyle(.secondary)
                             }
                         }
@@ -200,7 +200,7 @@ struct SummaryView: View {
                             run.keep()
                         } label: {
                             Text(run.upload == .off ? "Save \(run.sport.title.lowercased())" : "Save and upload")
-                                .font(.headline)
+                                .font(.brand(.headline))
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 6)
                         }
@@ -251,7 +251,7 @@ struct SummaryView: View {
             VStack(alignment: .leading, spacing: 6) {
                 Label("Strava upload failed", systemImage: "exclamationmark.circle")
                     .foregroundStyle(.red)
-                Text(message).font(.caption).foregroundStyle(.secondary)
+                Text(message).font(.brand(.caption)).foregroundStyle(.secondary)
                 Button("Try again") { run.retryStravaUpload() }
             }
         case .off:
@@ -274,7 +274,7 @@ struct SummaryView: View {
             VStack(alignment: .leading, spacing: 6) {
                 Label("Upload failed", systemImage: "exclamationmark.icloud")
                     .foregroundStyle(.red)
-                Text(message).font(.caption).foregroundStyle(.secondary)
+                Text(message).font(.brand(.caption)).foregroundStyle(.secondary)
                 Button("Try again") { run.retryUpload() }
             }
         case .off:
@@ -321,7 +321,7 @@ struct PowerPanel: View {
                         .monospacedDigit()
                         .foregroundStyle(colour)
                     Text(target.map { "W · target " + Format.watts($0) } ?? "W (3 s)")
-                        .font(.caption)
+                        .font(.brand(.caption))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -329,7 +329,7 @@ struct PowerPanel: View {
                 Text(cadence.map(String.init) ?? "––")
                     .font(.system(size: hasPower ? 30 : 54, weight: .bold, design: .rounded))
                     .monospacedDigit()
-                Text("rpm").font(.caption).foregroundStyle(.secondary)
+                Text("rpm").font(.brand(.caption)).foregroundStyle(.secondary)
             }
         }
         .frame(maxWidth: .infinity)

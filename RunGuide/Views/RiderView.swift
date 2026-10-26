@@ -20,16 +20,11 @@ struct RiderView: View {
 
     var body: some View {
         NavigationStack {
-            BrandScrollPage(onRefresh: { await refresh(force: true) }) {
-                HStack(alignment: .firstTextBaseline) {
-                    PageTitle(text: "Rider")
-                    Spacer()
-                    Picker("Period", selection: $periodRaw) {
-                        ForEach(RiderPeriod.allCases) { Text($0.title).tag($0.rawValue) }
-                    }
-                    .pickerStyle(.segmented)
-                    .frame(width: 210)
+            BrandScrollPage("Rider", onRefresh: { await refresh(force: true) }, showsFooter: false) {
+                Picker("Period", selection: $periodRaw) {
+                    ForEach(RiderPeriod.allCases) { Text($0.title).tag($0.rawValue) }
                 }
+                .pickerStyle(.segmented)
             } accessory: {
                 HeaderButton(systemImage: "gearshape", label: "Settings") { showSettings = true }
             } content: {
@@ -40,7 +35,7 @@ struct RiderView: View {
                 Card { card }
                 launchPad
                 if let error = rider.lastError {
-                    Label(error, systemImage: "exclamationmark.triangle").font(.footnote).foregroundStyle(.secondary)
+                    Label(error, systemImage: "exclamationmark.triangle").font(.brand(.footnote)).foregroundStyle(.secondary)
                 }
             }
             .navigationTitle("Rider")
@@ -172,10 +167,10 @@ struct RiderView: View {
                 Spacer(minLength: 0)
             }
             Text(effort.map { "\(Int($0.watts.rounded()))" } ?? "–")
-                .font(.brand(.title, weight: .bold).monospacedDigit())
+                .font(.num(.title, weight: .bold))
             + Text(effort == nil ? "" : " W").font(.brand(.subheadline, weight: .medium))
             Text(effort?.wattsPerKg(weight).map { String(format: "%.2f W/kg", $0) } ?? " ")
-                .font(.brand(.footnote).monospacedDigit())
+                .font(.num(.footnote))
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -185,10 +180,10 @@ struct RiderView: View {
     private func stat(_ label: String, _ value: String?, also: String? = nil) -> some View {
         VStack(alignment: .leading, spacing: 1) {
             Text(label).font(.brand(.caption2)).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.8)
-            Text(value ?? "–").font(.brand(.subheadline, weight: .bold).monospacedDigit())
+            Text(value ?? "–").font(.num(.subheadline, weight: .bold))
                 .lineLimit(1).minimumScaleFactor(0.7)
             if let also {
-                Text(also).font(.brand(.caption2).monospacedDigit()).foregroundStyle(.secondary)
+                Text(also).font(.num(.caption2)).foregroundStyle(.secondary)
                     .lineLimit(1).minimumScaleFactor(0.7)
             }
         }

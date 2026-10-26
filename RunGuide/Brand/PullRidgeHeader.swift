@@ -20,6 +20,8 @@ struct HeaderOffsetKey: PreferenceKey {
 /// ignores the top safe area. Read the offset with `.onPreferenceChange(HeaderOffsetKey.self)`.
 struct PullRidgeHeader<Accessory: View>: View {
     let topInset: CGFloat
+    /// The page's name in Akira; nil shows the MONUMENT wordmark.
+    var title: String? = nil
     var refreshing: Bool
     @ViewBuilder var accessory: Accessory
 
@@ -32,10 +34,16 @@ struct PullRidgeHeader<Accessory: View>: View {
             let spread = refreshing ? min(pulled, Brand.Header.restSpread * 0.2) : pulled
             ZStack(alignment: .topLeading) {
                 RidgeBackdrop(spread: spread)
-                Wordmark()
-                    .frame(width: Brand.Header.wordmarkWidth)
-                    .padding(.leading, Brand.Header.wordmarkInset.x)
-                    .padding(.top, topInset + Brand.Header.wordmarkInset.y)
+                Group {
+                    if let title {
+                        AkiraTitle(text: title)
+                            .frame(maxWidth: geo.size.width - 90, alignment: .leading)
+                    } else {
+                        Wordmark().frame(width: Brand.Header.wordmarkWidth)
+                    }
+                }
+                .padding(.leading, Brand.Header.wordmarkInset.x)
+                .padding(.top, topInset + Brand.Header.wordmarkInset.y)
                 HStack {
                     Spacer()
                     accessory
@@ -57,12 +65,20 @@ struct CollapsedRidgeBar: View {
     let topInset: CGFloat
     /// The header's scroll offset (negative when scrolled up).
     let offset: CGFloat
+    var title: String? = nil
 
     var body: some View {
         let start = Brand.Header.body - 40
         let progress = min(max((-offset - start) / 30, 0), 1)
         RidgeBackdrop(spread: 1.0)
             .frame(height: topInset + 30)
+            .overlay(alignment: .bottomLeading) {
+                if let title {
+                    AkiraTitle(text: title, size: 13)
+                        .padding(.leading, 20)
+                        .padding(.bottom, 8)
+                }
+            }
             .overlay(alignment: .bottom) {
                 Rectangle().fill(Brand.hairline).frame(height: 0.5)
             }

@@ -21,8 +21,8 @@ struct TodayView: View {
 
     var body: some View {
         NavigationStack {
-            BrandScrollPage(onRefresh: pullRefresh) {
-                PageTitle(text: "Today")
+            BrandScrollPage("Today", onRefresh: pullRefresh) {
+                EmptyView()
             } accessory: {
                 HeaderButton(systemImage: "gearshape", label: "Settings") { showSettings = true }
             } content: {
@@ -43,7 +43,7 @@ struct TodayView: View {
                                         HStack {
                                             ActivityRow(activity: last)
                                             Image(systemName: "chevron.right")
-                                                .font(.caption.weight(.semibold))
+                                                .font(.brand(.caption, weight: .semibold))
                                                 .foregroundStyle(.tertiary)
                                         }
                                     }
@@ -54,7 +54,7 @@ struct TodayView: View {
                                             logging = last
                                         } label: {
                                             Label("How did it feel? Log it", systemImage: "square.and.pencil")
-                                                .font(.subheadline.weight(.semibold))
+                                                .font(.brand(.subheadline, weight: .semibold))
                                         }
                                     }
                                 }
@@ -78,7 +78,7 @@ struct TodayView: View {
 
                     if let error = calendar.lastError {
                         Label(error, systemImage: "exclamationmark.triangle")
-                            .font(.footnote)
+                            .font(.brand(.footnote))
                             .foregroundStyle(.secondary)
                     }
             }
@@ -181,8 +181,8 @@ struct FitnessCard: View {
 
     private func figure(_ label: String, _ value: String?) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(label).font(.caption).foregroundStyle(.secondary)
-            Text(value ?? "–").font(.title.monospacedDigit().weight(.semibold))
+            Text(label).font(.brand(.caption)).foregroundStyle(.secondary)
+            Text(value ?? "–").font(.num(.title, weight: .semibold))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -201,7 +201,7 @@ struct NextSessionCard: View {
                     HStack(alignment: .firstTextBaseline) {
                         Image(systemName: event.isRun ? "figure.run" : (event.isRace ? "flag.checkered" : "bicycle"))
                             .foregroundStyle(.secondary)
-                        Text(event.name ?? "Session").font(.title3.weight(.semibold))
+                        Text(event.name ?? "Session").font(.brand(.title3, weight: .semibold))
                     }
 
                     HStack(spacing: 18) {
@@ -215,7 +215,7 @@ struct NextSessionCard: View {
                         VStack(alignment: .leading, spacing: 3) {
                             ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
                                 Text(line.isHeading ? line.text : "· " + line.text)
-                                    .font(line.isHeading ? .subheadline.weight(.semibold) : .subheadline.monospacedDigit())
+                                    .font(line.isHeading ? .brand(.subheadline, weight: .semibold) : .num(.subheadline))
                                     .foregroundStyle(line.isHeading ? .primary : .secondary)
                                     .padding(.top, line.isHeading ? 4 : 0)
                             }
@@ -242,8 +242,8 @@ struct NextSessionCard: View {
 
     private func stat(_ label: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 1) {
-            Text(label).font(.caption).foregroundStyle(.secondary)
-            Text(value).font(.headline.monospacedDigit())
+            Text(label).font(.brand(.caption)).foregroundStyle(.secondary)
+            Text(value).font(.num(.headline))
         }
     }
 }
@@ -271,14 +271,14 @@ struct WeekTotalsCard: View {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(alignment: .firstTextBaseline) {
                         Text("\(Int(totals.doneLoad.rounded()))")
-                            .font(.brand(.title, weight: .bold).monospacedDigit())
+                            .font(.num(.title, weight: .bold))
                         Text(totals.plannedLoad > 0 ? "of \(Int(totals.plannedLoad.rounded())) load" : "load")
                             .font(.brand(.subheadline))
                             .foregroundStyle(.secondary)
                         Spacer()
                         if totals.plannedSessions > 0 {
                             Text("\(totals.doneSessions)/\(totals.plannedSessions) sessions")
-                                .font(.brand(.subheadline, weight: .medium).monospacedDigit())
+                                .font(.num(.subheadline, weight: .medium))
                         }
                     }
                     if totals.plannedLoad > 0 {
@@ -317,8 +317,8 @@ struct WeekTotalsCard: View {
 
     private func figure(_ label: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 1) {
-            Text(label).font(.caption).foregroundStyle(.secondary)
-            Text(value).font(.brand(.headline, weight: .bold).monospacedDigit()).lineLimit(1).minimumScaleFactor(0.7)
+            Text(label).font(.brand(.caption)).foregroundStyle(.secondary)
+            Text(value).font(.num(.headline, weight: .bold)).lineLimit(1).minimumScaleFactor(0.7)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
