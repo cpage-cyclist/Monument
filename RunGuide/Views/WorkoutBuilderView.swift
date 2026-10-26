@@ -57,9 +57,7 @@ struct WorkoutBuilderView: View {
             Group {
                 if textMode { textEditor } else { blockEditor }
             }
-            .brandPageBackground()
-            .navigationTitle(scheduleDay.map { "Add to " + DayTitle.text($0, today: IntervalsDates.day(Date())) }
-                             ?? (isNew ? "New workout" : "Edit workout"))
+                        .ridgeSheetHeader(scheduleDay != nil ? "Add" : (isNew ? "New" : "Edit"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -108,7 +106,7 @@ struct WorkoutBuilderView: View {
     private static let sports = ["Ride", "VirtualRide", "Run", "Swim", "Workout"]
 
     private var blockEditor: some View {
-        List {
+        BrandList {
             Section {
                 TextField("Name", text: $plan.name)
                     .font(.brand(.headline, weight: .medium))
@@ -180,7 +178,7 @@ struct WorkoutBuilderView: View {
                 }
             }
 
-            Section("Notes") {
+            BrandSection("Notes") {
                 TextEditor(text: $plan.notes)
                     .frame(minHeight: 70)
                     .font(.brand(.subheadline))
@@ -216,11 +214,13 @@ struct WorkoutBuilderView: View {
                 .foregroundStyle(.secondary)
                 .padding(.horizontal)
             TextEditor(text: $draft)
-                .font(.system(.body, design: .monospaced))
+                .font(.num(.body))
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
                 .scrollContentBackground(.hidden)
-                .background(Color(.systemBackground).opacity(0.7), in: RoundedRectangle(cornerRadius: 10))
+                .padding(8)
+                .background(Brand.sky)
+                .overlay { Rectangle().strokeBorder(Brand.hairline, lineWidth: 1) }
                 .padding(.horizontal)
         }
         .padding(.top, 8)

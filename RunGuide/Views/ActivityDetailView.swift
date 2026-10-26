@@ -129,8 +129,7 @@ struct ActivityDetailView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
         }
-        .brandPageBackground()
-        .ridgeNavHeader(ActivityHero.shortTitle(current))
+                .ridgeNavHeader(ActivityHero.shortTitle(current))
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
@@ -857,7 +856,7 @@ struct OverlayPlot: View, Equatable {
                 }
                 PointMark(x: .value("Time", wbal.low.x), y: .value("Value", wbal.low.y))
                     .symbolSize(40)
-                    .foregroundStyle(.red)
+                    .foregroundStyle(Brand.alert)
             }
         }
         .chartXScale(domain: domain)
@@ -1070,7 +1069,7 @@ struct EffortsRow: View {
                             .padding(.vertical, 8)
                             .padding(.horizontal, 6)
                             .background(selected == i ? Color.accentColor.opacity(0.2) : Color.white.opacity(0.35),
-                                        in: RoundedRectangle(cornerRadius: 10))
+                                        in: Rectangle())
                         }
                         .buttonStyle(.plain)
                     }
@@ -1177,7 +1176,7 @@ struct PeaksRow: View {
                             .padding(.vertical, 8)
                             .padding(.horizontal, 6)
                             .background(selected == p.seconds ? Color.accentColor.opacity(0.2) : Color.white.opacity(0.35),
-                                        in: RoundedRectangle(cornerRadius: 10))
+                                        in: Rectangle())
                         }
                         .buttonStyle(.plain)
                     }

@@ -25,7 +25,7 @@ struct QuickLogView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            BrandForm {
                 Section {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack(alignment: .firstTextBaseline) {
@@ -43,7 +43,7 @@ struct QuickLogView: View {
                     Text("RPE")
                 }
 
-                Section("Feel") {
+                BrandSection("Feel") {
                     HStack(spacing: 6) {
                         // Intervals' scale: 1 strong … 5 weak.
                         ForEach(1...5, id: \.self) { value in
@@ -57,7 +57,7 @@ struct QuickLogView: View {
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 9)
                                     .background(feel == value ? Color.accentColor.opacity(0.22) : Color(.tertiarySystemFill),
-                                                in: RoundedRectangle(cornerRadius: 8))
+                                                in: Rectangle())
                             }
                             .buttonStyle(.plain)
                         }
@@ -121,11 +121,11 @@ struct QuickLogView: View {
                     Section {
                         Label(errorText, systemImage: "exclamationmark.triangle")
                             .font(.brand(.footnote))
-                            .foregroundStyle(.red)
+                            .foregroundStyle(Brand.alert)
                     }
                 }
             }
-            .navigationTitle(activity.name ?? "Log")
+            .ridgeSheetHeader("Log")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

@@ -152,10 +152,76 @@ extension View {
                     AkiraTitle(text: title, size: 18)
                 }
             }
-            .background(alignment: .top) {
-                RidgeBackdrop(spread: Brand.Header.restSpread)
-                    .frame(height: 56)
-                    .ignoresSafeArea(edges: .top)
+            .background { RidgePageBackground() }
+    }
+
+    /// A sheet's header: the same ridges, with a short Akira title in the middle so the sheet's
+    /// Cancel and Done keep their places.
+    func ridgeSheetHeader(_ title: String) -> some View {
+        self
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    AkiraTitle(text: title, size: 15)
+                }
             }
+            .background { RidgePageBackground() }
+    }
+}
+
+/// The page colour with a strip of ridges behind the navigation bar.
+struct RidgePageBackground: View {
+    var body: some View {
+        ZStack(alignment: .top) {
+            Brand.page.ignoresSafeArea()
+            RidgeBackdrop(spread: Brand.Header.restSpread)
+                .frame(height: 56)
+                .ignoresSafeArea(edges: .top)
+        }
+    }
+}
+
+/// A List or Form in Monument style: the page shows through, rows are white (forest in dark
+/// mode) in square bands, section titles are small caps labels. Content is clipped below the
+/// navigation bar so it doesn't scroll over the ridges.
+struct BrandList<Content: View>: View {
+    let content: Content
+
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+
+    var body: some View {
+        List {
+            Group { content }
+                .listRowBackground(Brand.sky)
+                .listRowSeparatorTint(Brand.hairline.opacity(0.25))
+        }
+        .listStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .tint(Brand.accent)
+        .clipped()
+    }
+}
+
+typealias BrandForm<Content: View> = BrandList<Content>
+
+/// A list section with a Monument label for its title.
+struct BrandSection<Content: View>: View {
+    let title: String
+    let content: Content
+
+    init(_ title: String, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.content = content()
+    }
+
+    var body: some View {
+        Section {
+            content
+        } header: {
+            CardLabel(text: title).foregroundStyle(Brand.wordmark)
+        }
     }
 }

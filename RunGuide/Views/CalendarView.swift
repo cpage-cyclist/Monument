@@ -210,7 +210,7 @@ struct CalendarView: View {
         .tint(.white)
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
-        .background(Brand.forest, in: RoundedRectangle(cornerRadius: 12))
+        .background(Brand.forest, in: Rectangle())
     }
 
     /// The Monday-to-Sunday week holding the chosen day.
@@ -667,7 +667,7 @@ struct DayContent: View {
                 .draggable(String(event.id)) {
                     Label(event.name ?? "Session", systemImage: "calendar")
                         .padding(8)
-                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+                        .background(.regularMaterial, in: Rectangle())
                 }
 
             if let paired {
@@ -789,8 +789,8 @@ struct MoveSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Move \(event.name ?? "session") to") {
+            BrandForm {
+                BrandSection("Move \(event.name ?? "session") to") {
                     ForEach(days.filter { $0 != event.day }, id: \.self) { day in
                         Button(DayTitle.text(day, today: today)) {
                             onMove(day)
@@ -798,7 +798,7 @@ struct MoveSheet: View {
                         }
                     }
                 }
-                Section("Another day") {
+                BrandSection("Another day") {
                     DatePicker("Date", selection: $date, displayedComponents: .date)
                     Button("Move to \(date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)))") {
                         onMove(IntervalsDates.day(date))
@@ -806,7 +806,7 @@ struct MoveSheet: View {
                     }
                 }
             }
-            .navigationTitle("Move")
+            .ridgeSheetHeader("Move")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }

@@ -181,7 +181,7 @@ struct SummaryView: View {
 
     var body: some View {
         NavigationStack {
-            List {
+            BrandList {
                 Section {
                     HStack {
                         Text("Total")
@@ -195,10 +195,10 @@ struct SummaryView: View {
                         stravaRow
                     } else if run.saveFailed {
                         Label("Couldn't save the FIT file", systemImage: "exclamationmark.triangle")
-                            .foregroundStyle(.red)
+                            .foregroundStyle(Brand.alert)
                     }
                 }
-                Section("Laps") {
+                BrandSection("Laps") {
                     ForEach(Array(run.engine.laps.enumerated()), id: \.offset) { _, lap in
                         HStack {
                             Text(lap.label)
@@ -215,7 +215,7 @@ struct SummaryView: View {
                     }
                 }
             }
-            .navigationTitle("Session done")
+            .ridgeSheetHeader("Done")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     ShareLink(item: run.summaryText) {
@@ -281,11 +281,11 @@ struct SummaryView: View {
             }
         case .uploaded:
             Label("Uploaded to Strava", systemImage: "checkmark.circle")
-                .foregroundStyle(.orange)
+                .foregroundStyle(Brand.alert)
         case .failed(let message):
             VStack(alignment: .leading, spacing: 6) {
                 Label("Strava upload failed", systemImage: "exclamationmark.circle")
-                    .foregroundStyle(.red)
+                    .foregroundStyle(Brand.alert)
                 Text(message).font(.brand(.caption)).foregroundStyle(.secondary)
                 Button("Try again") { run.retryStravaUpload() }
             }
@@ -304,11 +304,11 @@ struct SummaryView: View {
             }
         case .uploaded:
             Label("Uploaded to Intervals", systemImage: "checkmark.icloud")
-                .foregroundStyle(.green)
+                .foregroundStyle(Brand.accent)
         case .failed(let message):
             VStack(alignment: .leading, spacing: 6) {
                 Label("Upload failed", systemImage: "exclamationmark.icloud")
-                    .foregroundStyle(.red)
+                    .foregroundStyle(Brand.alert)
                 Text(message).font(.brand(.caption)).foregroundStyle(.secondary)
                 Button("Try again") { run.retryUpload() }
             }

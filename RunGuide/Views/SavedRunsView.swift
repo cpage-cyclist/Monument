@@ -7,7 +7,7 @@ struct SavedRunsView: View {
     @EnvironmentObject private var strava: StravaAccount
 
     var body: some View {
-        List {
+        BrandList {
             if store.runs.isEmpty {
                 Text("Runs you record are saved here as FIT files.")
                     .foregroundStyle(.secondary)
@@ -26,11 +26,11 @@ struct SavedRunsView: View {
                         Spacer()
                         // Status only: tap the run for the actions.
                         Image(systemName: run.uploaded ? "checkmark.icloud" : "icloud.slash")
-                            .foregroundStyle(run.uploaded ? .green : .secondary)
+                            .foregroundStyle(run.uploaded ? Brand.accent : .secondary)
                             .accessibilityLabel(run.uploaded ? "On Intervals" : "Not on Intervals")
                         if strava.isConnected {
                             Image(systemName: run.uploadedToStrava == true ? "checkmark.circle" : "circle.dashed")
-                                .foregroundStyle(run.uploadedToStrava == true ? .orange : .secondary)
+                                .foregroundStyle(run.uploadedToStrava == true ? Brand.alert : .secondary)
                                 .accessibilityLabel(run.uploadedToStrava == true ? "On Strava" : "Not on Strava")
                         }
                     }
@@ -40,7 +40,7 @@ struct SavedRunsView: View {
                 }
             }
         }
-        .navigationTitle("Saved runs")
+        .ridgeNavHeader("Saved runs")
     }
 }
 
@@ -62,7 +62,7 @@ struct SavedRunDetailView: View {
     private var run: SavedRun? { store.runs.first { $0.id == runID } }
 
     var body: some View {
-        List {
+        BrandList {
             if let run {
                 Section {
                     LabeledContent("Date", value: run.date.formatted(date: .abbreviated, time: .shortened))
@@ -73,7 +73,7 @@ struct SavedRunDetailView: View {
                 Section {
                     if run.uploaded {
                         Label("Uploaded", systemImage: "checkmark.icloud")
-                            .foregroundStyle(.green)
+                            .foregroundStyle(Brand.accent)
                     } else {
                         Button {
                             Task { await uploadToIntervals(run) }
@@ -87,7 +87,7 @@ struct SavedRunDetailView: View {
                         .disabled(intervalsBusy || !settings.hasCredentials)
                     }
                     if let intervalsError {
-                        Text(intervalsError).font(.brand(.footnote)).foregroundStyle(.red)
+                        Text(intervalsError).font(.brand(.footnote)).foregroundStyle(Brand.alert)
                     }
                 } header: {
                     Text("Intervals.icu")
@@ -101,7 +101,7 @@ struct SavedRunDetailView: View {
                             .foregroundStyle(.secondary)
                     } else if run.uploadedToStrava == true {
                         Label("Uploaded", systemImage: "checkmark.circle")
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(Brand.alert)
                         if let id = run.stravaActivityId, !id.isEmpty,
                            let url = URL(string: "https://www.strava.com/activities/\(id)") {
                             Link(destination: url) {
@@ -119,11 +119,11 @@ struct SavedRunDetailView: View {
                                 if stravaBusy { ProgressView() }
                             }
                         }
-                        .tint(.orange)
+                        .tint(Brand.alert)
                         .disabled(stravaBusy || !strava.hasUploadAccess)
                     }
                     if let stravaError {
-                        Text(stravaError).font(.brand(.footnote)).foregroundStyle(.red)
+                        Text(stravaError).font(.brand(.footnote)).foregroundStyle(Brand.alert)
                     }
                 } header: {
                     Text("Strava")
@@ -147,7 +147,7 @@ struct SavedRunDetailView: View {
                 Text("This run has been deleted.").foregroundStyle(.secondary)
             }
         }
-        .navigationTitle(run?.name ?? "Run")
+        .ridgeNavHeader("Saved run")
         .navigationBarTitleDisplayMode(.inline)
         .confirmationDialog("Delete this run?", isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("Delete", role: .destructive) {

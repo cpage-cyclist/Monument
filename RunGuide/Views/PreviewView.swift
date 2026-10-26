@@ -30,8 +30,11 @@ struct PreviewView: View {
     }
 
     var body: some View {
-        List {
+        BrandList {
             Section {
+                Text(workout.name)
+                    .font(.brand(.headline, weight: .semibold))
+                    .lineLimit(2)
                 Label("\(sport.title) · locked for this recording", systemImage: sport.icon)
                     .font(.brand(.subheadline, weight: .medium))
                 SensorStatus(sport: sport, tracker: tracker, power: sensors.power, cadence: sensors.cadence)
@@ -45,7 +48,7 @@ struct PreviewView: View {
                         .foregroundStyle(.secondary)
                 }
             } else {
-                Section("Steps") {
+                BrandSection("Steps") {
                     ForEach(workout.steps) { step in
                         HStack {
                             Text(step.label)
@@ -64,7 +67,7 @@ struct PreviewView: View {
                 }
             }
         }
-        .navigationTitle(workout.name)
+        .ridgeNavHeader(sport.title)
         .navigationBarTitleDisplayMode(.inline)
         .safeAreaInset(edge: .bottom) {
             Button {

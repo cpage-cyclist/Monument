@@ -22,12 +22,12 @@ struct StravaSettingsSection: View {
                 if settings.uploadToStrava && !strava.hasUploadAccess {
                     Text("Tap Reconnect and leave \"Upload your activities\" ticked to allow uploads.")
                         .font(.brand(.footnote))
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(Brand.alert)
                 }
                 if !strava.hasPrivateAccess {
                     Text("Private routes aren't included. Reconnect and leave private access ticked.")
                         .font(.brand(.footnote))
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(Brand.alert)
                 }
                 Button("Reconnect") { Task { await strava.connect(using: webAuth) } }
                 Button("Disconnect", role: .destructive) { strava.disconnect() }
@@ -44,7 +44,7 @@ struct StravaSettingsSection: View {
             }
 
             if let error = strava.lastError {
-                Text(error).font(.brand(.footnote)).foregroundStyle(.red)
+                Text(error).font(.brand(.footnote)).foregroundStyle(Brand.alert)
             }
         } header: {
             Text("Strava")
@@ -70,7 +70,7 @@ struct StravaRoutesView: View {
     }
 
     var body: some View {
-        List {
+        BrandList {
             if !strava.isConnected {
                 Text("Connect Strava in Settings (gear icon on the home screen) to see your routes here.")
                     .foregroundStyle(.secondary)
@@ -78,7 +78,7 @@ struct StravaRoutesView: View {
                 Section {
                     Toggle("Running routes only", isOn: $showRunsOnly)
                     if let errorText {
-                        Text(errorText).font(.brand(.footnote)).foregroundStyle(.red)
+                        Text(errorText).font(.brand(.footnote)).foregroundStyle(Brand.alert)
                     }
                     if loading && list.isEmpty {
                         HStack { Text("Loading your routes…"); Spacer(); ProgressView() }
@@ -106,7 +106,7 @@ struct StravaRoutesView: View {
                                 if importing == route.id {
                                     ProgressView()
                                 } else if routes.routes.contains(where: { $0.stravaID == route.id }) {
-                                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                                    Image(systemName: "checkmark.circle.fill").foregroundStyle(Brand.accent)
                                 } else {
                                     Image(systemName: "square.and.arrow.down").foregroundStyle(.tint)
                                 }
@@ -121,7 +121,7 @@ struct StravaRoutesView: View {
                 }
             }
         }
-        .navigationTitle("Strava routes")
+        .ridgeNavHeader("Routes")
         .refreshable { await load() }
         .task { if list.isEmpty { await load() } }
     }

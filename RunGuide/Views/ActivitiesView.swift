@@ -171,7 +171,7 @@ struct ActivityRow: View {
                         .font(.brand(.body, weight: .medium))
                         .lineLimit(1)
                     if !activity.isLogged {
-                        Circle().fill(.orange).frame(width: 7, height: 7)
+                        Circle().fill(Brand.alert).frame(width: 7, height: 7)
                             .accessibilityLabel("Not logged")
                     }
                 }

@@ -23,6 +23,8 @@ enum Brand {
     static let page = Color(light: UIColor(red: 184 / 255, green: 198 / 255, blue: 193 / 255, alpha: 1),
                             dark: UIColor(red: 104 / 255, green: 134 / 255, blue: 123 / 255, alpha: 1))
     /// Crisp Standert-style rules.
+    /// Warnings, errors and Strava: bronze rather than stock red or orange.
+    static let alert = Color(red: 169 / 255, green: 96 / 255, blue: 52 / 255)
     static let hairline = Color(light: UIColor(white: 0.07, alpha: 1), dark: UIColor(white: 1, alpha: 0.55))
 
     // MARK: Ridges

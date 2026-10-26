@@ -124,12 +124,12 @@ struct StepEditor: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            BrandForm {
                 Section {
                     TextField("Cue (optional), e.g. Seated climb or RPE 3", text: $cue)
                 }
 
-                Section("Length") {
+                BrandSection("Length") {
                     Picker("Length", selection: $byDistance) {
                         Text("Time").tag(false)
                         Text("Distance").tag(true)
@@ -156,7 +156,7 @@ struct StepEditor: View {
                     }
                 }
 
-                Section("Target") {
+                BrandSection("Target") {
                     Picker("Target", selection: $metric) {
                         ForEach(TargetChoice.allCases) { Text($0.rawValue).tag($0) }
                     }
@@ -185,7 +185,7 @@ struct StepEditor: View {
                 }
 
                 if !sport.lowercased().contains("run") && sport != "Swim" {
-                    Section("Cadence") {
+                    BrandSection("Cadence") {
                         Toggle("Cadence target", isOn: $cadenceOn)
                         if cadenceOn {
                             Stepper("\(cadenceRange ? "From " : "")\(cadenceLow) rpm", value: $cadenceLow, in: 40...160, step: 5)
@@ -197,13 +197,13 @@ struct StepEditor: View {
                     }
                 }
 
-                Section("Intervals text") {
+                BrandSection("Intervals text") {
                     Text("- " + result.text)
                         .font(.num(.callout))
                         .textSelection(.enabled)
                 }
             }
-            .navigationTitle("Step")
+            .ridgeSheetHeader("Step")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
@@ -365,7 +365,7 @@ struct SaveWorkoutSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            BrandForm {
                 if let saved {
                     Section {
                         if saved.parsed {
@@ -404,7 +404,7 @@ struct SaveWorkoutSheet: View {
                     }
                 }
             }
-            .navigationTitle(saved == nil ? "Save workout" : plan.name.isEmpty ? "Saved" : plan.name)
+            .ridgeSheetHeader(saved == nil ? "Save" : "Saved")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 if saved == nil {
@@ -459,7 +459,7 @@ struct WorkoutLibraryView: View {
 
     var body: some View {
         NavigationStack {
-            List {
+            BrandList {
                 if let scheduleDay {
                     Section {
                         Label("Tap a workout to add it to \(DayTitle.text(scheduleDay, today: IntervalsDates.day(Date()))). Long-press to edit it first.",
@@ -472,7 +472,7 @@ struct WorkoutLibraryView: View {
                 }
                 ForEach(library.folders) { folder in
                     if !folder.workouts.isEmpty {
-                        Section(folder.name ?? "Folder") {
+                        BrandSection(folder.name ?? "Folder") {
                             ForEach(folder.workouts) { w in
                                 Button {
                                     if let scheduleDay { Task { await add(w, to: scheduleDay) } } else { opening = .library(w) }
@@ -494,10 +494,9 @@ struct WorkoutLibraryView: View {
                     Label(error, systemImage: "exclamationmark.triangle").font(.brand(.footnote))
                 }
             }
-            .brandPageBackground()
-            .overlay { if library.loading && library.folders.isEmpty { ProgressView() } }
+                        .overlay { if library.loading && library.folders.isEmpty { ProgressView() } }
             .refreshable { await library.load(force: true) }
-            .navigationTitle(scheduleDay == nil ? "Library" : "Add from library")
+            .ridgeSheetHeader("Library")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } }

@@ -22,7 +22,7 @@ extension TurnDirection {
 
     var colour: Color {
         if self == .straight { return .gray }
-        return isLeft ? .orange : .green
+        return isLeft ? Brand.alert : Brand.accent
     }
 }
 
@@ -84,13 +84,14 @@ struct RouteDetailView: View {
 
     var body: some View {
         if let route = routes.route(for: saved) {
-            List {
+            BrandList {
                 Section {
                     RouteMapView(route: route)
                         .frame(height: 320)
                         .listRowInsets(EdgeInsets())
                 }
                 Section {
+                    Text(route.name).font(.brand(.headline, weight: .semibold)).lineLimit(2)
                     LabeledContent("Distance", value: Format.km(route.length))
                     LabeledContent("Shape", value: route.isLoop ? "Loop (laps available)" : "Point to point")
                     NavigationLink {
@@ -100,7 +101,7 @@ struct RouteDetailView: View {
                         Label("\(sport.title) this route", systemImage: sport.icon)
                     }
                 }
-                Section("Cues") {
+                BrandSection("Cues") {
                     ForEach(Array(route.turns.enumerated()), id: \.offset) { index, turn in
                         HStack {
                             Text("\(index + 1)")
@@ -116,7 +117,7 @@ struct RouteDetailView: View {
                     }
                 }
             }
-            .navigationTitle(route.name)
+            .ridgeNavHeader("Route")
             .navigationBarTitleDisplayMode(.inline)
         } else {
             Text("This route file couldn't be read.").foregroundStyle(.secondary)
@@ -189,6 +190,6 @@ struct RouteBanner: View {
         .font(.brand(.headline))
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 12).fill(guide.offRoute ? Color.red.opacity(0.25) : Color.secondary.opacity(0.12)))
+        .background(Rectangle().fill(guide.offRoute ? Brand.alert.opacity(0.25) : Color.secondary.opacity(0.12)))
     }
 }

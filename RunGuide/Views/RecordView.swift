@@ -103,7 +103,7 @@ struct RecordView: View {
                     }
                     .frame(maxWidth: .infinity, minHeight: 72)
                     .foregroundStyle(on ? Color.white : Color.primary)
-                    .background(on ? Brand.forest : Color.white.opacity(0.35), in: RoundedRectangle(cornerRadius: 12))
+                    .background(on ? Brand.forest : Color.white.opacity(0.35), in: Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityAddTraits(on ? [.isSelected] : [])
@@ -318,7 +318,7 @@ struct PasteSessionView: View {
     @State private var text = ""
 
     var body: some View {
-        Form {
+        BrandForm {
             Section {
                 TextEditor(text: $text)
                     .font(.num(.footnote))
@@ -335,8 +335,7 @@ struct PasteSessionView: View {
             }
             .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
-        .brandPageBackground()
-        .navigationTitle("Paste a session")
+                .ridgeNavHeader("Paste")
         .navigationBarTitleDisplayMode(.inline)
     }
 }

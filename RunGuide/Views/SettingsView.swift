@@ -12,7 +12,7 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            BrandForm {
                 Section {
                     TextField("Athlete ID, e.g. i123456", text: $settings.athleteId)
                         .textInputAutocapitalization(.never)
@@ -73,7 +73,7 @@ struct SettingsView: View {
                     Text("For a more natural voice, download a Premium or Enhanced UK voice in iPhone Settings › Accessibility › Spoken Content › Voices › English › English (UK). New voices appear here once downloaded.")
                 }
             }
-            .navigationTitle("Settings")
+            .ridgeSheetHeader("Settings")
             .toolbar {
                 Button("Done") { dismiss() }
             }
@@ -86,7 +86,7 @@ struct SettingsView: View {
         Section {
             if let name = heartRate.pairedName {
                 HStack {
-                    Label(name, systemImage: "heart.fill").foregroundStyle(.red)
+                    Label(name, systemImage: "heart.fill").foregroundStyle(Brand.alert)
                     Spacer()
                     if let bpm = heartRate.currentBPM {
                         Text("\(bpm) bpm").font(.num(.body))
