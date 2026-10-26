@@ -124,3 +124,24 @@ Fixed choices for Monument (formerly Run Guide). Change one only on purpose, and
 - **Medals** mark peak efforts that rank 1st, 2nd or 3rd over the last year (slanted gold/silver/
   bronze bar) or all time (inverted: solid metal badge with the bar cut out). All time outranks
   year. Ranks come from Intervals' `power-curves` with `curves=1y,all&subMaxEfforts=2`.
+
+## Visual direction (October 2026 review)
+
+- **Type: IBM Plex Sans** for text and **IBM Plex Mono** for numbers, replacing Helvetica Neue.
+  **Boxes stay**: cards keep their hairline outline (layout D from the review canvas).
+- **Akira page titles in the ridge header**, in place of the MONUMENT wordmark: TODAY, CALENDAR,
+  ACTIVITIES, RECORD, RIDER, set slanted like the logotype at one shared size. The big Helvetica
+  title under the header goes.
+- **Pushed screens** (activity detail and the like) get a compact ridge header with a back chevron
+  and a **short Akira line** (sport and date, e.g. RIDE · 24 OCT). User-written names never go in
+  Akira: they sit underneath in Plex, two lines at most, then truncate.
+- **Ridge footer**: at the bottom of a scrolling page the ridges darken into forest to meet the tab
+  bar, carrying the MONUMENT ALMANAC lockup. It doubles as pull up to load more (older activities).
+  The Record live screen uses the same footer behind Pause, Lap and End.
+- **Tab changes slide** in the direction of travel.
+- **One Akira hero per screen**: Today form, Calendar the selected week's load, Activity NP,
+  Record the countdown, Rider FTP W/kg.
+- **Fitness, fatigue and form colours**: fitness forest, fatigue bronze, form gold, on the Calendar
+  chart and Today's figures alike. Cards showing coloured data sit on white.
+- Every screen comes into the Monument style, including Record's start and summary screens,
+  Library and Settings (no stock iOS grey lists).
