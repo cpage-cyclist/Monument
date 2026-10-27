@@ -287,6 +287,10 @@ struct IntervalsClient {
         request.setValue("Basic \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.timeoutInterval = timeout
+        // The app keeps its own disk cache and decides when a copy is fresh enough, so the
+        // network layer must never answer from URLCache (it did, which made pull-to-refresh and
+        // forced reloads hand back the same old response).
+        request.cachePolicy = .reloadIgnoringLocalCacheData
 
         let payload = json ?? body
         if json != nil {

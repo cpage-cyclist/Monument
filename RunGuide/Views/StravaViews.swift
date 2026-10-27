@@ -1,10 +1,12 @@
 import AuthenticationServices
 import SwiftUI
+import UIKit
 import RunGuideCore
 
 /// Settings section: your Strava API app details and the connection.
 struct StravaSettingsSection: View {
     @EnvironmentObject private var strava: StravaAccount
+    @EnvironmentObject private var routes: RouteStore
     @EnvironmentObject private var settings: AppSettings
     @Environment(\.webAuthenticationSession) private var webAuth
 
@@ -30,7 +32,10 @@ struct StravaSettingsSection: View {
                         .foregroundStyle(Brand.alert)
                 }
                 Button("Reconnect") { Task { await strava.connect(using: webAuth) } }
-                Button("Disconnect", role: .destructive) { strava.disconnect() }
+                Button("Disconnect", role: .destructive) {
+                    strava.disconnect()
+                    routes.clearStravaList()
+                }
             } else {
                 Button {
                     Task { await strava.connect(using: webAuth) }
@@ -54,36 +59,48 @@ struct StravaSettingsSection: View {
     }
 }
 
-/// Your saved Strava routes; tap one to import it.
+/// Your saved Strava routes; tap one to import it. The list opens from the last copy on the
+/// phone and only goes back to Strava when that's stale or you pull down.
 struct StravaRoutesView: View {
+    let sport: RecordSport
     @EnvironmentObject private var strava: StravaAccount
     @EnvironmentObject private var routes: RouteStore
 
-    @State private var list: [StravaRoute] = []
-    @State private var loading = false
     @State private var importing: String?
     @State private var errorText: String?
-    @State private var showRunsOnly = true
+    @State private var kind: RouteFilter
+
+    init(sport: RecordSport = .run) {
+        self.sport = sport
+        _kind = State(initialValue: sport == .ride ? .ride : .run)
+    }
+    @State private var search = ""
 
     private var shown: [StravaRoute] {
-        showRunsOnly ? list.filter(\.isRun) : list
+        let query = search.trimmingCharacters(in: .whitespaces)
+        return routes.stravaRoutes.filter {
+            kind.includes($0) && (query.isEmpty || $0.name.localizedCaseInsensitiveContains(query))
+        }
     }
 
     var body: some View {
         BrandList {
             if !strava.isConnected {
-                Text("Connect Strava in Settings (gear icon on the home screen) to see your routes here.")
+                Text("Connect Strava in Settings to see your routes here.")
                     .foregroundStyle(.secondary)
             } else {
                 Section {
-                    Toggle("Running routes only", isOn: $showRunsOnly)
-                    if let errorText {
-                        Text(errorText).font(.brand(.footnote)).foregroundStyle(Brand.alert)
+                    Picker("Show", selection: $kind) {
+                        ForEach(RouteFilter.allCases) { Text($0.title).tag($0) }
                     }
-                    if loading && list.isEmpty {
+                    .pickerStyle(.segmented)
+                    if let message = errorText ?? routes.stravaError {
+                        Text(message).font(.brand(.footnote)).foregroundStyle(Brand.alert)
+                    }
+                    if routes.stravaLoading && routes.stravaRoutes.isEmpty {
                         HStack { Text("Loading your routes…"); Spacer(); ProgressView() }
-                    } else if !loading && shown.isEmpty {
-                        Text(list.isEmpty ? "No saved routes found on Strava." : "No running routes. Turn off the filter to see rides.")
+                    } else if shown.isEmpty, !routes.stravaLoading {
+                        Text(routes.stravaRoutes.isEmpty ? "No saved routes found on Strava." : "Nothing matches.")
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -92,49 +109,62 @@ struct StravaRoutesView: View {
                         Button {
                             Task { await importRoute(route) }
                         } label: {
-                            HStack {
-                                Image(systemName: route.isRun ? "figure.run" : "bicycle")
-                                    .foregroundStyle(.secondary)
-                                    .frame(width: 24)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(route.name).foregroundStyle(.primary)
-                                    Text(Format.km(route.distance) + (route.isPrivate == true ? " · private" : ""))
-                                        .font(.brand(.caption))
-                                        .foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                if importing == route.id {
-                                    ProgressView()
-                                } else if routes.routes.contains(where: { $0.stravaID == route.id }) {
-                                    Image(systemName: "checkmark.circle.fill").foregroundStyle(Brand.accent)
-                                } else {
-                                    Image(systemName: "square.and.arrow.down").foregroundStyle(.tint)
-                                }
-                            }
+                            row(route)
                         }
                         .disabled(importing != nil)
                     }
                 } footer: {
-                    if !shown.isEmpty {
-                        Text("Tap a route to import it (tap again to refresh it after editing in Strava).")
-                    }
+                    if !shown.isEmpty { footer }
                 }
             }
         }
-        .ridgeNavHeader("Routes")
-        .refreshable { await load() }
-        .task { if list.isEmpty { await load() } }
+        .searchable(text: $search, placement: .navigationBarDrawer(displayMode: .automatic), prompt: "Search Strava routes")
+        .ridgeNavHeader("Strava")
+        .refreshable { await routes.refreshStravaRoutes(using: strava, force: true) }
+        .task { await routes.refreshStravaRoutes(using: strava) }
     }
 
-    private func load() async {
-        guard strava.isConnected else { return }
-        loading = true
-        errorText = nil
-        defer { loading = false }
-        do {
-            list = try await strava.routes()
-        } catch {
-            errorText = error.localizedDescription
+    private func row(_ route: StravaRoute) -> some View {
+        let saved = routes.saved(forStrava: route.id)
+        let outdated = routes.isOutdated(route)
+        return HStack(spacing: 12) {
+            RouteThumbnail(outline: routes.stravaOutlines[route.id])
+            VStack(alignment: .leading, spacing: 2) {
+                Text(route.name).foregroundStyle(.primary).lineLimit(1)
+                Text(detail(route, outdated: outdated))
+                    .font(.brand(.caption))
+                    .foregroundStyle(outdated ? AnyShapeStyle(Brand.alert) : AnyShapeStyle(.secondary))
+            }
+            Spacer(minLength: 8)
+            if importing == route.id {
+                ProgressView()
+            } else if outdated {
+                Image(systemName: "arrow.triangle.2.circlepath").foregroundStyle(Brand.alert)
+                    .accessibilityLabel("Changed on Strava, tap to update")
+            } else if saved != nil {
+                SuccessBar(width: 18, height: 7)
+                    .accessibilityLabel("On this phone")
+            } else {
+                Image(systemName: "square.and.arrow.down").foregroundStyle(.tint)
+            }
+        }
+        .contentShape(Rectangle())
+    }
+
+    private func detail(_ route: StravaRoute, outdated: Bool) -> String {
+        var parts = [Format.km(route.distance)]
+        if let gain = route.elevationGain, gain >= 1 { parts.append("\(Int(gain.rounded())) m up") }
+        if route.isPrivate == true { parts.append("private") }
+        if outdated { parts.append("changed on Strava") }
+        return parts.joined(separator: " · ")
+    }
+
+    private var footer: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Tap a route to put it on the phone; tap again to refresh it after editing on Strava.")
+            if let fetched = routes.stravaFetchedAt {
+                Text("List updated \(fetched.formatted(.relative(presentation: .named))). Pull down to check Strava again.")
+            }
         }
     }
 
@@ -144,8 +174,10 @@ struct StravaRoutesView: View {
         defer { importing = nil }
         do {
             let data = try await strava.gpx(for: route)
-            if routes.importRoute(data: data, fallbackName: route.name, stravaID: route.id) == nil {
+            if routes.importRoute(data: data, fallbackName: route.name, strava: route) == nil {
                 errorText = routes.lastError ?? "Couldn't read that route."
+            } else {
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
             }
         } catch {
             errorText = error.localizedDescription

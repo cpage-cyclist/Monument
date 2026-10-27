@@ -27,7 +27,6 @@ struct RecordView: View {
     @State private var errorText: String?
     @State private var starting: RecordStart?
     @State private var showSettings = false
-    @State private var importing = false
     @State private var pasted = ""
 
     private var today: String { IntervalsDates.day(Date()) }
@@ -79,9 +78,6 @@ struct RecordView: View {
                 PreviewView(workout: start.workout, sport: start.sport, tracker: tracker)
             }
             .sheet(isPresented: $showSettings) { SettingsView() }
-            .fileImporter(isPresented: $importing, allowedContentTypes: [.gpx, .tcx, .xml]) { result in
-                if case .success(let url) = result { routes.importRoute(from: url) }
-            }
             .task(id: day) { await load() }
             .onAppear { sport = settings.recordSport }
             .onChange(of: sport) { _, new in settings.recordSport = new }
@@ -172,17 +168,22 @@ struct RecordView: View {
         }
     }
 
+    /// The last few routes for the chosen sport, then the full library. Kept short on purpose:
+    /// however many routes you add, this card stays the same size.
     private var routesSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        let recent = routes.recent(for: sport)
+        let count = routes.routes.filter { $0.suits(sport) }.count
+        return VStack(alignment: .leading, spacing: 8) {
             SectionTitle(text: "Routes")
             Card {
                 VStack(alignment: .leading, spacing: 12) {
-                    ForEach(routes.routes) { saved in
+                    ForEach(recent) { saved in
                         NavigationLink {
                             RouteDetailView(saved: saved, sport: sport, tracker: tracker)
                         } label: {
                             HStack {
                                 RouteRow(saved: saved)
+                                Spacer(minLength: 8)
                                 Image(systemName: "chevron.right").font(.brand(.caption, weight: .semibold)).foregroundStyle(.tertiary)
                             }
                             .contentShape(Rectangle())
@@ -194,18 +195,13 @@ struct RecordView: View {
                         Hairline()
                     }
                     NavigationLink {
-                        StravaRoutesView()
+                        RouteLibraryView(sport: sport, tracker: tracker)
                     } label: {
-                        row("Your Strava routes", icon: "point.topleft.down.to.point.bottomright.curvepath", detail: nil)
+                        row(count == 0 ? "Add a route" : "All \(sport == .ride ? "ride" : "run") routes",
+                            icon: "point.topleft.down.to.point.bottomright.curvepath",
+                            detail: count > recent.count ? "\(count)" : nil)
                     }
                     .buttonStyle(.plain)
-                    Button { importing = true } label: {
-                        row("Import a GPX or TCX file", icon: "square.and.arrow.down", detail: nil)
-                    }
-                    .buttonStyle(.plain)
-                    if let error = routes.lastError {
-                        Label(error, systemImage: "exclamationmark.triangle").font(.brand(.footnote))
-                    }
                 }
             }
         }

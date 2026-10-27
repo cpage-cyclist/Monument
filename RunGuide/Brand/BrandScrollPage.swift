@@ -40,7 +40,7 @@ struct BrandScrollPage<Title: View, Accessory: View, Content: View>: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     PullRidgeHeader(topInset: outer.safeAreaInsets.top, title: pageTitle,
-                                    refreshing: puller.refreshing) {
+                                    refreshing: puller.refreshing, confirmed: puller.confirmed) {
                         accessory
                     }
                     VStack(alignment: .leading, spacing: 16) {

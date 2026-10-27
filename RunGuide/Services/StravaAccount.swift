@@ -3,19 +3,56 @@ import SwiftUI
 import Foundation
 import UIKit
 
-/// A route as Strava lists it.
-struct StravaRoute: Identifiable, Hashable, Decodable {
+/// A route as Strava lists it. Codable both ways so the list can be kept on disk.
+struct StravaRoute: Identifiable, Hashable, Codable {
     let idStr: String
     let name: String
     let distance: Double
     let type: Int?
     let isPrivate: Bool?
+    /// When the route was last edited on Strava (ISO 8601), used to spot stale imports.
+    let updatedAt: String?
+    let elevationGain: Double?
+    /// The route's shape at low resolution (Google encoded polyline), for the thumbnail.
+    let summaryPolyline: String?
 
     var id: String { idStr }
     var isRun: Bool { type == 2 }
+    var sport: RouteSport { isRun ? .run : .ride }
 
     enum CodingKeys: String, CodingKey {
-        case idStr = "id_str", name, distance, type, isPrivate = "private"
+        case idStr = "id_str", name, distance, type, isPrivate = "private",
+             updatedAt = "updated_at", elevationGain = "elevation_gain", map
+    }
+
+    enum MapKeys: String, CodingKey {
+        case summaryPolyline = "summary_polyline"
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        idStr = try c.decode(String.self, forKey: .idStr)
+        name = try c.decodeIfPresent(String.self, forKey: .name) ?? "Route"
+        distance = try c.decodeIfPresent(Double.self, forKey: .distance) ?? 0
+        type = try c.decodeIfPresent(Int.self, forKey: .type)
+        isPrivate = try c.decodeIfPresent(Bool.self, forKey: .isPrivate)
+        updatedAt = try c.decodeIfPresent(String.self, forKey: .updatedAt)
+        elevationGain = try c.decodeIfPresent(Double.self, forKey: .elevationGain)
+        let map = try? c.nestedContainer(keyedBy: MapKeys.self, forKey: .map)
+        summaryPolyline = try map?.decodeIfPresent(String.self, forKey: .summaryPolyline)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(idStr, forKey: .idStr)
+        try c.encode(name, forKey: .name)
+        try c.encode(distance, forKey: .distance)
+        try c.encodeIfPresent(type, forKey: .type)
+        try c.encodeIfPresent(isPrivate, forKey: .isPrivate)
+        try c.encodeIfPresent(updatedAt, forKey: .updatedAt)
+        try c.encodeIfPresent(elevationGain, forKey: .elevationGain)
+        var map = c.nestedContainer(keyedBy: MapKeys.self, forKey: .map)
+        try map.encodeIfPresent(summaryPolyline, forKey: .summaryPolyline)
     }
 }
 
@@ -310,6 +347,7 @@ final class StravaAccount: ObservableObject {
         var request = URLRequest(url: URL(string: "https://www.strava.com/api/v3/\(path)")!)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.timeoutInterval = 30
+        request.cachePolicy = .reloadIgnoringLocalCacheData
         let (data, response) = try await URLSession.shared.data(for: request)
         try check(response, data)
         return data

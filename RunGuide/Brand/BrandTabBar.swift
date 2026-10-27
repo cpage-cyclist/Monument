@@ -35,14 +35,15 @@ enum AppTab: CaseIterable, Hashable {
 
 /// Forest green tab bar with white icons; the selected tab is full white, the rest dimmed.
 struct BrandTabBar: View {
-    @Binding var selection: AppTab
+    let selection: AppTab
+    let onSelect: (AppTab) -> Void
 
     var body: some View {
         HStack(spacing: 0) {
             ForEach(AppTab.allCases, id: \.self) { tab in
                 let selected = tab == selection
                 Button {
-                    selection = tab
+                    onSelect(tab)
                 } label: {
                     VStack(spacing: 4) {
                         Image(systemName: tab.icon)

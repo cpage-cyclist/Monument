@@ -56,7 +56,9 @@ enum Brand {
         /// The stack sits this far below its natural position, trimming Roubaix's flat base.
         static let stackDrop: CGFloat = 14
         /// Pull distance that triggers a refresh.
-        static let refreshPull: CGFloat = 110
+        static let refreshPull: CGFloat = 90
+        /// How far the ridges stay parted while a refresh runs, once the finger lets go.
+        static let refreshingSpread: CGFloat = -0.7
         static let maxPull: CGFloat = 160
         /// The ridges are drawn wider than the screen so a spread never shows an edge.
         static let bleed: CGFloat = 1.18

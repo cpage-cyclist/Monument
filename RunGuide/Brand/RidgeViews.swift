@@ -143,8 +143,22 @@ struct MedalFill<S: Shape>: View {
     }
 }
 
-/// A best-effort medal. This year's top three: the logotype's slanted bar in gold, silver or
-/// bronze. All-time top three: inverted – a solid metal badge with the bar cut out of it.
+/// The logotype's gold bar as Monument's "done" mark: a refresh landing, a route added, a new best.
+/// One shape everywhere, so it reads as the app's own tick.
+struct SuccessBar: View {
+    var medal: Brand.Medal = .gold
+    var width: CGFloat = 22
+    var height: CGFloat = 8
+
+    var body: some View {
+        MedalFill(medal: medal, shape: SlantBar())
+            .frame(width: width, height: height)
+            .accessibilityHidden(true)
+    }
+}
+
+/// A best-effort medal, built from the same bar. This year's top three: one slanted bar in gold,
+/// silver or bronze. All-time top three: the logotype's pair of bars side by side.
 struct MedalBadge: View {
     let medal: EffortMedal
 
@@ -153,27 +167,20 @@ struct MedalBadge: View {
     var body: some View {
         Group {
             if medal.period == .allTime {
-                MedalFill(medal: metal, shape: RoundedRectangle(cornerRadius: 3))
-                    .frame(width: 20, height: 13)
-                    .mask {
-                        ZStack {
-                            Rectangle()
-                            SlantBar()
-                                .frame(width: 10, height: 5)
-                                .blendMode(.destinationOut)
-                        }
-                        .compositingGroup()
-                    }
+                HStack(spacing: 2) {
+                    SuccessBar(medal: metal, width: 12, height: 7)
+                    SuccessBar(medal: metal, width: 12, height: 7)
+                }
             } else {
-                MedalFill(medal: metal, shape: SlantBar())
-                    .frame(width: 14, height: 6)
+                SuccessBar(medal: metal, width: 14, height: 6)
             }
         }
+        .accessibilityElement()
         .accessibilityLabel(medal.description)
     }
 }
 
-/// The slanted bar from the logotype, as a shape (used for the tab indicator and medal tags).
+/// The slanted bar from the logotype, as a shape (the success mark and medal tags).
 struct SlantBar: Shape {
     var slant: CGFloat = 0.27
 

@@ -17,6 +17,8 @@ struct PullRidgeHeader<Accessory: View>: View {
     /// The page's name in Akira; nil shows the MONUMENT wordmark.
     var title: String? = nil
     var refreshing: Bool
+    /// Briefly true once a refresh lands: the gold bar slides in after the title.
+    var confirmed: Bool = false
     @ViewBuilder var accessory: Accessory
 
     var body: some View {
@@ -25,13 +27,20 @@ struct PullRidgeHeader<Accessory: View>: View {
             let minY = geo.frame(in: .named(BrandScroll.space)).minY
             let pull = max(0, minY)
             let pulled = Brand.Header.spread(forPull: pull)
-            let spread = refreshing ? min(pulled, Brand.Header.restSpread * 0.2) : pulled
+            let spread = refreshing ? min(pulled, Brand.Header.refreshingSpread) : pulled
             ZStack(alignment: .topLeading) {
                 RidgeBackdrop(spread: spread)
                 Group {
                     if let title {
-                        AkiraTitle(text: title)
-                            .frame(maxWidth: geo.size.width - 90, alignment: .leading)
+                        HStack(alignment: .center, spacing: 12) {
+                            AkiraTitle(text: title)
+                            if confirmed {
+                                SuccessBar()
+                                    .transition(.move(edge: .leading).combined(with: .opacity))
+                            }
+                        }
+                        .frame(maxWidth: geo.size.width - 90, alignment: .leading)
+                        .animation(.snappy(duration: 0.35), value: confirmed)
                     } else {
                         Wordmark().frame(width: Brand.Header.wordmarkWidth)
                     }
@@ -83,7 +92,10 @@ struct CollapsedRidgeBar: View {
 /// Fires once each time a pull passes the threshold, then re-arms when the page settles.
 final class PullToRefresh: ObservableObject {
     @Published private(set) var refreshing = false
+    /// Shows the success bar for a moment after a refresh lands.
+    @Published private(set) var confirmed = false
     private var armed = true
+    private static let minimumHold: TimeInterval = 0.7
 
     func update(offset: CGFloat, action: @escaping () async -> Void) {
         if offset < 8 { armed = true }
@@ -92,8 +104,19 @@ final class PullToRefresh: ObservableObject {
         refreshing = true
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         Task { @MainActor in
+            // Hold the ridges parted for a beat even when the answer comes back at once, so a
+            // refresh always reads as one.
+            let started = Date()
             await action()
+            let held = Date().timeIntervalSince(started)
+            if held < Self.minimumHold {
+                try? await Task.sleep(nanoseconds: UInt64((Self.minimumHold - held) * 1_000_000_000))
+            }
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
             self.refreshing = false
+            self.confirmed = true
+            try? await Task.sleep(nanoseconds: 1_400_000_000)
+            self.confirmed = false
         }
     }
 }

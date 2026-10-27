@@ -40,7 +40,7 @@ struct PreviewView: View {
                 SensorStatus(sport: sport, tracker: tracker, power: sensors.power, cadence: sensors.cadence)
             }
 
-            RoutePickerSection(routeID: $routeID, loop: $loop)
+            RoutePickerSection(routeID: $routeID, loop: $loop, sport: sport)
 
             if workout.steps.isEmpty {
                 Section {
@@ -71,6 +71,7 @@ struct PreviewView: View {
         .navigationBarTitleDisplayMode(.inline)
         .safeAreaInset(edge: .bottom) {
             Button {
+                if let routeID { routes.markUsed(routeID) }
                 running = true
             } label: {
                 Text("Start")

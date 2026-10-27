@@ -41,33 +41,42 @@ struct RunGuideApp: App {
     }
 }
 
-/// Tabs: Today, the calendar, activities from Intervals, and Record.
+/// Tabs: Today, Calendar, Activities, Record and Rider.
 /// A custom container rather than TabView, so the brand tab bar can rise in with the launch animation.
-/// All four tabs stay alive so each keeps its scroll position and navigation.
+/// Every tab stays alive so each keeps its scroll position and navigation.
 struct RootView: View {
     @StateObject private var launch = LaunchState()
     @State private var showSplash = true
     @State private var tab: AppTab = .today
+    /// The page sliding out and the one sliding in while a switch is under way.
+    @State private var leaving: AppTab?
+    @State private var incoming: AppTab?
+    /// +1 when the new tab sits to the right of the old one in the tab bar, -1 to the left.
+    @State private var direction: CGFloat = 1
 
     var body: some View {
         ZStack {
             // The pages end at the top of the tab bar, so nothing scrolls underneath it.
             VStack(spacing: 0) {
-                ZStack {
-                    page(.today) { TodayView() }
-                    page(.calendar) { CalendarView() }
-                    page(.activities) { ActivitiesView() }
-                    page(.record) { RecordView() }
-                    page(.rider) { RiderView() }
+                GeometryReader { geo in
+                    let width = geo.size.width
+                    ZStack {
+                        page(.today, width: width) { TodayView() }
+                        page(.calendar, width: width) { CalendarView() }
+                        page(.activities, width: width) { ActivitiesView() }
+                        page(.record, width: width) { RecordView() }
+                        page(.rider, width: width) { RiderView() }
+                    }
+                    .frame(width: width, height: geo.size.height)
                 }
-                BrandTabBar(selection: $tab)
+                BrandTabBar(selection: tab, onSelect: select)
                     .offset(y: launch.revealed ? 0 : 140)
             }
             .background(Brand.forest.ignoresSafeArea())
             .tint(Brand.accent)
             .font(.brand(.body))
             .environmentObject(launch)
-            .environment(\.switchTab) { tab = $0 }
+            .environment(\.switchTab, select)
 
             if showSplash {
                 LaunchSplash(launch: launch, title: AppTab.today.title) { showSplash = false }
@@ -75,22 +84,45 @@ struct RootView: View {
         }
     }
 
-    /// Each page stays alive; switching tabs slides the new one in from the side it sits on in the
-    /// tab bar, and the old one out the other way.
-    private func page<Content: View>(_ which: AppTab, @ViewBuilder _ content: () -> Content) -> some View {
+    /// A full-width push: the new page slides in from the side it sits on in the tab bar while the
+    /// old one slides out the other way, both moving together. Only those two pages are drawn;
+    /// the rest wait off screen, hidden. Nothing fades, so there's no half-transparent overlap.
+    private func page<Content: View>(_ which: AppTab, width: CGFloat,
+                                     @ViewBuilder _ content: () -> Content) -> some View {
         let shown = tab == which
-        let order = AppTab.allCases
-        let here = order.firstIndex(of: which) ?? 0
-        let selected = order.firstIndex(of: tab) ?? 0
-        let side: CGFloat = here < selected ? -1 : 1
+        let drawn = shown || which == leaving || which == incoming
+        let x: CGFloat = shown ? 0 : (which == leaving ? -direction : direction) * width
         return content()
-            .offset(x: shown ? 0 : side * slide)
-            .opacity(shown ? 1 : 0)
+            .offset(x: x)
+            .opacity(drawn ? 1 : 0)
             .allowsHitTesting(shown)
             .accessibilityHidden(!shown)
-            .animation(.snappy(duration: 0.32), value: tab)
     }
 
-    /// How far a page travels when it slides in or out.
-    private let slide: CGFloat = 90
+    private func select(_ new: AppTab) {
+        guard new != tab else { return }
+        let order = AppTab.allCases
+        let forward = (order.firstIndex(of: new) ?? 0) > (order.firstIndex(of: tab) ?? 0)
+        // First, with no animation, park the incoming page just off the side it comes from and
+        // keep the current one drawn...
+        var still = Transaction()
+        still.disablesAnimations = true
+        withTransaction(still) {
+            direction = forward ? 1 : -1
+            leaving = tab
+            incoming = new
+        }
+        // ...then, on the next frame, push both together.
+        DispatchQueue.main.async {
+            withAnimation(Self.push) {
+                tab = new
+            } completion: {
+                guard tab == new else { return }
+                leaving = nil
+                incoming = nil
+            }
+        }
+    }
+
+    private static let push = Animation.smooth(duration: 0.3)
 }

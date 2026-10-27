@@ -122,7 +122,7 @@ Fixed choices for Monument (formerly Run Guide). Change one only on purpose, and
   selection from the readout, double-tap or Reset for the whole ride; a zoomed chart shows an
   overview strip to pan along.
 - **Medals** mark peak efforts that rank 1st, 2nd or 3rd over the last year (slanted gold/silver/
-  bronze bar) or all time (inverted: solid metal badge with the bar cut out). All time outranks
+  bronze bar) or all time (the logotype's pair of bars side by side). All time outranks
   year. Ranks come from Intervals' `power-curves` with `curves=1y,all&subMaxEfforts=2`.
 
 ## Visual direction (October 2026 review)
@@ -138,10 +138,26 @@ Fixed choices for Monument (formerly Run Guide). Change one only on purpose, and
 - **Ridge footer**: at the bottom of a scrolling page the ridges darken into forest to meet the tab
   bar, carrying the MONUMENT ALMANAC lockup. It doubles as pull up to load more (older activities).
   The Record live screen uses the same footer behind Pause, Lap and End.
-- **Tab changes slide** in the direction of travel.
+- **Tab changes slide** in the direction of travel: a full-width push of just the two pages
+  involved, moving together, with no crossfade.
+- **The gold bar is Monument's success mark**: the logotype's slanted bar, one shape everywhere –
+  it slides in after the page title when a pull-to-refresh lands, marks a Strava route that's on
+  the phone, and makes up the best-effort medals.
 - **One Akira hero per screen**: Today form, Calendar the selected week's load, Activity NP,
   Record the countdown, Rider FTP W/kg.
 - **Fitness, fatigue and form colours**: fitness forest, fatigue bronze, form gold, on the Calendar
   chart and Today's figures alike. Cards showing coloured data sit on white.
 - Every screen comes into the Monument style, including Record's start and summary screens,
   Library and Settings (no stock iOS grey lists).
+
+## Routes (October 2026)
+
+- The **Strava route list is kept on the phone** and opens from that copy; it's refetched only
+  when over 12 hours old or on a pull down. Each route's **thumbnail is its shape** from Strava's
+  summary polyline (no map tiles, no GPX download), and routes on the phone keep a thinned outline
+  of their own. A route edited on Strava since import is flagged to update.
+- **Record shows the last three routes for the chosen sport** (most recently used or added), then
+  one link to the full **route library**: search, Runs / Rides / All, swipe to rename or delete,
+  and the ways to add more (Strava, GPX/TCX file). Files with no sport show under both.
+- Intervals and Strava requests never answer from the system URL cache; the app's own cache
+  decides freshness, so a forced refresh always goes to the network.
