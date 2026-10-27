@@ -110,14 +110,6 @@ struct CalendarView: View {
             .overlay {
                 if calendar.loading && calendar.data(for: month) == nil { ProgressView() }
             }
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 30)
-                    .onEnded { value in
-                        let dx = value.translation.width, dy = value.translation.height
-                        guard abs(dx) > 80, abs(dx) > abs(dy) * 2 else { return }
-                        shift(dx < 0 ? 1 : -1)
-                    }
-            )
             .task(id: month.first) {
                 guard settings.hasCredentials else { return }
                 async let m: Void = calendar.load(month)
@@ -204,7 +196,7 @@ struct CalendarView: View {
             Image(systemName: "arrow.left.arrow.right")
             VStack(alignment: .leading, spacing: 1) {
                 Text("Moving \(event.name ?? "session")").font(.brand(.subheadline, weight: .bold))
-                Text("Tap a day, or swipe to another month").font(.brand(.caption)).opacity(0.8)
+                Text("Tap a day, or use the arrows for another month").font(.brand(.caption)).opacity(0.8)
             }
             Spacer(minLength: 0)
             Button("Pick date") { pickingDate = event }
@@ -540,6 +532,7 @@ struct FitnessStripCard: View {
         .chartXAxis(.hidden)
         .chartYAxis { AxisMarks(position: .leading, values: .automatic(desiredCount: 3)) }
         .chartXSelection(value: $scrubDate)
+        .blocksTabSwipe()
         .frame(height: 96)
     }
 
@@ -569,6 +562,7 @@ struct FitnessStripCard: View {
         }
         .chartYAxis { AxisMarks(position: .leading, values: .automatic(desiredCount: 3)) }
         .chartXSelection(value: $scrubDate)
+        .blocksTabSwipe()
         .frame(height: 70)
     }
 

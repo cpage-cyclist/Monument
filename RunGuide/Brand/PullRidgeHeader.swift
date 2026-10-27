@@ -97,12 +97,16 @@ final class PullToRefresh: ObservableObject {
     private var armed = true
     private static let minimumHold: TimeInterval = 0.7
 
+    /// Kept warm during a pull so the tap at the threshold lands the instant it's reached.
+    private let thud = UIImpactFeedbackGenerator(style: .rigid)
+
     func update(offset: CGFloat, action: @escaping () async -> Void) {
         if offset < 8 { armed = true }
+        if armed, offset > Brand.Header.refreshPull * 0.5 { thud.prepare() }
         guard offset > Brand.Header.refreshPull, armed, !refreshing else { return }
         armed = false
         refreshing = true
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        thud.impactOccurred(intensity: 1)
         Task { @MainActor in
             // Hold the ridges parted for a beat even when the answer comes back at once, so a
             // refresh always reads as one.

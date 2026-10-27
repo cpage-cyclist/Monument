@@ -77,3 +77,48 @@ extension EnvironmentValues {
         set { self[SwitchTabKey.self] = newValue }
     }
 }
+
+/// Swiping sideways between tabs. The root owns it and lays the pages out from `drag`; each
+/// top-level page (`BrandScrollPage`) feeds it its horizontal drags. Passed as a plain environment
+/// value rather than an observed object, so a drag only redraws the root, not every page.
+final class TabPager: ObservableObject {
+    /// How far the current page is dragged sideways (negative = towards the next tab).
+    @Published var drag: CGFloat = 0
+    /// The neighbouring tab peeking in during a drag.
+    @Published var peek: AppTab?
+
+    /// Set while a touch is on something that drags sideways itself (a scrubbable chart).
+    var blocked = false
+
+    var changed: (CGFloat) -> Void = { _ in }
+    var ended: (_ translation: CGFloat, _ predicted: CGFloat, _ width: CGFloat) -> Void = { _, _, _ in }
+}
+
+private struct TabPagerKey: EnvironmentKey {
+    static let defaultValue: TabPager? = nil
+}
+
+extension EnvironmentValues {
+    var tabPager: TabPager? {
+        get { self[TabPagerKey.self] }
+        set { self[TabPagerKey.self] = newValue }
+    }
+}
+
+extension View {
+    /// For views that use sideways drags themselves, like a scrubbable chart: a drag that starts
+    /// here never swipes to another tab.
+    func blocksTabSwipe() -> some View { modifier(BlocksTabSwipe()) }
+}
+
+private struct BlocksTabSwipe: ViewModifier {
+    @Environment(\.tabPager) private var pager
+
+    func body(content: Content) -> some View {
+        content.simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in pager?.blocked = true }
+                .onEnded { _ in pager?.blocked = false }
+        )
+    }
+}

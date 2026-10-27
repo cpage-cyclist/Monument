@@ -139,7 +139,11 @@ Fixed choices for Monument (formerly Run Guide). Change one only on purpose, and
   bar, carrying the MONUMENT ALMANAC lockup. It doubles as pull up to load more (older activities).
   The Record live screen uses the same footer behind Pause, Lap and End.
 - **Tab changes slide** in the direction of travel: a full-width push of just the two pages
-  involved, moving together, with no crossfade.
+  involved, moving together, with no crossfade. **Swiping sideways** on any of the five main pages
+  does the same, following the finger (a short fling is enough); pushed screens don't swipe, so
+  the system back-swipe and chart gestures are untouched. The Calendar no longer swipes between
+  months (arrows only), and its scrubbable charts never start a tab swipe.
+- **Pull-to-refresh taps** (a firm haptic) the moment the pull passes the trigger point.
 - **The gold bar is Monument's success mark**: the logotype's slanted bar, one shape everywhere –
   it slides in after the page title when a pull-to-refresh lands, marks a Strava route that's on
   the phone, and makes up the best-effort medals.

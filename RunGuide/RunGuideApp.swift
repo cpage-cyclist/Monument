@@ -53,6 +53,7 @@ struct RootView: View {
     @State private var incoming: AppTab?
     /// +1 when the new tab sits to the right of the old one in the tab bar, -1 to the left.
     @State private var direction: CGFloat = 1
+    @StateObject private var pager = TabPager()
 
     var body: some View {
         ZStack {
@@ -77,6 +78,11 @@ struct RootView: View {
             .font(.brand(.body))
             .environmentObject(launch)
             .environment(\.switchTab, select)
+            .environment(\.tabPager, pager)
+            .onAppear {
+                pager.changed = { dragged($0) }
+                pager.ended = { endDrag($0, predicted: $1, width: $2) }
+            }
 
             if showSplash {
                 LaunchSplash(launch: launch, title: AppTab.today.title) { showSplash = false }
@@ -90,13 +96,72 @@ struct RootView: View {
     private func page<Content: View>(_ which: AppTab, width: CGFloat,
                                      @ViewBuilder _ content: () -> Content) -> some View {
         let shown = tab == which
-        let drawn = shown || which == leaving || which == incoming
-        let x: CGFloat = shown ? 0 : (which == leaving ? -direction : direction) * width
+        let drawn = shown || which == leaving || which == incoming || which == pager.peek
+        let x: CGFloat
+        if shown {
+            x = pager.drag
+        } else if which == leaving {
+            x = -direction * width
+        } else if which == pager.peek {
+            x = pager.drag + side(of: which) * width
+        } else {
+            x = direction * width
+        }
         return content()
             .offset(x: x)
             .opacity(drawn ? 1 : 0)
             .allowsHitTesting(shown)
             .accessibilityHidden(!shown)
+    }
+
+    private func index(_ t: AppTab) -> Int { AppTab.allCases.firstIndex(of: t) ?? 0 }
+
+    /// +1 if `t` sits right of the current tab in the tab bar, -1 if left.
+    private func side(of t: AppTab) -> CGFloat { index(t) > index(tab) ? 1 : -1 }
+
+    private func neighbour(_ step: Int) -> AppTab? {
+        let order = AppTab.allCases
+        let i = index(tab) + step
+        return order.indices.contains(i) ? order[i] : nil
+    }
+
+    // MARK: Swiping between tabs
+
+    private func dragged(_ dx: CGFloat) {
+        guard leaving == nil else { return }
+        let next = neighbour(dx < 0 ? 1 : -1)
+        if next != pager.peek {
+            var still = Transaction()
+            still.disablesAnimations = true
+            withTransaction(still) { pager.peek = next }
+        }
+        // Past the first or last tab there's nothing to show, so the page only gives a little.
+        pager.drag = next == nil ? dx / 4 : dx
+    }
+
+    private func endDrag(_ dx: CGFloat, predicted: CGFloat, width: CGFloat) {
+        let flung = abs(predicted) > width * 0.5 && predicted.sign == dx.sign
+        if let next = pager.peek, abs(dx) > width * 0.3 || flung {
+            // Carry on from where the finger left both pages.
+            withAnimation(Self.push) {
+                direction = side(of: next)
+                leaving = tab
+                incoming = next
+                tab = next
+                pager.peek = nil
+                pager.drag = 0
+            } completion: {
+                guard tab == next else { return }
+                leaving = nil
+                incoming = nil
+            }
+        } else {
+            withAnimation(Self.push) {
+                pager.drag = 0
+            } completion: {
+                if pager.drag == 0 { pager.peek = nil }
+            }
+        }
     }
 
     private func select(_ new: AppTab) {

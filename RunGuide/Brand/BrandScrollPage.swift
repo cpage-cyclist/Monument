@@ -17,6 +17,9 @@ struct BrandScrollPage<Title: View, Accessory: View, Content: View>: View {
     @State private var headerOffset: CGFloat = 0
     @State private var overscroll: CGFloat = 0
     @EnvironmentObject private var launch: LaunchState
+    @Environment(\.tabPager) private var pager
+    /// Whether the current drag has been claimed as a sideways swipe between tabs.
+    @State private var swipe: Bool?
 
     init(_ pageTitle: String,
          onRefresh: @escaping () async -> Void,
@@ -86,6 +89,22 @@ struct BrandScrollPage<Title: View, Accessory: View, Content: View>: View {
                 overscroll = showsFooter ? max(0, visibleBottom - frame.bottom) : 0
                 loader.update(overscroll: overscroll, action: onLoadMore)
             }
+            // Sideways drags swipe between tabs; anything mostly vertical is left to the scroll view.
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 16)
+                    .onChanged { v in
+                        let dx = v.translation.width, dy = v.translation.height
+                        if swipe == nil { swipe = pager?.blocked != true && abs(dx) > abs(dy) * 1.6 }
+                        if swipe == true { pager?.changed(dx) }
+                    }
+                    .onEnded { v in
+                        if swipe == true {
+                            pager?.ended(v.translation.width, v.predictedEndTranslation.width, outer.size.width)
+                        }
+                        swipe = nil
+                        pager?.blocked = false
+                    }
+            )
             .overlay(alignment: .top) {
                 CollapsedRidgeBar(topInset: outer.safeAreaInsets.top, offset: headerOffset, title: pageTitle)
                     .ignoresSafeArea(edges: .top)
