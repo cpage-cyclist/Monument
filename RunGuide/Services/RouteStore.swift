@@ -121,7 +121,7 @@ final class RouteStore: ObservableObject {
     }
 
     /// Import route file contents (e.g. a GPX downloaded from Strava).
-    /// Re-importing the same Strava route replaces the old copy, keeping its name and history.
+    /// Re-importing the same Strava route replaces the old copy, keeping when it was last used.
     @discardableResult
     func importRoute(data: Data, fileExtension: String = "gpx", fallbackName: String,
                      strava: StravaRoute? = nil) -> SavedRoute? {
@@ -132,17 +132,17 @@ final class RouteStore: ObservableObject {
             let id = UUID()
             let fileName = "\(id.uuidString).\(fileExtension)"
             try data.write(to: folder.appendingPathComponent(fileName), options: .atomic)
-            let saved = SavedRoute(id: id, fileName: fileName, name: route.name, length: route.length,
+            let added = SavedRoute(id: id, fileName: fileName, name: route.name, length: route.length,
                                    isLoop: route.isLoop, turnCount: route.turns.count, importedAt: Date(),
                                    stravaID: strava?.id, stravaUpdatedAt: strava?.updatedAt,
                                    sport: strava?.sport,
                                    outline: RouteOutline.simplify(route.points, maxPoints: Self.outlinePoints),
                                    lastUsedAt: previous?.lastUsedAt)
-            routes.insert(saved, at: 0)
+            routes.insert(added, at: 0)
             cache[id] = route
             persist()
             lastError = nil
-            return saved
+            return added
         } catch {
             lastError = error.localizedDescription
             return nil
