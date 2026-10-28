@@ -121,6 +121,10 @@ Fixed choices for Monument (formerly Run Guide). Change one only on purpose, and
   and a fixed bottom panel whose tabs page rather than scroll. **Pinch to zoom**, zoom to a
   selection from the readout, double-tap or Reset for the whole ride; a zoomed chart shows an
   overview strip to pan along.
+- **Laps are the device's own laps by default**, read from the activity's original FIT
+  (`/activity/{id}/file`), with every figure worked out from the streams. A toggle in the Laps tab
+  switches to Intervals' detected intervals, and the app falls back to them when there's no
+  original file (Strava imports) or only one lap.
 - **Medals** mark peak efforts that rank 1st, 2nd or 3rd over the last year (slanted gold/silver/
   bronze bar) or all time (inverted: solid metal badge with the bar cut out). All time outranks
   year. Ranks come from Intervals' `power-curves` with `curves=1y,all&subMaxEfforts=2`.

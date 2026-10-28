@@ -95,6 +95,33 @@ final class ActivityLibrary: ObservableObject {
         }
     }
 
+    /// The laps the device recorded, from the activity's original file. Nil when there's no
+    /// original to read (Strava imports, non-FIT uploads) or it couldn't be fetched.
+    func deviceLaps(id: String) async -> [DeviceLap]? {
+        let key = CacheKey.laps(id)
+        if let cached = cache.read(key), let laps = try? JSONDecoder().decode([DeviceLap].self, from: cached.data) {
+            return laps.isEmpty ? nil : laps
+        }
+        let data: Data
+        do {
+            data = try await clientProvider().originalFileData(id: id)
+        } catch IntervalsError.notFound {
+            remember([], for: key)
+            return nil
+        } catch {
+            return nil // offline or rate limited: try again next time
+        }
+        let laps = await Task.detached(priority: .userInitiated) { (try? FITLapReader.laps(from: data)) ?? [] }.value
+        remember(laps, for: key)
+        return laps.isEmpty ? nil : laps
+    }
+
+    private func remember(_ laps: [DeviceLap], for key: String) {
+        guard let data = try? JSONEncoder().encode(laps) else { return }
+        cache.write(data, for: key)
+        cache.trim(prefix: CacheKey.lapsPrefix, keep: 200)
+    }
+
     /// Streams from the cache, or from Intervals the first time.
     func streams(id: String) async throws -> ActivityStreams {
         let key = CacheKey.streams(id)

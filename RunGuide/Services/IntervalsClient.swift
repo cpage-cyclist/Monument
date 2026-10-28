@@ -80,6 +80,12 @@ struct IntervalsClient {
         try await send("GET", "/activity/\(Self.escape(id))", query: ["intervals": "true"])
     }
 
+    /// The activity's original upload (usually a gzipped FIT), which holds the device's own laps.
+    /// Strava-imported activities have no file here and come back as not found.
+    func originalFileData(id: String) async throws -> Data {
+        try await send("GET", "/activity/\(Self.escape(id))/file", accept: "*/*", timeout: 30)
+    }
+
     /// Raw JSON for an activity's streams.
     func streamsData(id: String, types: [StreamType] = StreamType.activityView) async throws -> Data {
         var names = types.map(\.rawValue)
@@ -273,7 +279,7 @@ struct IntervalsClient {
 
     private func send(_ method: String, _ path: String, query: [String: String] = [:],
                       json: Data? = nil, body: Data? = nil, contentType: String? = nil,
-                      timeout: TimeInterval = 20) async throws -> Data {
+                      accept: String = "application/json", timeout: TimeInterval = 20) async throws -> Data {
         guard !athleteId.isEmpty, !apiKey.isEmpty else { throw IntervalsError.missingCredentials }
 
         var components = URLComponents(string: Self.base + path)!
@@ -285,7 +291,7 @@ struct IntervalsClient {
         request.httpMethod = method
         let token = Data("API_KEY:\(apiKey)".utf8).base64EncodedString()
         request.setValue("Basic \(token)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue(accept, forHTTPHeaderField: "Accept")
         request.timeoutInterval = timeout
 
         let payload = json ?? body

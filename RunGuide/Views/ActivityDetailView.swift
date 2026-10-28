@@ -12,6 +12,8 @@ struct ActivityDetailView: View {
     @EnvironmentObject private var library: ActivityLibrary
     @AppStorage("chartSmoothing") private var smoothingRaw = Smoothing.s3.rawValue
     @AppStorage("wbalSource") private var wbalSourceRaw = WbalSource.intervals.rawValue
+    /// Laps panel: the device's own laps (default) or Intervals' detected intervals.
+    @AppStorage("lapsFromDevice") private var lapsFromDevice = true
 
     /// Whose W'bal the chart, efforts and breakdown use.
     enum WbalSource: String, CaseIterable, Identifiable {
@@ -65,9 +67,29 @@ struct ActivityDetailView: View {
     @State private var profile: PowerProfile?
     @State private var profileLoaded = false
     @State private var ranks: BestEffortRanks?
+    @State private var deviceLaps: [DeviceLap]?
+    @State private var deviceLapRows: [ActivityInterval]?
 
     private var smoothing: Smoothing { Smoothing(rawValue: smoothingRaw) ?? .s3 }
     private var wbalSource: WbalSource { WbalSource(rawValue: wbalSourceRaw) ?? .intervals }
+
+    /// True when the device recorded laps worth offering instead of Intervals' detection.
+    private var hasDeviceLaps: Bool { deviceLapRows.map { $0.count > 1 } ?? false }
+
+    /// What the laps panel and lap selections use.
+    private var laps: [ActivityInterval] {
+        if lapsFromDevice, hasDeviceLaps, let rows = deviceLapRows { return rows }
+        return detail?.intervals ?? []
+    }
+
+    private func refreshDeviceLapRows() {
+        guard DeviceLaps.useful(deviceLaps), let deviceLaps, let analysis else {
+            deviceLapRows = nil
+            return
+        }
+        deviceLapRows = DeviceLaps.intervals(deviceLaps, streams: analysis.streams, timeline: analysis.stack.timeline,
+                                             ftp: current.ftp, weight: current.weight, isRun: current.isRun)
+    }
     private var current: ActivitySummary { detail?.summary ?? summary }
 
     /// Bottom panel tabs.
@@ -157,6 +179,10 @@ struct ActivityDetailView: View {
         .onChange(of: smoothingRaw) { _, _ in Task { await rebuild() } }
         .onChange(of: summary.id) { _, _ in window = nil }
         .onChange(of: wbalSourceRaw) { _, _ in Task { await rebuild() } }
+        .onChange(of: lapsFromDevice) { _, _ in
+            if case .lap = selection { selection = nil }
+            updateBreakdown()
+        }
         .onChange(of: selection) { _, new in
             updateBreakdown()
             if new != nil { withAnimation { tab = .selection } }
@@ -327,14 +353,23 @@ struct ActivityDetailView: View {
 
     @ViewBuilder
     private var lapsPanel: some View {
-        if let detail, !detail.intervals.isEmpty {
+        let laps = self.laps
+        if !laps.isEmpty {
             VStack(alignment: .leading, spacing: 4) {
+                if hasDeviceLaps {
+                    Picker("Laps from", selection: $lapsFromDevice) {
+                        Text("Laps").tag(true)
+                        Text("Intervals detected").tag(false)
+                    }
+                    .pickerStyle(.segmented)
+                    .controlSize(.small)
+                }
                 LapRow.header(isRun: current.isRun)
-                FitPager(items: detail.intervals.indices.map { LapItem(index: $0) }, columns: 1, rowHeight: 32) { item in
+                FitPager(items: laps.indices.map { LapItem(index: $0) }, columns: 1, rowHeight: 32) { item in
                     Button {
                         lapBinding.wrappedValue = lapBinding.wrappedValue == item.index ? nil : item.index
                     } label: {
-                        LapRow(index: item.index, lap: detail.intervals[item.index], isRun: current.isRun,
+                        LapRow(index: item.index, lap: laps[item.index], isRun: current.isRun,
                                selected: lapBinding.wrappedValue == item.index)
                     }
                     .buttonStyle(.plain)
@@ -413,7 +448,7 @@ struct ActivityDetailView: View {
             guard let e = analysis?.wbal?.efforts[safe: i], e.endIndex > e.startIndex else { return nil }
             return e.startIndex...e.endIndex
         case .lap(let i):
-            guard let lap = detail?.intervals[safe: i] else { return nil }
+            guard let lap = laps[safe: i] else { return nil }
             if let s = lap.startIndex, let e = lap.endIndex, timeline.x.indices.contains(s), timeline.x.indices.contains(e), e > s {
                 return s...e
             }
@@ -435,7 +470,7 @@ struct ActivityDetailView: View {
         case nil:
             return "Whole activity"
         case .lap(let i):
-            return detail?.intervals[safe: i]?.label ?? "Lap \(i + 1)"
+            return laps[safe: i]?.label ?? "Lap \(i + 1)"
         case .peak(let seconds):
             guard let p = analysis.peaks.first(where: { $0.seconds == seconds }) else { return "Peak" }
             return "Best \(p.label) · \(Int(p.watts.rounded())) W"
@@ -474,6 +509,10 @@ struct ActivityDetailView: View {
         if let fresh = try? await library.detail(id: id, force: force) {
             detail = fresh
             updateBreakdown()
+        }
+        if deviceLaps == nil, !summary.isStravaPlaceholder {
+            deviceLaps = await library.deviceLaps(id: id)
+            refreshDeviceLapRows()
         }
         if !profileLoaded, streams?.has(.watts) == true, !current.isRun {
             profile = await library.profile(for: current)
@@ -530,6 +569,7 @@ struct ActivityDetailView: View {
             return Analysis(stack: stack, peaks: peaks, wbal: wbal, streams: streams,
                             comparison: comparison, usingMonument: usingMonument)
         }.value
+        refreshDeviceLapRows()
         updateBreakdown()
     }
 }

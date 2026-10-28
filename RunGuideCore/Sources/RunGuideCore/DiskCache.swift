@@ -85,4 +85,7 @@ public enum CacheKey {
 
     public static func streams(_ id: String) -> String { streamsPrefix + id }
     public static func detail(_ id: String) -> String { detailPrefix + id }
+    public static let lapsPrefix = "laps-"
+    /// Device laps read from an activity's original file (they never change, so kept until trimmed).
+    public static func laps(_ id: String) -> String { lapsPrefix + id }
 }
