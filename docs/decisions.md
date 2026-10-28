@@ -145,3 +145,6 @@ Fixed choices for Monument (formerly Run Guide). Change one only on purpose, and
   chart and Today's figures alike. Cards showing coloured data sit on white.
 - Every screen comes into the Monument style, including Record's start and summary screens,
   Library and Settings (no stock iOS grey lists).
+- **App icon**: the logotype's slanted bar in the gold medal texture over the five monument
+  ridges. Light, dark and tinted versions: white with sage ridges, forest with white ridges, and a
+  greyscale tinted one. The gold bar stays the same in all of them.
