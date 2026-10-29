@@ -152,6 +152,22 @@ public struct ActivityInterval: Decodable, Hashable, Sendable {
     }
 
     public var isWork: Bool { (type ?? "WORK").uppercased() == "WORK" }
+
+    public init(id: Int? = nil, label: String? = nil, type: String? = nil,
+                startIndex: Int? = nil, endIndex: Int? = nil, startTime: Double? = nil, endTime: Double? = nil,
+                movingTime: Double? = nil, elapsedTime: Double? = nil, distance: Double? = nil,
+                averagePower: Double? = nil, normalizedPower: Double? = nil, maxPower: Double? = nil,
+                averageHeartRate: Double? = nil, maxHeartRate: Double? = nil, averageCadence: Double? = nil,
+                averageSpeed: Double? = nil, trainingLoad: Double? = nil, intensity: Double? = nil,
+                decoupling: Double? = nil, zone: Int? = nil, wbalStart: Double? = nil, wbalEnd: Double? = nil) {
+        self.id = id; self.label = label; self.type = type
+        self.startIndex = startIndex; self.endIndex = endIndex; self.startTime = startTime; self.endTime = endTime
+        self.movingTime = movingTime; self.elapsedTime = elapsedTime; self.distance = distance
+        self.averagePower = averagePower; self.normalizedPower = normalizedPower; self.maxPower = maxPower
+        self.averageHeartRate = averageHeartRate; self.maxHeartRate = maxHeartRate; self.averageCadence = averageCadence
+        self.averageSpeed = averageSpeed; self.trainingLoad = trainingLoad; self.intensity = intensity
+        self.decoupling = decoupling; self.zone = zone; self.wbalStart = wbalStart; self.wbalEnd = wbalEnd
+    }
 }
 
 /// /activity/{id}?intervals=true: the summary plus laps/intervals and a few extras.
