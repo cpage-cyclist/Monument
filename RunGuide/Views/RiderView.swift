@@ -101,6 +101,18 @@ struct RiderView: View {
         return effortWeight(efforts.first { $0.seconds == 1200 })
     }
 
+    /// Coggan rider type from the period's 5 s, 1 min and 5 min bests (each over the weight on its
+    /// own day) and FTP over the hero weight. Leads with the duration that stands out.
+    private var riderType: RiderClassification? {
+        var wkg: [Int: Double] = [:]
+        for s in [5, 60, 300] {
+            let e = efforts.first { $0.seconds == s }
+            if let v = e?.wattsPerKg(effortWeight(e)) { wkg[s] = v }
+        }
+        if let ftpWkg { wkg[3600] = ftpWkg }
+        return CogganProfile.classify(wkg)
+    }
+
     private var heroCaption: String {
         source == .monument ? "FTP W/kg · \(monumentLabel)" : "FTP W/kg · Intervals"
     }
@@ -119,13 +131,22 @@ struct RiderView: View {
                 }
                 Spacer(minLength: 8)
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text(ftpWkg.map { String(format: "%.2f", $0) } ?? "–.––")
+                    Text((riderType?.wattsPerKg ?? ftpWkg).map { String(format: "%.2f", $0) } ?? "–.––")
                         .font(.hero(38))
                         .akiraSlant()
                         .foregroundStyle(Brand.wordmark)
-                    Text(heroCaption)
-                        .font(.brand(.caption2, weight: .medium)).foregroundStyle(.secondary)
+                    if let riderType {
+                        Text(riderType.type.rawValue.uppercased())
+                            .font(.brand(.caption, weight: .bold))
+                            .foregroundStyle(Brand.wordmark)
+                        Text("\(riderType.leadLabel) W/kg")
+                            .font(.brand(.caption2, weight: .medium)).foregroundStyle(.secondary)
+                    } else {
+                        Text(heroCaption)
+                            .font(.brand(.caption2, weight: .medium)).foregroundStyle(.secondary)
+                    }
                 }
+                .accessibilityElement(children: .combine)
             }
 
             Hairline()

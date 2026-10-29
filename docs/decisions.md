@@ -75,6 +75,9 @@ Fixed choices for Monument (formerly Run Guide). Change one only on purpose, and
   latest carried forward); the hero uses the day of the period's 20-minute best. The weight Intervals
   stamps on a ride isn't trusted: back-dated weigh-ins only change their own day, so rides in between
   keep a stale default. The app-wide threshold setting still decides workout targets.
+- The **Rider hero is the W/kg where you stand out, with your rider type beneath it**: 5 s, 1 min and
+  5 min bests and Monument's FTP placed on Coggan's power-profile table (men), typed by where the
+  profile peaks (sprinter, pursuiter, time triallist; all-rounder when it's flat, led by FTP).
 - The builder **reads and writes Intervals workout text** (what's in the step text on the web), so
   Intervals still works out time and load and syncs to the head unit. `m` always means minutes;
   metres are written `mtr`. Blocks can repeat, one level deep, as in Intervals.

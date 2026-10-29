@@ -250,3 +250,73 @@ extension RiderCard {
         effort?.activity.flatMap { rideWeights[$0] } ?? fallback
     }
 }
+
+// MARK: - Rider type
+
+/// The rider types of Coggan's power profile, read from the shape of 5 s, 1 min, 5 min and FTP W/kg.
+public enum RiderType: String, Sendable, CaseIterable {
+    case allRounder = "All-rounder"
+    case sprinter = "Sprinter"
+    case pursuiter = "Pursuiter"
+    case timeTriallist = "Time triallist"
+}
+
+public struct RiderClassification: Equatable, Sendable {
+    public let type: RiderType
+    /// The duration the rider stands out at (3600 for FTP), shown as the hero.
+    public let lead: Int
+    public let wattsPerKg: Double
+    /// Each duration's place on Coggan's table, 0 (untrained) to 1 (world class).
+    public let scores: [Int: Double]
+
+    /// "5 s", "1 min", "5 min", "FTP".
+    public var leadLabel: String {
+        switch lead {
+        case 3600: "FTP"
+        case ..<60: "\(lead) s"
+        default: "\(lead / 60) min"
+        }
+    }
+}
+
+/// Coggan's power profile table (men), from untrained to world class at each duration.
+public enum CogganProfile {
+    /// W/kg at the bottom and top of the table. FTP is keyed as 3600.
+    public static let ranges: [Int: (low: Double, high: Double)] = [
+        5: (10.17, 25.18), 60: (5.64, 11.50), 300: (2.33, 7.60), 3600: (1.86, 6.40)
+    ]
+    public static let durations = [5, 60, 300, 3600]
+    /// Scores closer together than this read as a flat profile.
+    public static let flatSpread = 0.08
+
+    public static func score(seconds: Int, wattsPerKg: Double) -> Double? {
+        guard let r = ranges[seconds] else { return nil }
+        return min(max((wattsPerKg - r.low) / (r.high - r.low), 0), 1)
+    }
+
+    /// Needs all four durations. The type comes from where the profile peaks: an FTP peak is a
+    /// time triallist; a 5 s peak a sprinter; a 1 min peak a sprinter if the sprint outranks 5 min,
+    /// else a pursuiter; a 5 min peak a pursuiter. A flat profile is an all-rounder, led by FTP.
+    public static func classify(_ wkg: [Int: Double]) -> RiderClassification? {
+        var scores: [Int: Double] = [:]
+        for d in durations {
+            guard let w = wkg[d], w > 0, let s = score(seconds: d, wattsPerKg: w) else { return nil }
+            scores[d] = s
+        }
+        let top = durations.max { scores[$0]! < scores[$1]! }!
+        let spread = scores[top]! - scores.values.min()!
+        let type: RiderType
+        if spread < flatSpread {
+            type = .allRounder
+        } else {
+            switch top {
+            case 3600: type = .timeTriallist
+            case 5: type = .sprinter
+            case 60: type = scores[5]! > scores[300]! ? .sprinter : .pursuiter
+            default: type = .pursuiter
+            }
+        }
+        let lead = type == .allRounder ? 3600 : top
+        return RiderClassification(type: type, lead: lead, wattsPerKg: wkg[lead]!, scores: scores)
+    }
+}
