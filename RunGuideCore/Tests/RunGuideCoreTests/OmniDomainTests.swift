@@ -21,7 +21,7 @@ final class OmniDomainTests: XCTestCase {
         XCTAssertEqual(truth.power(at: 1800), 320 + 22000.0 / 1800, accuracy: 0.5)
         XCTAssertEqual(truth.power(at: 3600), 320 + 22000.0 / 3600 - 18 * log(2), accuracy: 0.5)
         XCTAssertLessThan(truth.power(at: 7200), truth.power(at: 3600))
-        XCTAssertEqual(truth.ftp, truth.power(at: 3600))
+        XCTAssertEqual(truth.hourPower, truth.power(at: 3600))
     }
 
     func testRecoversKnownParameters() throws {
@@ -37,7 +37,7 @@ final class OmniDomainTests: XCTestCase {
     func testCopesWithNoise() throws {
         let fit = try XCTUnwrap(OmniDomain.fit(curve: curve(from: truth, noise: 0.02)))
         XCTAssertEqual(fit.model.cp, 320, accuracy: 15)
-        XCTAssertEqual(fit.model.ftp, truth.ftp, accuracy: 15)
+        XCTAssertEqual(fit.model.hourPower, truth.hourPower, accuracy: 15)
     }
 
     func testNoLongEffortsAssumesNoFade() throws {
@@ -60,7 +60,7 @@ final class OmniDomainTests: XCTestCase {
         XCTAssertEqual(p.ftp, p.cp)
         let full = try XCTUnwrap(PowerProfile.fitBest(curve: curve(from: truth)))
         XCTAssertNotNil(full.omni)
-        XCTAssertEqual(full.ftp, full.omni!.ftp)
+        XCTAssertEqual(full.ftp, full.cp)
     }
 
     func testNelderMeadFindsAMinimum() {

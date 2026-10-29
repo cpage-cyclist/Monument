@@ -141,7 +141,8 @@ struct RiderView: View {
             HStack(alignment: .top) {
                 stat("FTP", ftpText(source), also: ftpText(other).map { "\(sourceLabel(other)) \($0)" })
                 stat("W′", wPrimeText(source), also: wPrimeText(other).map { "\(sourceLabel(other)) \($0)" })
-                stat("CP", thresholds.monument.map { "\(Int($0.cp.rounded())) W" }, also: monumentLabel)
+                // FTP is Monument's CP, so this slot shows the modelled hour instead.
+                stat("1 h est.", thresholds.monument?.omni.map { "\(Int($0.hourPower.rounded())) W" }, also: monumentLabel)
                 stat("Pmax", thresholds.monument?.omni.map { "\(Int($0.pmax.rounded())) W" }, also: monumentLabel)
             }
             HStack(alignment: .top) {

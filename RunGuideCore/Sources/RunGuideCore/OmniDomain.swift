@@ -37,8 +37,9 @@ public struct OmniDomain: Equatable, Sendable {
         return t > Self.tcpMax ? base - a * log(t / Self.tcpMax) : base
     }
 
-    /// Modelled one-hour power: Monument's FTP.
-    public var ftp: Double { power(at: 3600) }
+    /// Modelled one-hour power. Not used as FTP: a best-power curve rarely holds a maximal hour,
+    /// so this reads low; Monument's FTP is CP.
+    public var hourPower: Double { power(at: 3600) }
 
     /// Durations sampled from the curve for fitting, spread evenly on a log scale from 1 s to 2 h.
     public static let fitDurations = [1, 2, 3, 5, 8, 10, 15, 20, 30, 45, 60, 90, 120, 180, 240, 300, 420,
@@ -166,6 +167,7 @@ extension PowerProfile {
         fitOmniDomain(curve: curve) ?? fitTwoParameter(curve: curve)
     }
 
-    /// Monument's FTP: OmPD's modelled hour power, or CP from the two-parameter fit.
-    public var ftp: Double { omni?.ftp ?? cp }
+    /// Monument's FTP: critical power, where the fitted curve levels off. Read from the 3–30 minute
+    /// efforts the curve holds best, rather than an hour that's seldom ridden flat out.
+    public var ftp: Double { cp }
 }

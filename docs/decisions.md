@@ -94,7 +94,8 @@ Fixed choices for Monument (formerly Run Guide). Change one only on purpose, and
   markers and the breakdown follow whichever is shown (Monument's when both).
 - Monument's profile is the **omni-domain power-duration model** (OmPD, Puchowicz, Baker & Clarke
   2020): Pmax, CP, W′ and a log-linear fade past 30 min (TCPmax 1800 s), fitted to best efforts
-  from 1 s to 2 h by least squares on relative error. **Monument's FTP is the modelled hour power.**
+  from 1 s to 2 h by least squares on relative error. **Monument's FTP is the model's CP** (it was the modelled hour power until Oct 2026, which read
+  low because a best-power curve rarely holds a maximal hour).
   Where the curve has no sprint or long efforts it falls back to the 2-parameter fit below.
 - **One app-wide setting** (Settings › Power profile) picks thresholds from Intervals or Monument.
   It sets workout target watts (builder, Record, Today), the Rider card and the W′bal chart's
