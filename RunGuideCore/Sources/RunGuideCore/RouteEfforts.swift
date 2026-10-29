@@ -252,7 +252,8 @@ public final class RouteEffortPlayer {
 
         if let a = active {
             var over = guide.finished
-            if let stop = a.effort.stop, u >= a.startU + (stop - a.effort.start) { over = true }
+            // A metre's grace so GPS rounding doesn't carry an effort a fix past its EASY.
+            if let stop = a.effort.stop, u >= a.startU + (stop - a.effort.start) - 1 { over = true }
             switch a.effort.length {
             case .time(let s) where time - a.startTime >= s: over = true
             case .distance(let d) where u - a.startU >= d: over = true
@@ -272,7 +273,8 @@ public final class RouteEffortPlayer {
                 out.append(.skipped(next.effort))
                 return out
             }
-            active = (next.effort, u, time)
+            // Measured from where the effort is marked, not where the fix happened to land.
+            active = (next.effort, next.u, time)
             out.append(.started(next.effort))
             if !spoken.contains("go-\(next.key)") {
                 let what = next.effort.spoken
