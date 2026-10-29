@@ -28,12 +28,17 @@ public enum RouteParser {
             .components(separatedBy: .whitespacesAndNewlines)
             .filter { !$0.isEmpty }
             .joined(separator: " ")
-        return Route(name: name.isEmpty ? fallbackName : name, points: delegate.points)
+        var route = Route(name: name.isEmpty ? fallbackName : name, points: delegate.points)
+        route.waypoints = delegate.waypoints
+        return route
     }
 
     private final class Delegate: NSObject, XMLParserDelegate {
         var points: [GeoPoint] = []
         var name: String?
+        var waypoints: [RouteWaypoint] = []
+        /// Inside a `<wpt>`: its position, name and description so far.
+        private var wpt: (lat: Double, lon: Double, name: String?, desc: String?)?
 
         private var text = ""
         private var tcxLat: Double?
@@ -53,6 +58,11 @@ public enum RouteParser {
             case "Position":
                 tcxLat = nil
                 tcxLon = nil
+            case "wpt":
+                if let lat = attributes["lat"].flatMap(Double.init),
+                   let lon = attributes["lon"].flatMap(Double.init) {
+                    wpt = (lat, lon, nil, nil)
+                }
             default:
                 break
             }
@@ -68,9 +78,20 @@ public enum RouteParser {
             switch local(elementName) {
             case "trkpt", "rtept":
                 depthInPoint = false
+            case "wpt":
+                if let w = wpt, let title = w.name, !title.isEmpty {
+                    waypoints.append(RouteWaypoint(title: title, note: w.desc, lat: w.lat, lon: w.lon))
+                }
+                wpt = nil
+            case "desc" where wpt != nil:
+                wpt?.desc = value
             case "name", "Name":
-                // First name outside a point is the route name (GPX metadata/trk, TCX Course).
-                if name == nil && !depthInPoint && !value.isEmpty { name = value }
+                if wpt != nil {
+                    wpt?.name = value
+                } else if name == nil && !depthInPoint && !value.isEmpty {
+                    // First name outside a point is the route name (GPX metadata/trk, TCX Course).
+                    name = value
+                }
             case "LatitudeDegrees":
                 tcxLat = Double(value)
             case "LongitudeDegrees":

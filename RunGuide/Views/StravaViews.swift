@@ -174,7 +174,9 @@ struct StravaRoutesView: View {
         defer { importing = nil }
         do {
             let data = try await strava.gpx(for: route)
-            if routes.importRoute(data: data, fallbackName: route.name, strava: route) == nil {
+            // Waypoints (efforts) come from the route's details; a failure here just means none.
+            let waypoints = try? await strava.waypoints(for: route)
+            if routes.importRoute(data: data, fallbackName: route.name, strava: route, waypoints: waypoints) == nil {
                 errorText = routes.lastError ?? "Couldn't read that route."
             } else {
                 UINotificationFeedbackGenerator().notificationOccurred(.success)

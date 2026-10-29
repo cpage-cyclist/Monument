@@ -38,6 +38,13 @@ struct SavedRoute: Codable, Identifiable, Hashable {
     var outline: [GeoPoint]?
     /// The last time a recording started on this route.
     var lastUsedAt: Date?
+    /// Waypoints from Strava's route details, with their distance into the route. Nil for a file
+    /// (its own `<wpt>`s are read with the route).
+    var waypoints: [RouteWaypoint]?
+    /// How many efforts its waypoints mark: a workout route when above zero.
+    var effortCount: Int?
+
+    var isWorkoutRoute: Bool { (effortCount ?? 0) > 0 }
 
     /// Most recently used or imported first.
     var recency: Date { max(lastUsedAt ?? .distantPast, importedAt) }
@@ -124,9 +131,11 @@ final class RouteStore: ObservableObject {
     /// Re-importing the same Strava route replaces the old copy, keeping when it was last used.
     @discardableResult
     func importRoute(data: Data, fileExtension: String = "gpx", fallbackName: String,
-                     strava: StravaRoute? = nil) -> SavedRoute? {
+                     strava: StravaRoute? = nil, waypoints: [RouteWaypoint]? = nil) -> SavedRoute? {
         do {
             let route = try RouteParser.parse(data: data, fallbackName: fallbackName)
+            let stravaWaypoints = waypoints.flatMap { $0.isEmpty ? nil : $0 }
+            let efforts = RouteEfforts.plan(stravaWaypoints ?? route.waypoints, route: route)
             let previous = strava.flatMap { saved(forStrava: $0.id) }
             if let previous { delete(previous) }
             let id = UUID()
@@ -137,7 +146,8 @@ final class RouteStore: ObservableObject {
                                    stravaID: strava?.id, stravaUpdatedAt: strava?.updatedAt,
                                    sport: strava?.sport,
                                    outline: RouteOutline.simplify(route.points, maxPoints: Self.outlinePoints),
-                                   lastUsedAt: previous?.lastUsedAt)
+                                   lastUsedAt: previous?.lastUsedAt,
+                                   waypoints: stravaWaypoints, effortCount: efforts.count)
             routes.insert(added, at: 0)
             cache[id] = route
             persist()
@@ -155,6 +165,12 @@ final class RouteStore: ObservableObject {
               let r = try? RouteParser.parse(data: data, fallbackName: saved.name) else { return nil }
         cache[saved.id] = r
         return r
+    }
+
+    /// The efforts a saved route's waypoints mark, in route order.
+    func efforts(for saved: SavedRoute) -> [RouteEffort] {
+        guard let route = route(for: saved) else { return [] }
+        return RouteEfforts.plan(saved.waypoints ?? route.waypoints, route: route)
     }
 
     func markUsed(_ id: UUID) {
@@ -236,16 +252,22 @@ final class RouteStore: ObservableObject {
         routes = decoded.filter { FileManager.default.fileExists(atPath: folder.appendingPathComponent($0.fileName).path) }
     }
 
-    /// Routes saved before outlines existed get one, a route at a time, without holding up launch.
+    /// Routes saved before outlines (or efforts) existed get them, a route at a time, without
+    /// holding up launch.
     private func backfillOutlines() {
-        guard routes.contains(where: { $0.outline == nil }) else { return }
+        guard routes.contains(where: { $0.outline == nil || $0.effortCount == nil }) else { return }
         Task { @MainActor in
-            for saved in routes where saved.outline == nil {
+            for saved in routes where saved.outline == nil || saved.effortCount == nil {
                 await Task.yield()
                 guard let route = route(for: saved),
                       let i = routes.firstIndex(where: { $0.id == saved.id }) else { continue }
-                routes[i].outline = RouteOutline.simplify(route.points, maxPoints: Self.outlinePoints)
-                cache[saved.id] = nil   // only the outline was wanted
+                if routes[i].outline == nil {
+                    routes[i].outline = RouteOutline.simplify(route.points, maxPoints: Self.outlinePoints)
+                }
+                if routes[i].effortCount == nil {
+                    routes[i].effortCount = RouteEfforts.plan(saved.waypoints ?? route.waypoints, route: route).count
+                }
+                cache[saved.id] = nil   // only the outline and count were wanted
             }
             persist()
         }

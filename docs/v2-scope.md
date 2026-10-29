@@ -51,29 +51,24 @@ it is and becomes the "Start" action for planned runs.
 ## Built so far
 
 - v2.0 and v2.1 above.
-- Monument Almanac brand: theme, ridge header with pull-to-refresh spread and collapse,
-  launch animation, forest green tab bar, medals for top-three peak efforts.
-- Monument's own W'bal from a fitted 2-parameter CP profile, alongside Intervals'.
+- v2.2 Calendar (replaced Week), v2.3 workout builder, v2.4 Record (run, ride, walk; power and
+  cadence sensors; route cues), v2.5 Rider (top-trumps card with a Coggan rider-type hero).
+- Insights, first part: Monument's OmPD power profile, toggled against the Intervals values.
+- Monument Almanac brand and the full visual pass: Plex type, Akira titles and heroes, ridge
+  header and footer, medals, the gold-bar success mark, app icon (light, dark, tinted).
+- Activity view: one overlay chart locked to the screen, brand data colours, zoom, device laps.
+- Workout routes: efforts from Strava waypoints, played by place in Record.
+- Effort feedback: factual lines at 25, 50 and 75% of efforts.
 
-## Next, in order
+## Parked
 
-1. **v2.2 Calendar** (replaces Week): planned and completed sessions, the existing edits,
-   and fitness, fatigue and form projected forward from planned load.
-2. **v2.3 Workout builder:** sport-agnostic structured workouts, saved to the calendar and
-   the Intervals library.
-3. **v2.4 Record:** sport-agnostic recording grown from the run player. Sport chosen and
-   locked before starting; about 500 m route cue warning for cycling; plays builder workouts.
-4. **v2.5 Rider:** single top-trumps page of best efforts and stats, settings link, launch
-   points into the app.
-5. **Insights:** toggle Monument's power profile against the Intervals values (done), then a
-   WKO5-style custom chart builder. dFRC alongside W'bal and W' decay over long efforts are
-   parked for later.
+- WKO5-style custom chart builder: a big lift, better suited once there's a web back end.
+- dFRC alongside W'bal, and W' decay over long efforts.
+- On-the-fly route efforts tapped onto a route's profile in Monument.
 
-Also to come: a further pass on the activity view, and a full visual polish pass across the app,
-including bringing the workout builder's step and text editors into the Monument style used on
-Today. Ideas to consider for more Akira: page titles in slanted Akira like the logotype; one hero
-number per screen (form on Today, NP or load on activities, week load on the Calendar, FTP W/kg on
-Rider); Record's live countdown and watts; "NEW BEST" / "2ND ALL TIME" with best-effort medals.
+## Being scoped
+
+- A web back end, longer term towards less dependence on Intervals.
 
 ## API notes
 

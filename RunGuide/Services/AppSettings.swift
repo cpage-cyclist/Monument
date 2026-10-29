@@ -17,6 +17,10 @@ final class AppSettings: ObservableObject {
     @Published var kmSplits: Bool {
         didSet { defaults.set(kmSplits, forKey: "kmSplits") }
     }
+    /// Short factual lines at 25, 50 and 75% of efforts with a power or pace target.
+    @Published var effortFeedback: Bool {
+        didSet { defaults.set(effortFeedback, forKey: "effortFeedback") }
+    }
     @Published var autoUpload: Bool {
         didSet { defaults.set(autoUpload, forKey: "autoUpload") }
     }
@@ -41,6 +45,7 @@ final class AppSettings: ObservableObject {
         apiKey = Keychain.get("intervalsApiKey") ?? ""
         lapPaceFeedback = defaults.object(forKey: "lapPaceFeedback") as? Bool ?? true
         kmSplits = defaults.object(forKey: "kmSplits") as? Bool ?? true
+        effortFeedback = defaults.object(forKey: "effortFeedback") as? Bool ?? true
         autoUpload = defaults.object(forKey: "autoUpload") as? Bool ?? true
         uploadToStrava = defaults.object(forKey: "uploadToStrava") as? Bool ?? true
         voiceIdentifier = defaults.string(forKey: Announcer.voiceKey) ?? ""

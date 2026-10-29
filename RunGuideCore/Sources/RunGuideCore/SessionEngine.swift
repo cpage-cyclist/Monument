@@ -207,6 +207,20 @@ public final class SessionEngine {
         return [.lap(lap), .speak(speech)]
     }
 
+    /// Close the current lap of a free recording under a name, without a word (route efforts
+    /// lap themselves: "Easy" up to an effort, "Effort 2" over it).
+    public func splitLap(label: String, kind: StepKind) -> [EngineEvent] {
+        guard started, !finished, isFree, currentStep != nil, stepTime > 0 else { return [] }
+        let lap = Lap(stepIndex: stepIndex, label: label, distance: stepDistance, duration: stepTime,
+                      kind: kind, trigger: .distance)
+        laps.append(lap)
+        stepDistance = 0
+        stepTime = 0
+        splitsAnnounced = 0
+        lastSplitTime = 0
+        return [.lap(lap)]
+    }
+
     /// The runner ended the session early.
     public func finishEarly() -> [EngineEvent] {
         guard started, !finished else { return [] }

@@ -89,6 +89,8 @@ public struct Route {
     /// Length in metres (including closing the loop).
     public let length: Double
     public let turns: [RouteTurn]
+    /// Waypoints from the file (GPX `<wpt>`), which can mark efforts: see `RouteEfforts`.
+    public var waypoints: [RouteWaypoint] = []
 
     let projection: LocalProjection
     /// The line resampled every `RouteGeometry.step` metres.

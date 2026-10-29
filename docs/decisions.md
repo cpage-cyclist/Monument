@@ -184,3 +184,34 @@ Fixed choices for Monument (formerly Run Guide). Change one only on purpose, and
   and the ways to add more (Strava, GPX/TCX file). Files with no sport show under both.
 - Intervals and Strava requests never answer from the system URL cache; the app's own cache
   decides freshness, so a forced refresh always goes to the network.
+
+## Workout routes and effort feedback (October 2026)
+
+- A **workout route** is a saved route whose waypoints mark efforts. Waypoint titles, any case:
+  `GO`, `GO 350W` / `GO 340-360W` / `GO Z4` / `GO 105%` / `GO 4:00/km` / `GO MAX`, `GO 5m 350W`
+  (timed; `GO 2km` or `GO 500m` measured), and `EASY` (or `END` / `STOP`) to finish. An effort
+  runs to its own length, an EASY, the next GO or the end of the route, whichever is first. A GO
+  only counts when every word after it is understood, so ordinary waypoints are left alone.
+- Waypoints come from **Strava's route details** (with their distance into the route), else from
+  the GPX's own `<wpt>`s, snapped to the line in order. Route rows show a WORKOUT badge and the
+  effort count; the route page lists the efforts. Editing waypoints on Strava flags the route to
+  update, as any edit does.
+- Workout routes **live in Monument only**, attached to the saved route: Intervals' workout text
+  can't say "start at this point", so they don't go to the Intervals calendar or the head unit.
+  The finished ride uploads as normal. Efforts play when the route is recorded **without a
+  planned session**; with a planned session the route only gives turn cues.
+- Triggers run on **distance along the route** (the route guide's tracking), not a GPS radius.
+  Cues: a heads-up with what the effort is (500 m and 200 m on a ride, 200 m on foot; the real
+  distance if you join late), then "3, 2, 1, go" timed from your speed, and "Effort n done. Easy."
+  An effort you reach off route, or have already passed when you join, is dropped, never fired
+  late. Looped routes run their efforts every lap. Each effort laps the recording ("Easy" up to
+  it, "Effort n" over it), so Intervals sees the efforts as laps.
+- On-the-fly efforts (tapping them onto a route's profile in Monument) are kept for later.
+- **Effort feedback** (Settings toggle, on by default): a short line at 25, 50 and 75% of each
+  effort and a summary at the end; efforts under 2 minutes get one line at 50% and no summary.
+  It judges the block's average since it started against the target, with the last 30 s as the
+  trend (building / easing off). Bands: the step's own range, else ±3% power or ±5 s/km pace.
+  Power and pace only (not HR, ramps, warm-ups or recoveries), for workout steps and route
+  efforts alike. Lines follow on from the last checkpoint, are picked at random from a few
+  wordings, and are grounded rather than judging. **Numbers are never spoken**, and nothing is
+  said about distance or how far through you are.

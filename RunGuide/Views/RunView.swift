@@ -9,12 +9,14 @@ struct RunView: View {
     init(workout: Workout, sport: RecordSport, options: EngineOptions, tracker: LocationTracker,
          heartRate: HeartRateMonitor, power: CyclingSensor? = nil, cadence: CyclingSensor? = nil,
          store: RunStore, client: IntervalsClient?,
-         route: Route? = nil, loopRoute: Bool = false, strava: StravaAccount? = nil) {
+         route: Route? = nil, loopRoute: Bool = false, strava: StravaAccount? = nil,
+         efforts: [RouteEffort] = [], ftp: Double? = nil, effortFeedback: Bool = true) {
         _run = StateObject(wrappedValue: RunController(workout: workout, sport: sport, options: options,
                                                        tracker: tracker, heartRate: heartRate,
                                                        power: power, cadence: cadence,
                                                        store: store, client: client,
-                                                       route: route, loopRoute: loopRoute, strava: strava))
+                                                       route: route, loopRoute: loopRoute, strava: strava,
+                                                       efforts: efforts, ftp: ftp, effortFeedback: effortFeedback))
     }
 
     var body: some View {
@@ -53,6 +55,9 @@ struct RunView: View {
             if let guide = run.guide {
                 RouteBanner(guide: guide).id(run.tick)
             }
+            if let player = run.effortPlayer {
+                EffortBanner(player: player, time: engine.totalTime, ftp: run.ftp).id(run.tick)
+            }
 
             if let step = engine.currentStep {
                 Card {
@@ -86,7 +91,7 @@ struct RunView: View {
             }
 
             if run.hasPowerSensors {
-                PowerPanel(watts: run.power?.threeSecondWatts, target: engine.currentStep?.watts,
+                PowerPanel(watts: run.power?.threeSecondWatts, target: run.targetWatts,
                            cadence: run.currentCadence, hasPower: run.power != nil)
             }
 
@@ -319,6 +324,54 @@ struct SummaryView: View {
     }
 }
 
+
+/// The route's efforts on the live screen: the one under way (with its target and time in it), or
+/// the next one and how far off it is.
+struct EffortBanner: View {
+    let player: RouteEffortPlayer
+    let time: Double
+    let ftp: Double?
+
+    var body: some View {
+        HStack(spacing: 10) {
+            SuccessBar(width: 18, height: 7)
+            if let active = player.active?.effort {
+                Text(active.label.uppercased()).font(.hero(16)).akiraSlant()
+                if let t = targetText(active) { Text(t).font(.num(.body)) }
+                Spacer()
+                Text(progressText(active)).font(.num(.body, weight: .semibold))
+            } else if let next = player.upcoming {
+                Text("\(next.effort.label) in \(Format.remainingDistance(next.distance))").bold()
+                Spacer()
+                if let t = targetText(next.effort) { Text(t).font(.num(.body)).foregroundStyle(.secondary) }
+            } else {
+                Text("No more efforts on this route").foregroundStyle(.secondary)
+            }
+        }
+        .font(.brand(.headline))
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Rectangle().fill(player.active != nil ? Brand.forest.opacity(0.16) : Color.secondary.opacity(0.12)))
+        .accessibilityElement(children: .combine)
+    }
+
+    private func targetText(_ e: RouteEffort) -> String? {
+        if let w = e.watts(ftp: ftp) { return Format.watts(w) }
+        return e.targetText
+    }
+
+    /// Time left on a timed effort, else time in it.
+    private func progressText(_ e: RouteEffort) -> String {
+        guard let p = player.activeProgress(time: time) else { return "" }
+        switch e.length {
+        case .time(let s): return Format.clock(max(0, s - p.seconds).rounded(.up))
+        case .distance(let d): return Format.remainingDistance(max(0, d - p.metres))
+        case nil:
+            if let stop = e.stop { return Format.remainingDistance(max(0, stop - e.start - p.metres)) }
+            return Format.clock(p.seconds)
+        }
+    }
+}
 
 /// Live power for rides: 3 s watts, large, against the step's target band, with cadence.
 struct PowerPanel: View {

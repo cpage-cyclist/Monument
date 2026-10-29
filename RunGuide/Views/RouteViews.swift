@@ -104,6 +104,20 @@ struct RouteOutlineShape: Shape {
     }
 }
 
+/// Marks a route whose waypoints set efforts.
+struct WorkoutRouteBadge: View {
+    var body: some View {
+        Text("WORKOUT")
+            .font(.brand(.caption2, weight: .bold))
+            .tracking(0.8)
+            .foregroundStyle(.white)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 1)
+            .background(Rectangle().fill(Brand.forest))
+            .accessibilityLabel("Workout route")
+    }
+}
+
 struct RouteRow: View {
     let saved: SavedRoute
 
@@ -111,7 +125,10 @@ struct RouteRow: View {
         HStack(spacing: 12) {
             RouteThumbnail(outline: saved.outline)
             VStack(alignment: .leading, spacing: 2) {
-                Text(saved.name).lineLimit(1)
+                HStack(spacing: 6) {
+                    Text(saved.name).lineLimit(1)
+                    if saved.isWorkoutRoute { WorkoutRouteBadge() }
+                }
                 Text(detail)
                     .font(.brand(.caption))
                     .foregroundStyle(.secondary)
@@ -123,6 +140,7 @@ struct RouteRow: View {
         var parts = [Format.km(saved.length)]
         if let sport = saved.sport { parts.append(sport.title) }
         if saved.isLoop { parts.append("loop") }
+        if let n = saved.effortCount, n > 0 { parts.append(n == 1 ? "1 effort" : "\(n) efforts") }
         parts.append("\(saved.turnCount) cues")
         return parts.joined(separator: " · ")
     }
@@ -153,6 +171,25 @@ struct RouteDetailView: View {
                         Label("\(sport.title) this route", systemImage: sport.icon)
                     }
                 }
+                let efforts = routes.efforts(for: saved)
+                if !efforts.isEmpty {
+                    BrandSection("Efforts") {
+                        ForEach(efforts, id: \.number) { effort in
+                            HStack {
+                                SuccessBar(width: 16, height: 6)
+                                Text(effort.label)
+                                Spacer()
+                                VStack(alignment: .trailing) {
+                                    Text("from \(Format.km(effort.start))").font(.num(.body))
+                                    Text(effortDetail(effort)).font(.brand(.caption)).foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                        Text("Set by the route's waypoints (GO, EASY) on Strava. They play when you record this route without a planned session.")
+                            .font(.brand(.caption))
+                            .foregroundStyle(.secondary)
+                    }
+                }
                 BrandSection("Cues") {
                     ForEach(Array(route.turns.enumerated()), id: \.offset) { index, turn in
                         HStack {
@@ -174,6 +211,19 @@ struct RouteDetailView: View {
         } else {
             Text("This route file couldn't be read.").foregroundStyle(.secondary)
         }
+    }
+
+    private func effortDetail(_ e: RouteEffort) -> String {
+        var parts: [String] = []
+        switch e.length {
+        case .time(let s): parts.append(Format.clock(s))
+        case .distance(let d): parts.append(Format.amount(.distance(d)))
+        case nil:
+            if let stop = e.stop { parts.append(Format.amount(.distance(stop - e.start)) + " to EASY") }
+            else { parts.append("to the end") }
+        }
+        if let t = e.targetText { parts.append(t) }
+        return parts.joined(separator: " · ")
     }
 }
 
@@ -204,7 +254,11 @@ struct RoutePickerSection: View {
                 if route.isLoop {
                     Toggle("Repeat laps", isOn: $loop)
                 }
-                Text("\(Format.km(route.length)) · \(route.turns.count) cues. Turn cues cut in over session cues.")
+                let efforts = saved.effortCount ?? 0
+                Text("\(Format.km(route.length)) · \(route.turns.count) cues"
+                     + (efforts > 0 ? " · \(efforts == 1 ? "1 effort" : "\(efforts) efforts")" : "")
+                     + ". Turn cues cut in over session cues."
+                     + (efforts > 0 ? " The route's efforts play when there's no planned session." : ""))
                     .font(.brand(.caption))
                     .foregroundStyle(.secondary)
             }

@@ -31,6 +31,14 @@ final class RunController: ObservableObject {
     private let announcer = Announcer()
     private var recorder: ActivityRecorder
 
+    /// Efforts marked on the route, played when there's no planned session.
+    let effortPlayer: RouteEffortPlayer?
+    /// For turning % and zone targets on route efforts into watts.
+    let ftp: Double?
+    private let feedbackOn: Bool
+    /// Mid-effort feedback for the block under way: a workout step or a route effort.
+    private var feedback: EffortFeedback?
+
     /// Bumped on every update so the screen refreshes.
     @Published private(set) var tick = 0
     @Published private(set) var paused = false
@@ -53,18 +61,29 @@ final class RunController: ObservableObject {
     init(workout: Workout, sport: RecordSport, options: EngineOptions, tracker: LocationTracker,
          heartRate: HeartRateMonitor, power: CyclingSensor? = nil, cadence: CyclingSensor? = nil,
          store: RunStore, client: IntervalsClient?,
-         route: Route? = nil, loopRoute: Bool = false, strava: StravaAccount? = nil) {
+         route: Route? = nil, loopRoute: Bool = false, strava: StravaAccount? = nil,
+         efforts: [RouteEffort] = [], ftp: Double? = nil, effortFeedback: Bool = true) {
         var options = options
         options.sport = sport
         self.sport = sport
-        self.engine = SessionEngine(workout: workout, options: options)
-        self.guide = route.map { r in
-            let guide = RouteGuide(route: r, loop: loopRoute)
-            guide.headsUp = sport.routeHeadsUp
-            guide.nowDistance = sport.routeNow
-            guide.chainDistance = sport.routeChain
-            return guide
+        let engine = SessionEngine(workout: workout, options: options)
+        let guide = route.map { r in
+            let g = RouteGuide(route: r, loop: loopRoute)
+            g.headsUp = sport.routeHeadsUp
+            g.nowDistance = sport.routeNow
+            g.chainDistance = sport.routeChain
+            return g
         }
+        self.engine = engine
+        self.guide = guide
+        // A planned session has its own structure; the route's efforts play on a free recording.
+        if let guide, engine.isFree, !efforts.isEmpty {
+            effortPlayer = RouteEffortPlayer(efforts: efforts, guide: guide, sport: sport)
+        } else {
+            effortPlayer = nil
+        }
+        self.ftp = ftp
+        self.feedbackOn = effortFeedback
         self.tracker = tracker
         self.heartRate = heartRate
         self.power = sport.usesPower && power?.isPaired == true ? power : nil
@@ -99,6 +118,7 @@ final class RunController: ObservableObject {
         recorder = ActivityRecorder(name: engine.workout.name, start: now, sport: sport)
         lastTick = now
         handle(engine.start(), at: now)
+        startStepFeedback()
 
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.step() }
@@ -119,9 +139,18 @@ final class RunController: ObservableObject {
         let seconds = now.timeIntervalSince(last)
         let metres = pendingDistance
         pendingDistance = 0
+        // Feedback takes this second before the engine moves on, so a step's end is measured too.
+        if let line = feedback?.add(seconds: seconds, metres: metres, watts: power?.currentWatts.map(Double.init)) {
+            announcer.speak(line)
+        }
+        let stepBefore = engine.stepIndex
         let events = engine.advance(distance: metres, time: seconds)
+        let stepChanged = engine.stepIndex != stepBefore && effortPlayer == nil
+        if stepChanged, let line = feedback?.finish() { announcer.speak(line) }
         recordPoint(at: now)
         handle(events, at: now)
+        if stepChanged { startStepFeedback() }
+        updateEfforts(at: now)
         tick &+= 1
     }
 
@@ -224,6 +253,70 @@ final class RunController: ObservableObject {
                                 accuracy: location.horizontalAccuracy, time: location.timestamp)
         for text in said { announcer.speak(text, urgent: true) }
         if !said.isEmpty { tick &+= 1 }
+        updateEfforts(at: Date())
+    }
+
+    // MARK: - Route efforts and feedback
+
+    /// Plays the route's efforts: heads-ups and countdowns, a lap at each start and end, and
+    /// feedback over each effort that has a power or pace target.
+    private func updateEfforts(at now: Date) {
+        guard let player = effortPlayer, !paused, !finished else { return }
+        let events = player.update(time: engine.totalTime, speed: tracker.speed.flatMap { $0 >= 0 ? $0 : nil })
+        for event in events {
+            switch event {
+            case .speak(let text, let urgent):
+                announcer.speak(text, urgent: urgent)
+            case .started(let effort):
+                handle(engine.splitLap(label: "Easy", kind: .rest), at: now)
+                feedback = nil
+                if feedbackOn, let target = FeedbackTarget.forEffort(effort, ftp: ftp),
+                   let length = feedbackLength(effort, player: player) {
+                    feedback = EffortFeedback(target: target, length: length)
+                }
+            case .ended(let effort):
+                if let line = feedback?.finish() { announcer.speak(line) }
+                feedback = nil
+                handle(engine.splitLap(label: effort.label, kind: .active), at: now)
+            case .skipped:
+                break
+            }
+        }
+        if !events.isEmpty { tick &+= 1 }
+    }
+
+    /// What a route effort's checkpoints are fractions of: its own length, else the stretch to
+    /// its EASY (or the next GO), else the rest of the route.
+    private func feedbackLength(_ effort: RouteEffort, player: RouteEffortPlayer) -> FeedbackLength? {
+        switch effort.length {
+        case .time(let s): return .time(s)
+        case .distance(let d): return .distance(d)
+        case nil:
+            if let stop = effort.stop { return .distance(stop - effort.start) }
+            let rest = player.guide.route.length - effort.start
+            return rest > 50 ? .distance(rest) : nil
+        }
+    }
+
+    /// Feedback for the workout step now under way, if it's an effort with a power or pace target.
+    private func startStepFeedback() {
+        guard effortPlayer == nil else { return }
+        feedback = nil
+        guard feedbackOn, let step = engine.currentStep, let target = FeedbackTarget.forStep(step) else { return }
+        switch step.end {
+        case .time(let s): feedback = EffortFeedback(target: target, length: .time(s))
+        case .distance(let d): feedback = EffortFeedback(target: target, length: .distance(d))
+        case .open: break
+        }
+    }
+
+    /// The route effort under way, for the screen.
+    var activeEffort: RouteEffort? { effortPlayer?.active?.effort }
+
+    /// Watts to aim for now: the route effort's, else the step's.
+    var targetWatts: ClosedRange<Double>? {
+        if let e = activeEffort { return e.watts(ftp: ftp) }
+        return engine.currentStep?.watts
     }
 
     private func recordPoint(at now: Date) {

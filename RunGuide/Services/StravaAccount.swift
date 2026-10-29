@@ -4,6 +4,29 @@ import Foundation
 import UIKit
 
 /// A route as Strava lists it. Codable both ways so the list can be kept on disk.
+/// The waypoints in a route's details (`GET /routes/{id}`), read leniently.
+enum StravaRouteDetail {
+    private struct Detail: Decodable { let waypoints: [Waypoint]? }
+    private struct Waypoint: Decodable {
+        let title: String?
+        let description: String?
+        let latlng: [Double]?
+        let distanceIntoRoute: Double?
+        enum CodingKeys: String, CodingKey {
+            case title, description, latlng
+            case distanceIntoRoute = "distance_into_route"
+        }
+    }
+
+    static func waypoints(from data: Data) -> [RouteWaypoint] {
+        guard let detail = try? JSONDecoder().decode(Detail.self, from: data) else { return [] }
+        return (detail.waypoints ?? []).compactMap { w in
+            guard let title = w.title, !title.isEmpty, let ll = w.latlng, ll.count == 2 else { return nil }
+            return RouteWaypoint(title: title, note: w.description, lat: ll[0], lon: ll[1], distance: w.distanceIntoRoute)
+        }
+    }
+}
+
 struct StravaRoute: Identifiable, Hashable, Codable {
     let idStr: String
     let name: String
@@ -253,6 +276,14 @@ final class StravaAccount: ObservableObject {
     func gpx(for route: StravaRoute) async throws -> Data {
         let t = try await validTokens()
         return try await get("routes/\(route.idStr)/export_gpx", token: t.access)
+    }
+
+    /// The route's waypoints with their distance into the route, from the route's details.
+    /// Empty if Strava sends none (the GPX's own `<wpt>`s are used then).
+    func waypoints(for route: StravaRoute) async throws -> [RouteWaypoint] {
+        let t = try await validTokens()
+        let data = try await get("routes/\(route.idStr)", token: t.access)
+        return StravaRouteDetail.waypoints(from: data)
     }
 
     /// Uploads a FIT file as a new Strava activity and waits for Strava to

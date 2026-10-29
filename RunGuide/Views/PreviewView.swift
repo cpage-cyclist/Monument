@@ -14,6 +14,8 @@ struct PreviewView: View {
     @EnvironmentObject private var store: RunStore
     @EnvironmentObject private var routes: RouteStore
     @EnvironmentObject private var strava: StravaAccount
+    @EnvironmentObject private var rider: RiderStore
+    @EnvironmentObject private var library: ActivityLibrary
     @State private var running = false
     @State private var routeID: UUID?
     @State private var loop = true
@@ -27,6 +29,13 @@ struct PreviewView: View {
 
     private var selectedRoute: Route? {
         routes.routes.first { $0.id == routeID }.flatMap { routes.route(for: $0) }
+    }
+
+    /// The selected route's efforts, which play when this is a free recording.
+    private var routeEfforts: [RouteEffort] {
+        guard workout.steps.count == 1, workout.steps[0].end == .open, workout.steps[0].target == nil,
+              let saved = routes.routes.first(where: { $0.id == routeID }) else { return [] }
+        return routes.efforts(for: saved)
     }
 
     var body: some View {
@@ -96,7 +105,10 @@ struct PreviewView: View {
                     client: settings.autoUpload && settings.hasCredentials ? settings.client : nil,
                     route: selectedRoute,
                     loopRoute: loop,
-                    strava: settings.uploadToStrava && strava.isConnected && strava.hasUploadAccess ? strava : nil)
+                    strava: settings.uploadToStrava && strava.isConnected && strava.hasUploadAccess ? strava : nil,
+                    efforts: routeEfforts,
+                    ftp: rider.ftp(settings.thresholdSource, intervalsFallback: library.latestFTP),
+                    effortFeedback: settings.effortFeedback)
         }
     }
 

@@ -56,6 +56,7 @@ struct SettingsView: View {
                 Section {
                     Toggle("Say pace (or speed on rides) at the end of each step", isOn: $settings.lapPaceFeedback)
                     Toggle("Splits on long steps (every km, or 5 km on rides)", isOn: $settings.kmSplits)
+                    Toggle("Effort feedback: where you sit against the target at 25, 50 and 75%", isOn: $settings.effortFeedback)
                     Picker("Voice", selection: $settings.voiceIdentifier) {
                         Text("Automatic (best UK voice)").tag("")
                         ForEach(voices, id: \.identifier) { voice in
