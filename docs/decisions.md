@@ -70,8 +70,9 @@ Fixed choices for Monument (formerly Run Guide). Change one only on purpose, and
 - The **Rider card's thresholds follow its period toggle**. Monument fits OmPD to that period's
   curve (falling back to the 90-day fit, labelled "Monument 90d", when it won't fit). Intervals FTP
   is today's setting over 42 days, and over a year or all time the highest FTP set on any ride in
-  the span ("Peak FTP"). **W/kg uses a weigh-in within two weeks of the ride that set the effort**
-  (else today's weight), and the hero likewise for the ride its FTP belongs to. The weight Intervals
+  the span ("Peak FTP"). **W/kg uses the weight on the day of the ride that set the effort**, run
+  in a straight line between weigh-ins (the first one before any, the latest carried forward), and
+  the hero likewise for the ride its FTP belongs to. The weight Intervals
   stamps on a ride isn't trusted: back-dated weigh-ins only change their own day, so rides in between
   keep a stale default. Workouts still use today's thresholds.
 - The builder **reads and writes Intervals workout text** (what's in the step text on the web), so

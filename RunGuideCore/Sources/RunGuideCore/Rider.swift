@@ -191,24 +191,22 @@ public struct RideThreshold: Equatable, Sendable {
         return out
     }
 
-    /// A trusted weight for each ride: the nearest weigh-in within `withinDays` of it. The weight
-    /// Intervals stamps on a ride isn't used: back-dating a weigh-in only changes that day, so rides
-    /// in between keep a stale default (or whatever Zwift or Wahoo sent). Rides with no weigh-in
-    /// nearby are left out, and the card uses today's weight for them.
-    public static func weights(_ rides: [RideThreshold], weighIns: [String: Double],
-                               withinDays: Int = 14) -> [String: Double] {
+    /// A weight for each ride from the weigh-ins either side of it: a straight line between the
+    /// two, the first weigh-in before any were logged, and the latest carried forward after it.
+    /// The weight Intervals stamps on a ride isn't used: back-dating a weigh-in only changes that
+    /// day, so rides in between keep a stale default (or whatever Zwift or Wahoo sent). With no
+    /// weigh-ins at all this is empty and the card uses today's weight.
+    public static func weights(_ rides: [RideThreshold], weighIns: [String: Double]) -> [String: Double] {
         let ins = weighIns.compactMap { e in dayNumber(e.key).map { ($0, e.value) } }.sorted { $0.0 < $1.0 }
-        guard !ins.isEmpty else { return [:] }
+        guard let first = ins.first, let last = ins.last else { return [:] }
         var out: [String: Double] = [:]
         for r in rides {
             guard let n = dayNumber(r.day) else { continue }
-            var best: (gap: Int, kg: Double)?
-            for (d, kg) in ins {
-                let gap = abs(d - n)
-                if gap <= withinDays, gap < (best?.gap ?? .max) { best = (gap, kg) }
-                if d > n + withinDays { break }
-            }
-            if let best { out[r.activity] = best.kg }
+            if n <= first.0 { out[r.activity] = first.1; continue }
+            if n >= last.0 { out[r.activity] = last.1; continue }
+            guard let i = ins.firstIndex(where: { $0.0 >= n }) else { continue }
+            let (d1, w1) = ins[i], (d0, w0) = ins[i - 1]
+            out[r.activity] = d1 == n ? w1 : w0 + (w1 - w0) * Double(n - d0) / Double(d1 - d0)
         }
         return out
     }

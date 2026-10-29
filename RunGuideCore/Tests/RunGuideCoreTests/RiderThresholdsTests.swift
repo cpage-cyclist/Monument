@@ -77,22 +77,20 @@ final class RiderThresholdsTests: XCTestCase {
         XCTAssertEqual(RideThreshold.weighIns(days), ["2026-01-01": 73])
     }
 
-    func testRideWeightsComeFromNearbyWeighInsOnly() {
-        // Rides stamped 78 by Intervals' default; only weigh-ins within 14 days count.
+    func testRideWeightsRunBetweenWeighIns() {
+        // Rides stamped 78 by Intervals' default; weight runs in a line between weigh-ins.
         let stamped = [
-            RideThreshold(activity: "a", day: "2025-12-25", ftp: 350, weight: 78),
-            RideThreshold(activity: "b", day: "2026-01-10", ftp: 350, weight: 78),
-            RideThreshold(activity: "c", day: "2026-03-01", ftp: 350, weight: 78),
-            RideThreshold(activity: "d", day: "2026-03-20", ftp: 350, weight: 78),
-            RideThreshold(activity: "e", day: "2026-06-01", ftp: 350, weight: 78)
+            RideThreshold(activity: "before", day: "2019-06-01", ftp: 350, weight: 78),
+            RideThreshold(activity: "on", day: "2020-01-01", ftp: 350, weight: 78),
+            RideThreshold(activity: "mid", day: "2020-07-02", ftp: 350, weight: 78),
+            RideThreshold(activity: "after", day: "2026-10-01", ftp: 350, weight: 78)
         ]
-        let ins = ["2026-01-01": 73.0, "2026-03-25": 74.5, "2026-03-12": 75.5]
+        let ins = ["2020-01-01": 72.0, "2021-01-01": 75.0]
         let w = RideThreshold.weights(stamped, weighIns: ins)
-        XCTAssertEqual(w["a"], 73)
-        XCTAssertEqual(w["b"], 73)
-        XCTAssertEqual(w["c"], 75.5)    // 11 days before the 12th
-        XCTAssertNil(w["e"])            // nothing within 14 days
-        XCTAssertEqual(w["d"], 74.5)    // 5 days to the 25th beats 8 to the 12th
+        XCTAssertEqual(w["before"], 72)
+        XCTAssertEqual(w["on"], 72)
+        XCTAssertEqual(w["mid"]!, 72 + 3 * 183.0 / 366, accuracy: 1e-9)   // 2020 is a leap year
+        XCTAssertEqual(w["after"], 75)
         XCTAssertTrue(RideThreshold.weights(stamped, weighIns: [:]).isEmpty)
     }
 

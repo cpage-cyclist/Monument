@@ -10,7 +10,7 @@ final class RiderStore: ObservableObject {
     @Published private(set) var totals = SeasonTotals()
     /// Every ride's FTP and weight, oldest first.
     @Published private(set) var rides: [RideThreshold] = []
-    /// Each ride's weight from the nearest weigh-in within two weeks; rides without one are absent.
+    /// Each ride's weight, run between weigh-ins; empty until any are logged.
     @Published private(set) var rideWeights: [String: Double] = [:]
     private var weighIns: [String: Double] = [:]
     @Published private(set) var loading = false
