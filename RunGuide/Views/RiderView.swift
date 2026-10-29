@@ -86,18 +86,18 @@ struct RiderView: View {
     private var monumentLabel: String { sourceLabel(.monument) }
     private var efforts: [RiderEffort] { RiderCard.efforts(rider.curves[period.curve]) }
 
-    /// Weight on the ride that set an effort, else today's.
+    /// Weight from a weigh-in near the ride that set an effort, else today's.
     private func effortWeight(_ effort: RiderEffort?) -> Double? {
         RiderCard.weight(for: effort, rideWeights: rider.rideWeights, fallback: weight)
     }
 
-    /// The hero's weight: today's over 42 days; for longer spans, the weight on the ride the FTP
-    /// belongs to (the ride first carrying Intervals' peak FTP, or the one behind the 20-minute
+    /// The hero's weight: today's over 42 days; for longer spans, the weigh-in nearest the ride the
+    /// FTP belongs to (the ride first carrying Intervals' peak FTP, or the one behind the 20-minute
     /// best for Monument's fit).
     private var heroWeight: Double? {
         guard period != .days42 else { return weight }
         switch source {
-        case .intervals: return thresholds.intervalsFTPRide?.weight ?? weight
+        case .intervals: return thresholds.intervalsFTPRide.flatMap { rider.rideWeights[$0.activity] } ?? weight
         case .monument: return effortWeight(efforts.first { $0.seconds == 1200 })
         }
     }

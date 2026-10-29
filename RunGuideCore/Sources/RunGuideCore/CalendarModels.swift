@@ -58,12 +58,15 @@ public struct WellnessDay: Decodable, Hashable, Sendable {
     public let ctl: Double?
     public let atl: Double?
     public let rampRate: Double?
+    /// A weigh-in logged for the day, kg.
+    public let weight: Double?
 
-    public init(id: String, ctl: Double?, atl: Double?, rampRate: Double? = nil) {
+    public init(id: String, ctl: Double?, atl: Double?, rampRate: Double? = nil, weight: Double? = nil) {
         self.id = id
         self.ctl = ctl
         self.atl = atl
         self.rampRate = rampRate
+        self.weight = weight
     }
 
     /// Form (TSB) = fitness − fatigue.

@@ -184,11 +184,47 @@ public struct RideThreshold: Equatable, Sendable {
         return best
     }
 
-    /// Weight on each ride, keyed by activity id.
-    public static func weights(_ rides: [RideThreshold]) -> [String: Double] {
+    /// Weigh-ins from wellness days, keyed by day.
+    public static func weighIns(_ days: [WellnessDay]) -> [String: Double] {
         var out: [String: Double] = [:]
-        for r in rides { if let w = r.weight, w > 0 { out[r.activity] = w } }
+        for d in days { if let w = d.weight, w > 0 { out[d.id] = w } }
         return out
+    }
+
+    /// A trusted weight for each ride: the nearest weigh-in within `withinDays` of it. The weight
+    /// Intervals stamps on a ride isn't used: back-dating a weigh-in only changes that day, so rides
+    /// in between keep a stale default (or whatever Zwift or Wahoo sent). Rides with no weigh-in
+    /// nearby are left out, and the card uses today's weight for them.
+    public static func weights(_ rides: [RideThreshold], weighIns: [String: Double],
+                               withinDays: Int = 14) -> [String: Double] {
+        let ins = weighIns.compactMap { e in dayNumber(e.key).map { ($0, e.value) } }.sorted { $0.0 < $1.0 }
+        guard !ins.isEmpty else { return [:] }
+        var out: [String: Double] = [:]
+        for r in rides {
+            guard let n = dayNumber(r.day) else { continue }
+            var best: (gap: Int, kg: Double)?
+            for (d, kg) in ins {
+                let gap = abs(d - n)
+                if gap <= withinDays, gap < (best?.gap ?? .max) { best = (gap, kg) }
+                if d > n + withinDays { break }
+            }
+            if let best { out[r.activity] = best.kg }
+        }
+        return out
+    }
+
+    /// Whole days since 1970 for "yyyy-MM-dd", calendar-safe across clock changes.
+    static func dayNumber(_ day: String) -> Int? {
+        let parts = day.prefix(10).split(separator: "-").compactMap { Int($0) }
+        guard parts.count == 3 else { return nil }
+        var c = DateComponents()
+        c.year = parts[0]
+        c.month = parts[1]
+        c.day = parts[2]
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "UTC")!
+        guard let date = cal.date(from: c) else { return nil }
+        return Int((date.timeIntervalSince1970 / 86400).rounded())
     }
 }
 
@@ -198,6 +234,7 @@ public struct RiderThresholds: Equatable, Sendable {
     /// on any ride in the span (or today's setting if that's higher).
     public var intervalsFTP: Double?
     /// The ride the period's Intervals FTP was first carried on; nil when it's today's setting.
+    /// Its weight comes from `RideThreshold.weights`, not the ride's own stamp.
     public var intervalsFTPRide: RideThreshold?
     /// Monument's fit to the period's own curve, or the 90-day fit when that curve won't fit.
     public var monument: PowerProfile?

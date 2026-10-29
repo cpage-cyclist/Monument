@@ -24,7 +24,6 @@ final class RiderThresholdsTests: XCTestCase {
         """.utf8))
         let r = RideThreshold.rides(list)
         XCTAssertEqual(r.map(\.activity), ["i8", "i9"])
-        XCTAssertEqual(RideThreshold.weights(r), ["i9": 70])
     }
 
     func testPeakTakesFirstRideAtHighestFTP() {
@@ -41,9 +40,9 @@ final class RiderThresholdsTests: XCTestCase {
         XCTAssertEqual(t(.days42).intervalsFTP, 330)
         XCTAssertNil(t(.days42).intervalsFTPRide)
         XCTAssertEqual(t(.year).intervalsFTP, 345)
-        XCTAssertEqual(t(.year).intervalsFTPRide?.weight, 70)
+        XCTAssertEqual(t(.year).intervalsFTPRide?.activity, "i3")
         XCTAssertEqual(t(.allTime).intervalsFTP, 360)
-        XCTAssertEqual(t(.allTime).intervalsFTPRide?.weight, 68)
+        XCTAssertEqual(t(.allTime).intervalsFTPRide?.activity, "i1")
     }
 
     func testTodaysSettingWinsWhenHigher() {
@@ -69,8 +68,36 @@ final class RiderThresholdsTests: XCTestCase {
         XCTAssertTrue(short.monumentIs90d)
     }
 
+    func testWeighInsFromWellness() throws {
+        let days = try JSONDecoder().decode([WellnessDay].self, from: Data("""
+        [{"id": "2026-01-01", "ctl": 50, "atl": 40, "weight": 73},
+         {"id": "2026-01-02", "ctl": 50, "atl": 40},
+         {"id": "2026-01-03", "weight": 0}]
+        """.utf8))
+        XCTAssertEqual(RideThreshold.weighIns(days), ["2026-01-01": 73])
+    }
+
+    func testRideWeightsComeFromNearbyWeighInsOnly() {
+        // Rides stamped 78 by Intervals' default; only weigh-ins within 14 days count.
+        let stamped = [
+            RideThreshold(activity: "a", day: "2025-12-25", ftp: 350, weight: 78),
+            RideThreshold(activity: "b", day: "2026-01-10", ftp: 350, weight: 78),
+            RideThreshold(activity: "c", day: "2026-03-01", ftp: 350, weight: 78),
+            RideThreshold(activity: "d", day: "2026-03-20", ftp: 350, weight: 78),
+            RideThreshold(activity: "e", day: "2026-06-01", ftp: 350, weight: 78)
+        ]
+        let ins = ["2026-01-01": 73.0, "2026-03-25": 74.5, "2026-03-12": 75.5]
+        let w = RideThreshold.weights(stamped, weighIns: ins)
+        XCTAssertEqual(w["a"], 73)
+        XCTAssertEqual(w["b"], 73)
+        XCTAssertEqual(w["c"], 75.5)    // 11 days before the 12th
+        XCTAssertNil(w["e"])            // nothing within 14 days
+        XCTAssertEqual(w["d"], 74.5)    // 5 days to the 25th beats 8 to the 12th
+        XCTAssertTrue(RideThreshold.weights(stamped, weighIns: [:]).isEmpty)
+    }
+
     func testEffortWeightUsesItsRide() {
-        let w = RideThreshold.weights(rides)
+        let w = ["i1": 68.0]
         XCTAssertEqual(RiderCard.weight(for: RiderEffort(seconds: 5, watts: 1000, activity: "i1"), rideWeights: w, fallback: 70.5), 68)
         XCTAssertEqual(RiderCard.weight(for: RiderEffort(seconds: 5, watts: 1000, activity: "zz"), rideWeights: w, fallback: 70.5), 70.5)
         XCTAssertEqual(RiderCard.weight(for: nil, rideWeights: w, fallback: 70.5), 70.5)

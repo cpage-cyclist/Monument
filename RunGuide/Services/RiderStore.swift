@@ -10,7 +10,9 @@ final class RiderStore: ObservableObject {
     @Published private(set) var totals = SeasonTotals()
     /// Every ride's FTP and weight, oldest first.
     @Published private(set) var rides: [RideThreshold] = []
+    /// Each ride's weight from the nearest weigh-in within two weeks; rides without one are absent.
     @Published private(set) var rideWeights: [String: Double] = [:]
+    private var weighIns: [String: Double] = [:]
     @Published private(set) var loading = false
     @Published var lastError: String?
 
@@ -21,6 +23,7 @@ final class RiderStore: ObservableObject {
     private static let curvesKey = "rider-curves-Ride"
     private static var totalsKey: String { "rider-season-\(year)" }
     private static let historyKey = "rider-ride-history"
+    private static let weighInsKey = "rider-weigh-ins"
     /// FTP and weight history barely moves, so it's refetched at most daily.
     private static let historyMaxAge: TimeInterval = 24 * 3600
     static var year: String { String(IntervalsDates.day(Date()).prefix(4)) }
@@ -36,14 +39,13 @@ final class RiderStore: ObservableObject {
         if let d = cache.read(Self.totalsKey)?.data, let list = try? JSONDecoder().decode([ActivitySummary].self, from: d) {
             totals = SeasonTotals(list, year: Self.year)
         }
-        if let d = cache.read(Self.historyKey)?.data, let list = try? JSONDecoder().decode([ActivitySummary].self, from: d) {
-            setRides(list)
+        if let d = cache.read(Self.weighInsKey)?.data, let days = try? JSONDecoder().decode([WellnessDay].self, from: d) {
+            weighIns = RideThreshold.weighIns(days)
         }
-    }
-
-    private func setRides(_ list: [ActivitySummary]) {
-        rides = RideThreshold.rides(list)
-        rideWeights = RideThreshold.weights(rides)
+        if let d = cache.read(Self.historyKey)?.data, let list = try? JSONDecoder().decode([ActivitySummary].self, from: d) {
+            rides = RideThreshold.rides(list)
+        }
+        rideWeights = RideThreshold.weights(rides, weighIns: weighIns)
     }
 
     /// Monument's profile from the last 90 days: OmPD where the curve allows, else 2-parameter CP.
@@ -85,6 +87,11 @@ final class RiderStore: ObservableObject {
                                                 fields: IntervalsClient.thresholdHistoryFields)
     }
 
+    private static func weighInData(_ client: IntervalsClient, newest: String, fetch: Bool) async -> Data? {
+        guard fetch else { return nil }
+        return try? await client.wellnessData(oldest: "2000-01-01", newest: newest)
+    }
+
     func load(force: Bool = false) async {
         let stale = [Self.athleteKey, Self.curvesKey, Self.totalsKey]
             .contains { (cache.read($0)?.age() ?? .infinity) > Self.maxAge }
@@ -98,7 +105,8 @@ final class RiderStore: ObservableObject {
         async let c = try? client.powerCurvesData(type: "Ride", curves: RiderPeriod.request)
         async let t = try? client.activitiesData(oldest: Self.year + "-01-01", newest: today, limit: 2000)
         async let h = Self.historyData(client, newest: today, fetch: historyStale || force)
-        let (athleteData, curveData, totalsData, historyData) = await (a, c, t, h)
+        async let w = Self.weighInData(client, newest: today, fetch: historyStale || force)
+        let (athleteData, curveData, totalsData, historyData, weighInData) = await (a, c, t, h, w)
 
         if let athleteData, let profile = try? JSONDecoder().decode(AthleteProfile.self, from: athleteData) {
             athlete = profile
@@ -114,8 +122,15 @@ final class RiderStore: ObservableObject {
             cache.write(totalsData, for: Self.totalsKey)
         }
         if let historyData, let list = try? JSONDecoder().decode([ActivitySummary].self, from: historyData) {
-            setRides(list)
+            rides = RideThreshold.rides(list)
             cache.write(historyData, for: Self.historyKey)
+        }
+        if let weighInData, let days = try? JSONDecoder().decode([WellnessDay].self, from: weighInData) {
+            weighIns = RideThreshold.weighIns(days)
+            cache.write(weighInData, for: Self.weighInsKey)
+        }
+        if historyData != nil || weighInData != nil {
+            rideWeights = RideThreshold.weights(rides, weighIns: weighIns)
         }
         lastError = (athleteData == nil && curveData == nil && totalsData == nil)
             ? "Couldn't reach Intervals. Showing what's saved." : nil
