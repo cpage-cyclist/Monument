@@ -164,11 +164,14 @@ Fixed choices for Monument (formerly Run Guide). Change one only on purpose, and
   it slides in after the page title when a pull-to-refresh lands, marks a Strava route that's on
   the phone, and makes up the best-effort medals.
 - **One Akira hero per screen**: Today form, Calendar the selected week's load, Activity NP,
-  Record the countdown, Rider FTP W/kg.
+  Record the countdown, Rider the standout W/kg with its rider type.
 - **Fitness, fatigue and form colours**: fitness forest, fatigue bronze, form gold, on the Calendar
   chart and Today's figures alike. Cards showing coloured data sit on white.
 - Every screen comes into the Monument style, including Record's start and summary screens,
   Library and Settings (no stock iOS grey lists).
+- **App icon**: the logotype's slanted bar in the gold medal texture over the five monument
+  ridges. Light, dark and tinted versions: white with sage ridges, forest with white ridges, and a
+  greyscale tinted one. The gold bar stays the same in all of them.
 
 ## Routes (October 2026)
 
