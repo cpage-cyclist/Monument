@@ -45,7 +45,7 @@ struct IntervalsClient {
         "feel", "paired_event_id", "carbs_ingested"
     ]
 
-    /// Just enough of every ride for the Rider card's FTP and weight history.
+    /// Just enough of every ride for the Rider card to date its best efforts.
     static let thresholdHistoryFields = ["id", "start_date_local", "type", "source", "icu_ftp", "icu_weight"]
 
     // MARK: - Planned runs (v1)

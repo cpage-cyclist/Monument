@@ -8,7 +8,7 @@ final class RiderStore: ObservableObject {
     @Published private(set) var athlete: AthleteProfile?
     @Published private(set) var curves: [String: PowerCurve] = [:]
     @Published private(set) var totals = SeasonTotals()
-    /// Every ride's FTP and weight, oldest first.
+    /// Every ride's day, oldest first, for weighing efforts.
     @Published private(set) var rides: [RideThreshold] = []
     /// Each ride's weight, run between weigh-ins; empty until any are logged.
     @Published private(set) var rideWeights: [String: Double] = [:]
@@ -61,8 +61,8 @@ final class RiderStore: ObservableObject {
 
     /// The card's thresholds for a period. Workouts keep using `ftp(_:)`, today's values.
     func thresholds(_ period: RiderPeriod, intervalsFallback: Double?) -> RiderThresholds {
-        RiderCard.thresholds(period: period, curves: curves, profiles: profiles,
-                             currentFTP: athlete?.ride?.ftp ?? intervalsFallback, rides: rides)
+        RiderCard.thresholds(period: period, profiles: profiles,
+                             currentFTP: athlete?.ride?.ftp ?? intervalsFallback)
     }
 
     /// FTP for a source. Intervals' comes from the athlete settings, else the latest ride.

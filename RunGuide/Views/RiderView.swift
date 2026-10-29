@@ -58,7 +58,10 @@ struct RiderView: View {
     // MARK: - Card
 
     private var weight: Double? { rider.athlete?.weight ?? library.activities.first { $0.weight != nil }?.weight }
-    private var source: ThresholdSource { settings.thresholdSource }
+    /// The card leads with Monument's fit, with Intervals' set values alongside for comparison.
+    /// (Workout targets still follow the app-wide threshold setting.) Intervals leads only until
+    /// there's a curve to fit.
+    private var source: ThresholdSource { thresholds.monument == nil ? .intervals : .monument }
     private var other: ThresholdSource { source == .intervals ? .monument : .intervals }
     /// FTP, W′ and Monument's fit for the period on show (workouts keep today's values).
     private var thresholds: RiderThresholds { rider.thresholds(period, intervalsFallback: library.latestFTP) }
@@ -91,20 +94,15 @@ struct RiderView: View {
         RiderCard.weight(for: effort, rideWeights: rider.rideWeights, fallback: weight)
     }
 
-    /// The hero's weight: today's over 42 days; for longer spans, the weight on the day of the ride
-    /// the FTP belongs to (the ride first carrying Intervals' peak FTP, or the one behind the 20-minute
-    /// best for Monument's fit).
+    /// The hero's weight: today's over 42 days; for longer spans, the weight on the day of the
+    /// 20-minute best the fit leans on (today's if it's Intervals' set FTP).
     private var heroWeight: Double? {
-        guard period != .days42 else { return weight }
-        switch source {
-        case .intervals: return thresholds.intervalsFTPRide.flatMap { rider.rideWeights[$0.activity] } ?? weight
-        case .monument: return effortWeight(efforts.first { $0.seconds == 1200 })
-        }
+        guard period != .days42, source == .monument else { return weight }
+        return effortWeight(efforts.first { $0.seconds == 1200 })
     }
 
     private var heroCaption: String {
-        let peak = source == .intervals && thresholds.intervalsFTPRide != nil
-        return (peak ? "Peak FTP W/kg" : "FTP W/kg") + (source == .monument ? " · \(monumentLabel)" : "")
+        source == .monument ? "FTP W/kg · \(monumentLabel)" : "FTP W/kg · Intervals"
     }
 
     private var card: some View {

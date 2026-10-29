@@ -67,14 +67,14 @@ Fixed choices for Monument (formerly Run Guide). Change one only on purpose, and
   (records, laps, session, with normalised power).
 - A **Rider tab**: one page, no scrolling, a top-trumps card of best efforts and stats, a clean
   link to settings, and launch points into the rest of the app.
-- The **Rider card's thresholds follow its period toggle**. Monument fits OmPD to that period's
-  curve (falling back to the 90-day fit, labelled "Monument 90d", when it won't fit). Intervals FTP
-  is today's setting over 42 days, and over a year or all time the highest FTP set on any ride in
-  the span ("Peak FTP"). **W/kg uses the weight on the day of the ride that set the effort**, run
-  in a straight line between weigh-ins (the first one before any, the latest carried forward), and
-  the hero likewise for the ride its FTP belongs to. The weight Intervals
+- The **Rider card's thresholds follow its period toggle and lead with Monument's fit**: OmPD fitted
+  to that period's curve (falling back to the 90-day fit, labelled "Monument 90d", when it won't
+  fit), with Intervals' set FTP and W′ alongside for comparison only. Hand-set values aren't a record
+  of what was ridden, so they never drive the card. **W/kg uses the weight on the day of the ride
+  that set the effort**, run in a straight line between weigh-ins (the first one before any, the
+  latest carried forward); the hero uses the day of the period's 20-minute best. The weight Intervals
   stamps on a ride isn't trusted: back-dated weigh-ins only change their own day, so rides in between
-  keep a stale default. Workouts still use today's thresholds.
+  keep a stale default. The app-wide threshold setting still decides workout targets.
 - The builder **reads and writes Intervals workout text** (what's in the step text on the web), so
   Intervals still works out time and load and syncs to the head unit. `m` always means minutes;
   metres are written `mtr`. Blocks can repeat, one level deep, as in Intervals.
