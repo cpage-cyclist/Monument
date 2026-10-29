@@ -45,6 +45,9 @@ struct IntervalsClient {
         "feel", "paired_event_id", "carbs_ingested"
     ]
 
+    /// Just enough of every ride for the Rider card's FTP and weight history.
+    static let thresholdHistoryFields = ["id", "start_date_local", "type", "source", "icu_ftp", "icu_weight"]
+
     // MARK: - Planned runs (v1)
 
     func plannedRuns(on date: Date) async throws -> [IntervalsEvent] {
@@ -66,12 +69,13 @@ struct IntervalsClient {
         try await activitiesData(oldest: IntervalsDates.day(oldest), newest: IntervalsDates.day(newest), limit: limit)
     }
 
-    func activitiesData(oldest: String, newest: String, limit: Int = 100) async throws -> Data {
+    func activitiesData(oldest: String, newest: String, limit: Int = 100,
+                        fields: [String] = IntervalsClient.activityListFields) async throws -> Data {
         try await send("GET", "/athlete/\(athleteId)/activities", query: [
             "oldest": oldest,
             "newest": newest,
             "limit": String(limit),
-            "fields": Self.activityListFields.joined(separator: ",")
+            "fields": fields.joined(separator: ",")
         ])
     }
 

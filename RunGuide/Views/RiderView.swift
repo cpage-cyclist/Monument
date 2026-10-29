@@ -60,15 +60,52 @@ struct RiderView: View {
     private var weight: Double? { rider.athlete?.weight ?? library.activities.first { $0.weight != nil }?.weight }
     private var source: ThresholdSource { settings.thresholdSource }
     private var other: ThresholdSource { source == .intervals ? .monument : .intervals }
-    private var ftp: Double? { rider.ftp(source, intervalsFallback: library.latestFTP) }
+    /// FTP, W′ and Monument's fit for the period on show (workouts keep today's values).
+    private var thresholds: RiderThresholds { rider.thresholds(period, intervalsFallback: library.latestFTP) }
+    private var ftp: Double? { ftpValue(source) }
 
-    private func ftpText(_ s: ThresholdSource) -> String? {
-        rider.ftp(s, intervalsFallback: library.latestFTP).map { "\(Int($0.rounded())) W" }
+    private func ftpValue(_ s: ThresholdSource) -> Double? {
+        let t = thresholds
+        switch s {
+        case .intervals: return t.intervalsFTP
+        case .monument: return t.monument?.ftp ?? t.intervalsFTP
+        }
     }
-    private func wPrimeText(_ s: ThresholdSource) -> String? {
-        rider.wPrime(s).map { String(format: "%.1f kJ", $0 / 1000) }
+    private func wPrimeValue(_ s: ThresholdSource) -> Double? {
+        switch s {
+        case .intervals: return rider.wPrime(.intervals)
+        case .monument: return thresholds.monument?.wPrime ?? rider.wPrime(.intervals)
+        }
     }
+    private func ftpText(_ s: ThresholdSource) -> String? { ftpValue(s).map { "\(Int($0.rounded())) W" } }
+    private func wPrimeText(_ s: ThresholdSource) -> String? { wPrimeValue(s).map { String(format: "%.1f kJ", $0 / 1000) } }
+    /// "Monument", or "Monument 90d" when the period's curve couldn't be fitted.
+    private func sourceLabel(_ s: ThresholdSource) -> String {
+        s == .monument && thresholds.monumentIs90d ? "Monument 90d" : s.label
+    }
+    private var monumentLabel: String { sourceLabel(.monument) }
     private var efforts: [RiderEffort] { RiderCard.efforts(rider.curves[period.curve]) }
+
+    /// Weight on the ride that set an effort, else today's.
+    private func effortWeight(_ effort: RiderEffort?) -> Double? {
+        RiderCard.weight(for: effort, rideWeights: rider.rideWeights, fallback: weight)
+    }
+
+    /// The hero's weight: today's over 42 days; for longer spans, the weight on the ride the FTP
+    /// belongs to (the ride first carrying Intervals' peak FTP, or the one behind the 20-minute
+    /// best for Monument's fit).
+    private var heroWeight: Double? {
+        guard period != .days42 else { return weight }
+        switch source {
+        case .intervals: return thresholds.intervalsFTPRide?.weight ?? weight
+        case .monument: return effortWeight(efforts.first { $0.seconds == 1200 })
+        }
+    }
+
+    private var heroCaption: String {
+        let peak = source == .intervals && thresholds.intervalsFTPRide != nil
+        return (peak ? "Peak FTP W/kg" : "FTP W/kg") + (source == .monument ? " · \(monumentLabel)" : "")
+    }
 
     private var card: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -88,7 +125,7 @@ struct RiderView: View {
                         .font(.hero(38))
                         .akiraSlant()
                         .foregroundStyle(Brand.wordmark)
-                    Text(source == .monument ? "FTP W/kg · Monument" : "FTP W/kg")
+                    Text(heroCaption)
                         .font(.brand(.caption2, weight: .medium)).foregroundStyle(.secondary)
                 }
             }
@@ -104,10 +141,10 @@ struct RiderView: View {
             Hairline()
 
             HStack(alignment: .top) {
-                stat("FTP", ftpText(source), also: ftpText(other).map { "\(other.label) \($0)" })
-                stat("W′", wPrimeText(source), also: wPrimeText(other).map { "\(other.label) \($0)" })
-                stat("CP", rider.monument.map { "\(Int($0.cp.rounded())) W" }, also: "Monument")
-                stat("Pmax", rider.monument?.omni.map { "\(Int($0.pmax.rounded())) W" }, also: "Monument")
+                stat("FTP", ftpText(source), also: ftpText(other).map { "\(sourceLabel(other)) \($0)" })
+                stat("W′", wPrimeText(source), also: wPrimeText(other).map { "\(sourceLabel(other)) \($0)" })
+                stat("CP", thresholds.monument.map { "\(Int($0.cp.rounded())) W" }, also: monumentLabel)
+                stat("Pmax", thresholds.monument?.omni.map { "\(Int($0.pmax.rounded())) W" }, also: monumentLabel)
             }
             HStack(alignment: .top) {
                 stat("Fitness", calendar.fitness?.ctl.map { "\(Int($0.rounded()))" })
@@ -115,7 +152,8 @@ struct RiderView: View {
                     let i = Int(v.rounded())
                     return i > 0 ? "+\(i)" : "\(i)"
                 })
-                stat("VO₂max est.", RiderCard.vo2max(fiveMinuteWatts: allTimeOrPeriod(300), weight: weight)
+                stat("VO₂max est.", RiderCard.vo2max(fiveMinuteWatts: allTimeOrPeriod(300),
+                                                     weight: effortWeight(efforts.first { $0.seconds == 300 }))
                     .map { String(format: "%.0f", $0) })
                 stat("Weight", weight.map { String(format: "%.1f kg", $0) })
             }
@@ -138,8 +176,8 @@ struct RiderView: View {
     }
 
     private var ftpWkg: Double? {
-        guard let ftp, let weight, weight > 0 else { return nil }
-        return ftp / weight
+        guard let ftp, let w = heroWeight, w > 0 else { return nil }
+        return ftp / w
     }
 
     /// The period's 5-minute best (VO₂max is estimated from the best you've shown in that span).
@@ -169,7 +207,7 @@ struct RiderView: View {
             Text(effort.map { "\(Int($0.watts.rounded()))" } ?? "–")
                 .font(.num(.title, weight: .bold))
             + Text(effort == nil ? "" : " W").font(.brand(.subheadline, weight: .medium))
-            Text(effort?.wattsPerKg(weight).map { String(format: "%.2f W/kg", $0) } ?? " ")
+            Text(effort?.wattsPerKg(effortWeight(effort)).map { String(format: "%.2f W/kg", $0) } ?? " ")
                 .font(.num(.footnote))
                 .foregroundStyle(.secondary)
         }
